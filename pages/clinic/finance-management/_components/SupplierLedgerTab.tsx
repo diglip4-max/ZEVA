@@ -189,9 +189,7 @@ function StatRow({
             {s.label}
           </div>
           <div
-            className={`text-lg font-semibold zfm-mono ${
-              s.tone || "text-stone-800 dark:text-stone-100"
-            }`}
+            className={`text-lg font-semibold ${ s.tone || "text-stone-800 dark:text-stone-100" }`}
           >
             {s.value}
           </div>
@@ -221,7 +219,7 @@ function BillDetailsView({
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
             Settlement progress
           </span>
-          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
             <span className="text-teal-600 dark:text-teal-400">
               {formatMoney(bill.paidAmount, currency)} paid
             </span>
@@ -262,7 +260,7 @@ function BillDetailsView({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InfoCard
           label="Invoice #"
-          value={<span className="font-mono">{bill.invoiceNumber}</span>}
+          value={<span className="">{bill.invoiceNumber}</span>}
           icon={
             <Receipt className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           }
@@ -322,30 +320,28 @@ function BillRow({
             {bill.category}
           </div>
           <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
-            <span className="font-mono">{bill.invoiceNumber}</span>
+            <span className="">{bill.invoiceNumber}</span>
             <span>·</span>
             <span>Due {formatDate(bill.dueDate)}</span>
           </div>
         </div>
         <StatusDot status={bill.status} />
         <div className="text-right shrink-0 min-w-[108px]">
-          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+          <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
             {formatMoney(bill.amount, currency)}
           </div>
           {bill.balance > 0 ? (
-            <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 zfm-mono">
+            <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400">
               {formatMoney(bill.balance, currency)} due
             </div>
           ) : (
-            <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+            <div className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
               Fully paid
             </div>
           )}
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 text-violet-500 dark:text-violet-400" />
@@ -356,9 +352,7 @@ function BillRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -400,7 +394,7 @@ function PaymentDetailsView({
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
             Payment status
           </span>
-          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
             {payment.reversed ? (
               <span className="text-rose-500 dark:text-rose-400 inline-flex items-center gap-1">
                 {formatMoney(payment.amount, currency)} reversed
@@ -423,11 +417,7 @@ function PaymentDetailsView({
         </div>
         <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
           <span
-            className={`inline-flex items-center gap-1 ${
-              payment.reversed
-                ? "text-rose-500 dark:text-rose-400"
-                : "text-teal-600 dark:text-teal-400"
-            }`}
+            className={`inline-flex items-center gap-1 ${ payment.reversed ? "text-rose-500 dark:text-rose-400" : "text-teal-600 dark:text-teal-400" }`}
           >
             <CheckCircle2 className="w-3 h-3" />
             {payment.reversed ? "Reversed" : "Paid in full"}
@@ -438,7 +428,7 @@ function PaymentDetailsView({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InfoCard
           label="Payment #"
-          value={<span className="font-mono">{payment.paymentNumber}</span>}
+          value={<span className="">{payment.paymentNumber}</span>}
           icon={
             <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           }
@@ -465,7 +455,7 @@ function PaymentDetailsView({
           value={
             invoiceNumber ? (
               <div className="truncate">
-                <span className="font-mono">{invoiceNumber}</span>
+                <span className="">{invoiceNumber}</span>
                 {invoiceCategory && (
                   <span className="text-[11px] text-stone-400 dark:text-stone-500 ml-2">
                     · {invoiceCategory}
@@ -508,17 +498,13 @@ function PaymentRow({
         className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
         <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-            payment.reversed
-              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
-              : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
-          }`}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${ payment.reversed ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" }`}
         >
           <Icon className="w-4 h-4" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate flex items-center gap-2">
-            <span className="zfm-mono">{payment.paymentNumber}</span>
+            <span className="">{payment.paymentNumber}</span>
             {payment.reversed && (
               <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full">
                 Reversed
@@ -529,7 +515,7 @@ function PaymentRow({
             {invoiceNumber && (
               <>
                 <span>→</span>
-                <span className="zfm-mono">{invoiceNumber}</span>
+                <span className="">{invoiceNumber}</span>
                 <span>·</span>
               </>
             )}
@@ -539,26 +525,16 @@ function PaymentRow({
           </div>
         </div>
         <span
-          className={`font-mono text-sm font-semibold shrink-0 text-right min-w-[108px] ${
-            payment.reversed
-              ? "text-stone-400 dark:text-stone-500 line-through"
-              : "text-emerald-600 dark:text-emerald-400"
-          }`}
+          className={`text-sm font-semibold shrink-0 text-right min-w-[108px] ${ payment.reversed ? "text-stone-400 dark:text-stone-500 line-through" : "text-emerald-600 dark:text-emerald-400" }`}
         >
           {formatMoney(payment.amount, currency)}
         </span>
         <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
         >
           {isOpen ? (
             <ChevronDown
-              className={`w-4 h-4 ${
-                payment.reversed
-                  ? "text-rose-500 dark:text-rose-400"
-                  : "text-emerald-500 dark:text-emerald-400"
-              }`}
+              className={`w-4 h-4 ${ payment.reversed ? "text-rose-500 dark:text-rose-400" : "text-emerald-500 dark:text-emerald-400" }`}
             />
           ) : (
             <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
@@ -567,18 +543,12 @@ function PaymentRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div
-              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b to-transparent ${
-                payment.reversed
-                  ? "from-rose-200 dark:from-rose-900"
-                  : "from-emerald-200 dark:from-emerald-900"
-              }`}
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b to-transparent ${ payment.reversed ? "from-rose-200 dark:from-rose-900" : "from-emerald-200 dark:from-emerald-900" }`}
             />
             <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <PaymentDetailsView payment={payment} currency={currency} />
@@ -613,7 +583,7 @@ function ChequeDetailsView({
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
             Cheque status
           </span>
-          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
             <span className="text-indigo-600 dark:text-indigo-400">
               {formatMoney(cheque.amount, currency)}
             </span>
@@ -639,7 +609,7 @@ function ChequeDetailsView({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InfoCard
           label="Cheque #"
-          value={<span className="font-mono">#{cheque.chequeNumber}</span>}
+          value={<span className="">#{cheque.chequeNumber}</span>}
           icon={
             <FileCheck2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           }
@@ -717,7 +687,7 @@ function ChequeRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
-            <span className="zfm-mono">#{cheque.chequeNumber}</span>
+            <span className="">#{cheque.chequeNumber}</span>
             <span className="ml-2 text-xs text-stone-400 dark:text-stone-500 font-medium">
               {cheque.bank}
             </span>
@@ -730,14 +700,12 @@ function ChequeRow({
         </div>
         <StatusDot status={cheque.status} />
         <div className="text-right shrink-0 min-w-[108px]">
-          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+          <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
             {formatMoney(cheque.amount, currency)}
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
         >
           {isOpen ? (
             <ChevronDown className={`w-4 h-4 ${themeChevron}`} />
@@ -748,9 +716,7 @@ function ChequeRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -855,7 +821,7 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
   return (
     <div className="space-y-7">
       <div>
-        <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+        <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
           Vendor History
         </h2>
         <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
@@ -896,11 +862,11 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+                <div className="text-lg font-semibold text-stone-900 dark:text-stone-50">
                   {supplier.name}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                  <span className="zfm-mono">{supplier.code}</span>
+                  <span className="">{supplier.code}</span>
                   {(supplier.mobile || supplier.telephone) && (
                     <span className="inline-flex items-center gap-1">
                       <Phone className="w-3 h-3" />{" "}
@@ -920,7 +886,7 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
                 <div className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
                   Credit Days
                 </div>
-                <div className="zfm-mono text-lg font-semibold text-stone-800 dark:text-stone-100">
+                <div className="text-lg font-semibold text-stone-800 dark:text-stone-100">
                   {supplier.creditDays}
                 </div>
               </div>

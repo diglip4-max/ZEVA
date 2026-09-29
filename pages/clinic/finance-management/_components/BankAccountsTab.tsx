@@ -70,7 +70,6 @@ const METHOD_ICON: Record<string, React.ElementType> = {
 function DetailRow({
   label,
   value,
-  mono,
   bold,
 }: {
   label: string;
@@ -85,9 +84,7 @@ function DetailRow({
         {label}
       </div>
       <div
-        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${
-          mono ? "zfm-mono" : ""
-        } ${bold ? "font-semibold" : ""}`}
+        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${bold ? "font-semibold" : ""}`}
       >
         {value}
       </div>
@@ -197,7 +194,7 @@ function NewAccountModal({
                   <Building2 className="w-3 h-3" />
                   New Account · Bank Account
                 </div>
-                <h3 className="zfm-display text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
+                <h3 className="text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
                   Add Bank Account
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
@@ -299,7 +296,7 @@ function NewAccountModal({
                 Opening balance ({symbol})
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 zfm-mono font-semibold text-lg pointer-events-none">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 font-semibold text-lg pointer-events-none">
                   {symbol}
                 </span>
                 <input
@@ -309,7 +306,7 @@ function NewAccountModal({
                     setForm((f) => ({ ...f, currentBalance: e.target.value }))
                   }
                   placeholder="0"
-                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono font-bold transition-all shadow-inner"
+                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 font-bold transition-all shadow-inner"
                 />
               </div>
               <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
@@ -344,7 +341,7 @@ function NewAccountModal({
                       setForm((f) => ({ ...f, accountNumber: e.target.value }))
                     }
                     placeholder="Account number"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 transition-all"
                   />
                 </div>
               </div>
@@ -360,7 +357,7 @@ function NewAccountModal({
                       setForm((f) => ({ ...f, ifscCode: e.target.value }))
                     }
                     placeholder="e.g. HDFC0001234"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 transition-all"
                   />
                 </div>
               </div>
@@ -552,7 +549,7 @@ function EditAccountModal({
                   <Building2 className="w-3 h-3" />
                   Edit Account · {account.bankName}
                 </div>
-                <h3 className="zfm-display text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
+                <h3 className="text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
                   Edit Bank Account
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
@@ -653,7 +650,7 @@ function EditAccountModal({
                 Balance ({symbol})
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 zfm-mono font-semibold text-lg pointer-events-none">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 font-semibold text-lg pointer-events-none">
                   {symbol}
                 </span>
                 <input
@@ -663,7 +660,7 @@ function EditAccountModal({
                     setForm((f) => ({ ...f, currentBalance: e.target.value }))
                   }
                   placeholder="0"
-                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono font-bold transition-all shadow-inner"
+                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 font-bold transition-all shadow-inner"
                 />
               </div>
               <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
@@ -698,7 +695,7 @@ function EditAccountModal({
                       setForm((f) => ({ ...f, accountNumber: e.target.value }))
                     }
                     placeholder="Account number"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 transition-all"
                   />
                 </div>
               </div>
@@ -714,7 +711,7 @@ function EditAccountModal({
                       setForm((f) => ({ ...f, ifscCode: e.target.value }))
                     }
                     placeholder="e.g. HDFC0001234"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:focus:ring-violet-400/10 focus:border-violet-500 dark:focus:border-violet-400 transition-all"
                   />
                 </div>
               </div>
@@ -852,7 +849,7 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
   return (
     <div className="space-y-7">
       <div>
-        <h2 className="zfm-display text-lg font-bold text-[#20291f] dark:text-[#f3f1e9]">
+        <h2 className="text-lg font-bold text-[#20291f] dark:text-[#f3f1e9]">
           Bank Accounts
         </h2>
         <p className="text-sm text-[#767061] dark:text-[#a6a08d] mt-0.5">
@@ -901,11 +898,7 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                   <div
                     key={a._id}
                     onClick={() => setActiveId(a._id)}
-                    className={`group relative p-5 rounded-2xl cursor-pointer border transition-colors ${
-                      isActive
-                        ? "border-[#3f8066]/50 dark:border-[#5fa688]/40 bg-white dark:bg-[#1f2419]"
-                        : "border-[#e5e2d5] dark:border-[#2a2f22] bg-white dark:bg-[#1f2419] hover:border-[#3f8066]/30 dark:hover:border-[#5fa688]/30"
-                    }`}
+                    className={`group relative p-5 rounded-2xl cursor-pointer border transition-colors ${isActive ? "border-[#3f8066]/50 dark:border-[#5fa688]/40 bg-white dark:bg-[#1f2419]" : "border-[#e5e2d5] dark:border-[#2a2f22] bg-white dark:bg-[#1f2419] hover:border-[#3f8066]/30 dark:hover:border-[#5fa688]/30"}`}
                   >
                     <div className="w-9 h-9 rounded-lg bg-[#e7f0ea] dark:bg-[#29392b] flex items-center justify-center mb-4">
                       <Building2 className="w-4 h-4 text-[#3f8066] dark:text-[#5fa688]" />
@@ -915,12 +908,12 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                       {a.bankName}
                     </div>
                     {a.accountNumber && (
-                      <div className="text-xs text-[#767061] dark:text-[#a6a08d] zfm-mono mt-0.5">
+                      <div className="text-xs text-[#767061] dark:text-[#a6a08d] mt-0.5">
                         •••• {a.accountNumber.slice(-4)}
                       </div>
                     )}
 
-                    <div className="zfm-display text-xl font-semibold text-[#20291f] dark:text-[#f3f1e9] mt-4">
+                    <div className="text-xl font-semibold text-[#20291f] dark:text-[#f3f1e9] mt-4">
                       {formatMoney(a.currentBalance, currency)}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
@@ -1020,12 +1013,12 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                             <div className="text-sm font-semibold text-[#20291f] dark:text-[#f3f1e9] truncate">
                               {supplierName || "—"}
                             </div>
-                            <div className="text-xs text-[#767061] dark:text-[#a6a08d] zfm-mono truncate">
+                            <div className="text-xs text-[#767061] dark:text-[#a6a08d] truncate">
                               {p.paymentNumber}
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="font-mono font-semibold text-[#20291f] dark:text-[#f3f1e9] text-sm">
+                            <div className="font-semibold text-[#20291f] dark:text-[#f3f1e9] text-sm">
                               {formatMoney(p.amount, currency)}
                             </div>
                             <div className="text-[10px] text-[#767061] dark:text-[#a6a08d]">
@@ -1033,9 +1026,7 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                             </div>
                           </div>
                           <div
-                            className={`shrink-0 transition-transform duration-200 ${
-                              isOpen ? "rotate-90" : ""
-                            }`}
+                            className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
                           >
                             {isOpen ? (
                               <ChevronDown className="w-4 h-4 text-[#3f8066] dark:text-[#5fa688]" />
@@ -1045,11 +1036,7 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                           </div>
                         </button>
                         <div
-                          className={`grid transition-all duration-300 ease-in-out ${
-                            isOpen
-                              ? "grid-rows-[1fr] opacity-100"
-                              : "grid-rows-[0fr] opacity-0"
-                          }`}
+                          className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
                         >
                           <div className="overflow-hidden">
                             <div className="pt-2 pb-5 pl-13 ml-13 relative">

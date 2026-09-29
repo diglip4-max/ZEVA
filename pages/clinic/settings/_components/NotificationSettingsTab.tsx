@@ -733,9 +733,6 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
   return (
     <div className="min-h-full font-body text-text-hi relative overflow-hidden">
       <style>{`
-        .font-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .font-display { font-family: 'Fraunces', Georgia, serif; }
-        .font-mono { font-family: 'IBM Plex Mono', 'SF Mono', monospace; }
 
         :root {
           --bg: #f8fafc;
@@ -832,7 +829,7 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
                     Zeva · Communications
                   </span>
                 </div>
-                <h2 className="m-0 font-display text-[clamp(24px,3vw,32px)] font-semibold tracking-tight text-text-hi leading-tight">
+                <h2 className="m-0 font-display text-[clamp(24px,3vw,28px)] font-semibold tracking-tight text-text-hi leading-tight">
                   Notification Settings
                 </h2>
                 <p className="m-0 mt-2 text-sm leading-relaxed text-text-lo">

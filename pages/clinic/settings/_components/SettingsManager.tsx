@@ -6,13 +6,6 @@ import useClinic from "@/hooks/useClinic";
 import NotificationSettingsTab from "./NotificationSettingsTab";
 import useSettingPermission from "../_hooks/useSettingPermission";
 
-const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-.zsm-display { font-family: 'Fraunces', serif; letter-spacing: -0.01em; }
-.zsm-body { font-family: 'Manrope', sans-serif; }
-.zsm-mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
-`;
-
 export default function SettingsManager() {
   const router = useRouter();
   const pathname = router.asPath;
@@ -50,8 +43,6 @@ export default function SettingsManager() {
   return (
     <div>
       <div className="zsm-body min-h-screen bg-slate-50/50 dark:bg-slate-900 transition-colors duration-300">
-        <style>{FONTS}</style>
-
         <div className="relative bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
           <div className="relative w-full px-6 sm:px-10 pt-8 pb-5 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">

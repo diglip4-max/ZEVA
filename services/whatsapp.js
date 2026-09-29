@@ -752,3 +752,85 @@ const getMimeExtension = (mimeType) => {
   };
   return mimeMap[mimeType] || "";
 };
+
+/**
+ * Check karo ki is lead ko WhatsApp message bhej sakte hain ya nahi
+ */
+
+export async function canSendWhatsAppMessage({ clinicId, leadId, providerId }) {
+  const MAX_CONSECUTIVE_OUTGOING = 3;
+  const MIN_HOURS_SINCE_LAST_OUTGOING = 4;
+
+  // Aaj ka start (local timezone me)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // 1. Aaj ke messages nikaalo (latest first) — SIRF AAJ KE
+  const todayMessages = await Message.find({
+    clinicId: clinicId,
+    recipientId: leadId,
+    provider: providerId,
+    channel: "whatsapp",
+    createdAt: { $gte: todayStart },
+  })
+    .sort({ createdAt: -1 })
+    .select("direction status createdAt")
+    .lean();
+
+  // Aaj koi message nahi → first message of the day, allow
+  if (todayMessages.length === 0) {
+    return { allowed: true, meta: { reason: "first_message_today" } };
+  }
+
+  // 2. Latest message incoming hai? → reset, allow
+  if (todayMessages[0].direction === "incoming") {
+    return {
+      allowed: true,
+      meta: { resetByIncoming: true, consecutiveOutgoing: 0 },
+    };
+  }
+
+  // 3. Aaj ke consecutive outgoing count karo
+  let consecutiveOutgoing = 0;
+  let lastOutgoingAt = null;
+
+  for (const msg of todayMessages) {
+    if (msg.direction === "incoming") break; // reset point
+    if (msg.direction === "outgoing") {
+      consecutiveOutgoing++;
+      if (!lastOutgoingAt) lastOutgoingAt = msg.createdAt;
+    }
+  }
+
+  // 4. Aaj ka threshold cross → block
+  if (consecutiveOutgoing >= MAX_CONSECUTIVE_OUTGOING) {
+    return {
+      allowed: false,
+      reason: `Already sent ${consecutiveOutgoing} messages today without reply. Wait for incoming or next day.`,
+      meta: {
+        code: "daily_consecutive_outgoing_limit",
+        consecutiveOutgoing,
+        lastOutgoingAt,
+      },
+    };
+  }
+
+  // 5. Cooldown check (sirf aaj ke basis pe)
+  if (consecutiveOutgoing >= 2 && lastOutgoingAt) {
+    const hoursSinceLast =
+      (Date.now() - new Date(lastOutgoingAt).getTime()) / 3600000;
+    if (hoursSinceLast < MIN_HOURS_SINCE_LAST_OUTGOING) {
+      return {
+        allowed: false,
+        reason: `Cooldown active. Last outgoing was ${hoursSinceLast.toFixed(1)}h ago.`,
+        meta: {
+          code: "cooldown_active",
+          consecutiveOutgoing,
+          hoursSinceLast,
+        },
+      };
+    }
+  }
+
+  return { allowed: true, meta: { consecutiveOutgoing } };
+}

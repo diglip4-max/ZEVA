@@ -89,6 +89,8 @@ const DEFAULT_SUMMARY: ManualPettyCashSummary = {
 // HOOK INTERFACE
 // ============================================================
 
+export type ManualTypeFilter = "all" | "Income" | "Expense";
+
 export interface UseManualPettyCashReturn {
   loading: boolean;
   error: string | null;
@@ -101,6 +103,13 @@ export interface UseManualPettyCashReturn {
 
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
+
+  startDate: string;
+  setStartDate: React.Dispatch<React.SetStateAction<string>>;
+  endDate: string;
+  setEndDate: React.Dispatch<React.SetStateAction<string>>;
+  typeFilter: ManualTypeFilter;
+  setTypeFilter: React.Dispatch<React.SetStateAction<ManualTypeFilter>>;
 
   page: number;
   limit: number;
@@ -134,6 +143,9 @@ const useManualPettyCash = (): UseManualPettyCashReturn => {
   // ---- Filters ----
   const [search, setSearch] = React.useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = React.useState<string>("");
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
+  const [typeFilter, setTypeFilter] = React.useState<ManualTypeFilter>("all");
 
   // ---- Pagination ----
   const [page, setPage] = React.useState<number>(1);
@@ -147,10 +159,10 @@ const useManualPettyCash = (): UseManualPettyCashReturn => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset to page 1 whenever the effective search term changes
+  // Reset to page 1 whenever the effective search term or filters change
   React.useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, startDate, endDate, typeFilter]);
 
   // ---- Fetch Function ----
   const fetchManualPettyCash = React.useCallback(async () => {
@@ -165,6 +177,9 @@ const useManualPettyCash = (): UseManualPettyCashReturn => {
           },
           params: {
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+            ...(typeFilter !== "all" ? { typeFilter } : {}),
             page,
             limit,
           },
@@ -186,7 +201,7 @@ const useManualPettyCash = (): UseManualPettyCashReturn => {
     } finally {
       setLoading(false);
     }
-  }, [token, debouncedSearch, page, limit]);
+  }, [token, debouncedSearch, page, limit, startDate, endDate, typeFilter]);
 
   // ---- Auto-fetch on dependency change ----
   React.useEffect(() => {
@@ -234,6 +249,13 @@ const useManualPettyCash = (): UseManualPettyCashReturn => {
 
     search,
     setSearch,
+
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    typeFilter,
+    setTypeFilter,
 
     page,
     limit,

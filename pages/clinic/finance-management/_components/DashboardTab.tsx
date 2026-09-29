@@ -341,7 +341,7 @@ const BarRow: React.FC<BarRowProps> = ({
         <span className="text-sm text-stone-600 dark:text-stone-300 truncate">
           {label}
         </span>
-        <span className="text-sm font-semibold font-mono text-stone-800 dark:text-stone-100 shrink-0">
+        <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 shrink-0">
           {formatMoney(value)}
         </span>
       </div>
@@ -434,25 +434,17 @@ const SignalRow: React.FC<SignalRowProps> = ({ data }) => {
       {signals.map((s, index) => (
         <div
           key={s.label}
-          className={`relative flex-1 min-w-[140px] px-5 py-4 ${
-            index < signals.length - 1
-              ? "border-r border-[#EDE7DA] dark:border-[#1a2622]"
-              : ""
-          } ${s.borderColor} before:content-[''] before:absolute before:left-0 before:top-4 before:bottom-4 before:w-[2px] before:rounded-full`}
+          className={`relative flex-1 min-w-[140px] px-5 py-4 ${ index < signals.length - 1 ? "border-r border-[#EDE7DA] dark:border-[#1a2622]" : "" } ${s.borderColor} before:content-[''] before:absolute before:left-0 before:top-4 before:bottom-4 before:w-[2px] before:rounded-full`}
         >
           <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-2">
             {s.label}
           </div>
-          <div className={`text-xl font-bold font-mono ${s.tone} mb-1`}>
+          <div className={`text-xl font-bold ${s.tone} mb-1`}>
             {s.value}
           </div>
           {s.trend && (
             <div
-              className={`flex items-center gap-1 text-xs font-semibold ${
-                s.trendUp
-                  ? "text-teal-600 dark:text-teal-400"
-                  : "text-rose-500 dark:text-rose-400"
-              }`}
+              className={`flex items-center gap-1 text-xs font-semibold ${ s.trendUp ? "text-teal-600 dark:text-teal-400" : "text-rose-500 dark:text-rose-400" }`}
             >
               {s.trend}
             </div>
@@ -512,22 +504,10 @@ const FinancialPositionCard: React.FC<FinancialPositionCardProps> = ({
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-start gap-3">
           <div
-            className={`w-9 h-9 rounded-lg ${
-              isCritical
-                ? "bg-rose-50 dark:bg-rose-950/40"
-                : isWarn
-                  ? "bg-amber-50 dark:bg-amber-950/40"
-                  : "bg-teal-50 dark:bg-teal-950/40"
-            } flex items-center justify-center shrink-0 mt-0.5`}
+            className={`w-9 h-9 rounded-lg ${ isCritical ? "bg-rose-50 dark:bg-rose-950/40" : isWarn ? "bg-amber-50 dark:bg-amber-950/40" : "bg-teal-50 dark:bg-teal-950/40" } flex items-center justify-center shrink-0 mt-0.5`}
           >
             <AlertTriangle
-              className={`w-4.5 h-4.5 ${
-                isCritical
-                  ? "text-rose-500 dark:text-rose-400"
-                  : isWarn
-                    ? "text-amber-500 dark:text-amber-400"
-                    : "text-teal-500 dark:text-teal-400"
-              }`}
+              className={`w-4.5 h-4.5 ${ isCritical ? "text-rose-500 dark:text-rose-400" : isWarn ? "text-amber-500 dark:text-amber-400" : "text-teal-500 dark:text-teal-400" }`}
             />
           </div>
           <div>
@@ -653,7 +633,7 @@ const CashPositionCard: React.FC<CashPositionCardProps> = ({ data }) => {
                 <Landmark className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
                 {account.name}
               </span>
-              <span className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+              <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                 {formatMoney(account.balance)}{" "}
                 <span className="text-[10px] font-normal text-stone-400 dark:text-stone-500">
                   Manual balance
@@ -671,7 +651,7 @@ const CashPositionCard: React.FC<CashPositionCardProps> = ({ data }) => {
             <Wallet className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
             Petty Cash
           </span>
-          <span className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+          <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
             {formatMoney(data.pettyCash)}
           </span>
         </div>
@@ -679,7 +659,7 @@ const CashPositionCard: React.FC<CashPositionCardProps> = ({ data }) => {
           <span className="text-sm font-bold text-teal-700 dark:text-teal-300">
             Total Available
           </span>
-          <span className="text-base font-mono font-bold text-teal-700 dark:text-teal-300">
+          <span className="text-base font-bold text-teal-700 dark:text-teal-300">
             {formatMoney(data.totalAvailable)}
           </span>
         </div>
@@ -687,7 +667,7 @@ const CashPositionCard: React.FC<CashPositionCardProps> = ({ data }) => {
           <span className="text-stone-500 dark:text-stone-400">
             Upcoming obligations
           </span>
-          <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
             {formatMoney(data.upcomingObligations)}
           </span>
         </div>
@@ -695,7 +675,7 @@ const CashPositionCard: React.FC<CashPositionCardProps> = ({ data }) => {
           <span className="font-semibold text-stone-700 dark:text-stone-200">
             Available after obligations
           </span>
-          <span className="font-mono font-bold text-stone-800 dark:text-stone-100">
+          <span className="font-bold text-stone-800 dark:text-stone-100">
             {formatMoney(data.availableAfterObligations)}
           </span>
         </div>
@@ -749,7 +729,7 @@ const BillsPayableCard: React.FC<BillsPayableCardProps> = ({ bills }) => {
                 <span className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate col-span-2 sm:col-span-1">
                   {b.supplier}
                 </span>
-                <span className="text-sm text-stone-600 dark:text-stone-300 font-mono">
+                <span className="text-sm text-stone-600 dark:text-stone-300">
                   {b.id}
                 </span>
                 <span className="text-sm text-stone-500 dark:text-stone-400">
@@ -760,7 +740,7 @@ const BillsPayableCard: React.FC<BillsPayableCardProps> = ({ bills }) => {
                       })
                     : "—"}
                 </span>
-                <span className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+                <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                   {formatMoney(b.amount)}
                 </span>
                 <StatusPill status={b.status} />
@@ -808,7 +788,7 @@ const ChequeManagerCard: React.FC<ChequeManagerCardProps> = ({ data }) => {
               <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
                 {s.label}
               </div>
-              <div className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+              <div className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                 {formatMoney(s.value)}
               </div>
             </div>
@@ -824,11 +804,11 @@ const ChequeManagerCard: React.FC<ChequeManagerCardProps> = ({ data }) => {
                 key={c.number}
                 className="flex items-center justify-between py-2.5 gap-2"
               >
-                <span className="text-sm text-stone-700 dark:text-stone-200 truncate font-mono">
+                <span className="text-sm text-stone-700 dark:text-stone-200 truncate">
                   #{c.number} · {c.payee}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+                  <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                     {formatMoney(c.amount)}
                   </span>
                   <StatusPill status={c.status} />
@@ -980,11 +960,7 @@ const MoneyFlowCard: React.FC<MoneyFlowCardProps> = ({
             <button
               key={r}
               onClick={() => handleRangeClick(r)}
-              className={`font-semibold ${
-                range === r
-                  ? "text-stone-800 dark:text-stone-100 border-b-2 border-teal-500 pb-1"
-                  : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
-              }`}
+              className={`font-semibold ${ range === r ? "text-stone-800 dark:text-stone-100 border-b-2 border-teal-500 pb-1" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300" }`}
             >
               {r}
             </button>
@@ -998,7 +974,7 @@ const MoneyFlowCard: React.FC<MoneyFlowCardProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400 mb-1">
               Received
             </div>
-            <div className="text-sm font-mono font-bold text-teal-700 dark:text-teal-300">
+            <div className="text-sm font-bold text-teal-700 dark:text-teal-300">
               {formatMoney(data.received)}
             </div>
           </div>
@@ -1009,7 +985,7 @@ const MoneyFlowCard: React.FC<MoneyFlowCardProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-1">
               Spent
             </div>
-            <div className="text-sm font-mono font-bold text-rose-700 dark:text-rose-300">
+            <div className="text-sm font-bold text-rose-700 dark:text-rose-300">
               {formatMoney(data.spent)}
             </div>
           </div>
@@ -1020,7 +996,7 @@ const MoneyFlowCard: React.FC<MoneyFlowCardProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">
               Net Movement
             </div>
-            <div className="text-sm font-mono font-bold text-amber-700 dark:text-amber-300">
+            <div className="text-sm font-bold text-amber-700 dark:text-amber-300">
               {formatMoney(data.net)}
             </div>
           </div>
@@ -1111,7 +1087,7 @@ const Next30DaysCard: React.FC<Next30DaysCardProps> = ({ data }) => {
                     })}
                   </div>
                 </div>
-                <div className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100 shrink-0">
+                <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 shrink-0">
                   {formatMoney(item.amount)}
                 </div>
               </div>
@@ -1126,7 +1102,7 @@ const Next30DaysCard: React.FC<Next30DaysCardProps> = ({ data }) => {
           <span className="text-sm font-bold text-stone-700 dark:text-stone-200">
             Total upcoming
           </span>
-          <span className="text-sm font-mono font-bold text-stone-800 dark:text-stone-100">
+          <span className="text-sm font-bold text-stone-800 dark:text-stone-100">
             {formatMoney(data.total)}
           </span>
         </div>
@@ -1192,15 +1168,15 @@ const PettyCashCard: React.FC<PettyCashCardProps> = ({ data }) => {
     >
       <div className="p-5 flex-1 flex flex-col">
         <div
-          className={`flex items-center justify-between rounded-xl ${data.balance >= 0 ? "bg-teal-50 dark:bg-teal-950/30" : "bg-red-50 dark:bg-red-950/30"}  px-3.5 py-3 mb-4`}
+          className={`flex items-center justify-between rounded-xl ${data.balance >= 0 ? "bg-teal-50 dark:bg-teal-950/30" : "bg-red-50 dark:bg-red-950/30"} px-3.5 py-3 mb-4`}
         >
           <span
-            className={`text-sm font-semibold ${data.balance >= 0 ? "text-teal-700 dark:text-teal-300" : "text-red-700 dark:text-red-300"} `}
+            className={`text-sm font-semibold ${data.balance >= 0 ? "text-teal-700 dark:text-teal-300" : "text-red-700 dark:text-red-300"}`}
           >
             Current Balance
           </span>
           <span
-            className={`text-base font-mono font-bold ${data.balance >= 0 ? "text-teal-700 dark:text-teal-300" : "text-red-700 dark:text-red-300"} `}
+            className={`text-base font-bold ${data.balance >= 0 ? "text-teal-700 dark:text-teal-300" : "text-red-700 dark:text-red-300"}`}
           >
             {formatMoney(data.balance)}
           </span>
@@ -1218,7 +1194,7 @@ const PettyCashCard: React.FC<PettyCashCardProps> = ({ data }) => {
                 <span className="text-stone-600 dark:text-stone-300">
                   {a.label}
                 </span>
-                <span className="font-mono font-semibold text-stone-800 dark:text-stone-100">
+                <span className="font-semibold text-stone-800 dark:text-stone-100">
                   {formatMoney(a.amount)}
                 </span>
               </div>
@@ -1269,7 +1245,7 @@ const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ accounts }) => {
                 <Landmark className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
                 {a.name}
               </span>
-              <span className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100">
+              <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                 {formatMoney(a.balance)}{" "}
                 {a.manual && (
                   <span className="text-[10px] font-normal text-stone-400 dark:text-stone-500">
@@ -1323,11 +1299,7 @@ const ExpenseTrendCard: React.FC<ExpenseTrendCardProps> = ({
             <button
               key={t.mode}
               onClick={() => handleTabClick(t.mode)}
-              className={`font-semibold pb-2 ${
-                tab === t.mode
-                  ? "text-stone-800 dark:text-stone-100 border-b-2 border-teal-500"
-                  : "text-stone-400 dark:text-stone-500"
-              }`}
+              className={`font-semibold pb-2 ${ tab === t.mode ? "text-stone-800 dark:text-stone-100 border-b-2 border-teal-500" : "text-stone-400 dark:text-stone-500" }`}
             >
               {t.label}
             </button>
@@ -1354,13 +1326,7 @@ const ExpenseTrendCard: React.FC<ExpenseTrendCardProps> = ({
                       </div>
                     )}
                     <div
-                      className={`w-full rounded-t-md cursor-pointer transition-colors ${
-                        v > 0
-                          ? isHovered
-                            ? "bg-teal-600"
-                            : "bg-teal-500"
-                          : "bg-[#F1ECE0] dark:bg-[#1a2622]"
-                      }`}
+                      className={`w-full rounded-t-md cursor-pointer transition-colors ${ v > 0 ? isHovered ? "bg-teal-600" : "bg-teal-500" : "bg-[#F1ECE0] dark:bg-[#1a2622]" }`}
                       style={{ height: `${h}%` }}
                     />
                     <span
@@ -1406,11 +1372,7 @@ const WhatChangedCard: React.FC<WhatChangedCardProps> = ({ data }) => {
                 {c.label}
               </span>
               <span
-                className={`inline-flex items-center gap-1 font-semibold ${
-                  c.up
-                    ? "text-teal-600 dark:text-teal-400"
-                    : "text-rose-500 dark:text-rose-400"
-                }`}
+                className={`inline-flex items-center gap-1 font-semibold ${ c.up ? "text-teal-600 dark:text-teal-400" : "text-rose-500 dark:text-rose-400" }`}
               >
                 {c.up ? (
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -1492,7 +1454,7 @@ const RecurringCommitmentsCard: React.FC<RecurringCommitmentsCardProps> = ({
           <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
             Monthly recurring total
           </span>
-          <span className="text-base font-mono font-bold text-teal-700 dark:text-teal-300">
+          <span className="text-base font-bold text-teal-700 dark:text-teal-300">
             {formatMoney(data.monthlyTotal)}/mo
           </span>
         </div>
@@ -1506,7 +1468,7 @@ const RecurringCommitmentsCard: React.FC<RecurringCommitmentsCardProps> = ({
                 <span className="text-stone-600 dark:text-stone-300">
                   {r.name}
                 </span>
-                <span className="font-mono font-semibold text-stone-800 dark:text-stone-100">
+                <span className="font-semibold text-stone-800 dark:text-stone-100">
                   {formatMoney(r.amount)}
                   <span className="text-[10px] font-normal text-stone-400 dark:text-stone-500">
                     {" "}
@@ -1597,7 +1559,7 @@ const FinancialRisksCard: React.FC<FinancialRisksCardProps> = ({ data }) => {
                 />
                 {r.label}
               </span>
-              <span className="font-mono font-semibold text-stone-800 dark:text-stone-100">
+              <span className="font-semibold text-stone-800 dark:text-stone-100">
                 {formatMoney(r.amount)}
               </span>
             </div>
@@ -1608,22 +1570,10 @@ const FinancialRisksCard: React.FC<FinancialRisksCardProps> = ({ data }) => {
           </div>
         )}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold mt-1 w-fit ${
-            data.riskLevel === "critical"
-              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
-              : data.riskLevel === "warn"
-                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
-                : "bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
-          }`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold mt-1 w-fit ${ data.riskLevel === "critical" ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" : data.riskLevel === "warn" ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" : "bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400" }`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              data.riskLevel === "critical"
-                ? "bg-rose-500"
-                : data.riskLevel === "warn"
-                  ? "bg-amber-500"
-                  : "bg-teal-500"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full ${ data.riskLevel === "critical" ? "bg-rose-500" : data.riskLevel === "warn" ? "bg-amber-500" : "bg-teal-500" }`}
           />
           {data.status || "Financial Control: Healthy"}
         </span>
@@ -1663,7 +1613,7 @@ const UpcomingPressureCard: React.FC<UpcomingPressureCardProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
                 {m.label}
               </div>
-              <div className="text-sm font-mono font-bold text-stone-800 dark:text-stone-100">
+              <div className="text-sm font-bold text-stone-800 dark:text-stone-100">
                 {formatMoney(m.value)}
               </div>
             </div>
@@ -1690,9 +1640,7 @@ const DashboardSkeleton: React.FC = () => {
         {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className={`flex-1 min-w-[140px] px-5 py-4 ${
-              i < 5 ? "border-r border-[#EDE7DA] dark:border-[#1a2622]" : ""
-            }`}
+            className={`flex-1 min-w-[140px] px-5 py-4 ${ i < 5 ? "border-r border-[#EDE7DA] dark:border-[#1a2622]" : "" }`}
           >
             <div className="h-3 w-20 bg-[#F1ECE0] dark:bg-[#1a2622] rounded mb-2" />
             <div className="h-7 w-28 bg-[#F1ECE0] dark:bg-[#1a2622] rounded mb-1" />

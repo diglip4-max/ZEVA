@@ -87,16 +87,35 @@ export default async function handler(req, res) {
     const staffId = user._id.toString();
 
     const search = req.query.search ? req.query.search.trim() : "";
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+    const typeFilter = req.query.typeFilter; // "all" | "Income" | "Expense"
 
     // Pagination parameters
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    // Date filter
+    const dateFilter = {};
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      dateFilter.$gte = start;
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
     // Filter based on role
     const filter = {
       clinicId,
       ...(me.role === "clinic" ? {} : { addedBy: staffId }),
+      ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+      ...(typeFilter === "Income" ? { isExpense: false } : {}),
+      ...(typeFilter === "Expense" ? { isExpense: true } : {}),
       ...(search
         ? {
             $or: [
@@ -237,6 +256,12 @@ export default async function handler(req, res) {
         currentPage: page,
         limit,
         hasMore,
+        filters: {
+          search: search || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          typeFilter: typeFilter || "all",
+        },
       },
     });
   } catch (error) {

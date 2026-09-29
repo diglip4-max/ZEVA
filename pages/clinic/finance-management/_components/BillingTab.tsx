@@ -215,7 +215,7 @@ function PaymentBreakdown({ item }: { item: BillingItem }) {
               <span className="text-stone-500 dark:text-stone-400">
                 {payment.paymentMethod}
               </span>
-              <span className="font-mono font-semibold text-stone-700 dark:text-stone-300">
+              <span className="font-semibold text-stone-700 dark:text-stone-300">
                 {formatMoney(payment.amount, currency)}
               </span>
             </div>
@@ -403,11 +403,7 @@ const BillingTab: React.FC = () => {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 text-sm rounded-full border px-4 py-2.5 font-medium transition-all shadow-sm dark:shadow-stone-900/20 ${
-              hasActiveFilters
-                ? "border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300"
-                : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-            }`}
+            className={`inline-flex items-center gap-2 text-sm rounded-full border px-4 py-2.5 font-medium transition-all shadow-sm dark:shadow-stone-900/20 ${ hasActiveFilters ? "border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300" : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700" }`}
           >
             <Filter className="w-4 h-4" />
             Filters
@@ -647,11 +643,7 @@ const BillingTab: React.FC = () => {
                   return (
                     <React.Fragment key={item._id || idx}>
                       <tr
-                        className={`${
-                          idx % 2 === 1
-                            ? "bg-stone-50/50 dark:bg-stone-800/30"
-                            : "bg-white dark:bg-stone-900"
-                        } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
+                        className={`${ idx % 2 === 1 ? "bg-stone-50/50 dark:bg-stone-800/30" : "bg-white dark:bg-stone-900" } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
                       >
                         <td className="px-5 py-3.5">
                           <button
@@ -667,7 +659,7 @@ const BillingTab: React.FC = () => {
                           </button>
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-xs">
+                          <div className="font-semibold text-stone-800 dark:text-stone-100 text-xs">
                             {item.invoiceNumber}
                           </div>
                           <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
@@ -711,16 +703,16 @@ const BillingTab: React.FC = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
+                        <td className="px-5 py-3.5 text-right font-semibold text-stone-800 dark:text-stone-100">
                           {formatMoney(item.amount, currency)}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-teal-600 dark:text-teal-400">
+                        <td className="px-5 py-3.5 text-right font-semibold text-teal-600 dark:text-teal-400">
                           {formatMoney(item.paid, currency)}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-amber-600 dark:text-amber-400">
+                        <td className="px-5 py-3.5 text-right font-semibold text-amber-600 dark:text-amber-400">
                           {formatMoney(item.pending, currency)}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-amber-600 dark:text-amber-400 text-xs">
+                        <td className="px-5 py-3.5 text-right font-semibold text-amber-600 dark:text-amber-400 text-xs">
                           {item.paymentMethod}
                         </td>
                         <td className="px-5 py-3.5">
@@ -731,7 +723,7 @@ const BillingTab: React.FC = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 font-mono text-xs whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 text-xs whitespace-nowrap">
                           {formatDate(item.invoicedDate)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
