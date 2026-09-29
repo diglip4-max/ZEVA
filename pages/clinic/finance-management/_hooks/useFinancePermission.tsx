@@ -325,7 +325,7 @@ const useFinancePermission = (
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
               Restricted Area
             </div>
-            <h2 className="zfm-display text-3xl md:text-4xl font-semibold text-stone-900 dark:text-stone-50 mb-3 tracking-tight">
+            <h2 className="text-3xl md:text-4xl font-semibold text-stone-900 dark:text-stone-50 mb-3 tracking-tight">
               Access Denied
             </h2>
             <p className="text-stone-500 dark:text-stone-400 text-sm md:text-base max-w-md mx-auto mb-10 leading-relaxed">

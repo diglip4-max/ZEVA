@@ -131,16 +131,23 @@ export default async function handler(req, res) {
     // ============================================================
     // BUILD FILTERS
     // ============================================================
+    const dateFilter = {};
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      dateFilter.$gte = start;
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
     const baseFilter = {
       clinicId,
       ...(me.role === "clinic" ? {} : { staffId }),
       ...(showVoided ? {} : { isVoided: { $ne: true } }),
-      ...(startDate && {
-        date: { $gte: new Date(startDate) },
-      }),
-      ...(endDate && {
-        date: { $lte: new Date(endDate) },
-      }),
+      ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
     };
 
     // Expense filter with search

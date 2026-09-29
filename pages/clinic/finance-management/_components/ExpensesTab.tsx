@@ -145,7 +145,7 @@ function ExpenseDetailsView({
     {
       label: "Payment #",
       value: expense.payment?.paymentNumber ? (
-        <span className="font-mono">{expense.payment.paymentNumber}</span>
+        <span className="">{expense.payment.paymentNumber}</span>
       ) : (
         <span className="text-stone-300 dark:text-stone-600">—</span>
       ),
@@ -216,7 +216,7 @@ function ExpenseDetailsView({
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
             Settlement
           </span>
-          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
             <span className="text-teal-600 dark:text-teal-400">
               {formatMoney(expense.paidAmount, currency)} paid
             </span>
@@ -419,17 +419,15 @@ function ExpenseRow({
           <span className="text-xs text-stone-400 dark:text-stone-500">—</span>
         )}
         <div className="text-right shrink-0 min-w-[108px]">
-          <div className="font-mono font-semibold text-rose-600 dark:text-rose-400 text-sm">
+          <div className="font-semibold text-rose-600 dark:text-rose-400 text-sm">
             −{formatMoney(expense.amount, currency)}
           </div>
-          <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+          <div className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
             Paid instantly
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 text-rose-500 dark:text-rose-400" />
@@ -440,9 +438,7 @@ function ExpenseRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -584,7 +580,7 @@ function NewExpenseModal({
                   <DollarSign className="w-3 h-3" />
                   Instant Expense
                 </div>
-                <h3 className="zfm-display text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
+                <h3 className="text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
                   Add Expense
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
@@ -643,7 +639,7 @@ function NewExpenseModal({
                     onChange={(e) =>
                       setForm((f) => ({ ...f, date: e.target.value }))
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
                   />
                 </div>
               </div>
@@ -662,7 +658,7 @@ function NewExpenseModal({
                 Total ({symbol}) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 zfm-mono font-semibold text-lg pointer-events-none">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 font-semibold text-lg pointer-events-none">
                   {symbol}
                 </span>
                 <input
@@ -672,7 +668,7 @@ function NewExpenseModal({
                     setForm((f) => ({ ...f, amount: e.target.value }))
                   }
                   placeholder="0"
-                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono font-bold transition-all shadow-inner"
+                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 font-bold transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -736,7 +732,7 @@ function NewExpenseModal({
                         setForm((f) => ({ ...f, chequeNumber: e.target.value }))
                       }
                       placeholder="e.g. 458921"
-                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
                     />
                   </div>
                   <div>
@@ -762,7 +758,7 @@ function NewExpenseModal({
                       onChange={(e) =>
                         setForm((f) => ({ ...f, chequeDate: e.target.value }))
                       }
-                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
                     />
                   </div>
                 </div>
@@ -956,9 +952,7 @@ function StatsSection({
             {s.label}
           </div>
           <div
-            className={`text-lg font-semibold zfm-mono ${
-              s.tone || "text-stone-800 dark:text-stone-100"
-            }`}
+            className={`text-lg font-semibold ${ s.tone || "text-stone-800 dark:text-stone-100" }`}
           >
             {s.value}
           </div>
@@ -1040,7 +1034,7 @@ const ExpensesTab: React.FC<UseFinancePermissionReturn> = ({
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
             Expenses
           </h2>
           <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
@@ -1069,11 +1063,7 @@ const ExpensesTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 key={c}
                 onClick={() => setCategoryFilter(c)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                  categoryFilter === c
-                    ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20"
-                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${ categoryFilter === c ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50" }`}
               >
                 {c}
               </button>

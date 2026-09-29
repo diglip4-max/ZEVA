@@ -425,11 +425,7 @@ const ProductSaleTab: React.FC = () => {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center gap-2 text-sm rounded-full border px-4 py-2.5 font-medium transition-all shadow-sm dark:shadow-stone-900/20 ${
-              hasActiveFilters
-                ? "border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300"
-                : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-            }`}
+            className={`inline-flex items-center gap-2 text-sm rounded-full border px-4 py-2.5 font-medium transition-all shadow-sm dark:shadow-stone-900/20 ${ hasActiveFilters ? "border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300" : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700" }`}
           >
             <Filter className="w-4 h-4" />
             Filters
@@ -664,11 +660,7 @@ const ProductSaleTab: React.FC = () => {
                   return (
                     <React.Fragment key={item._id || idx}>
                       <tr
-                        className={`${
-                          idx % 2 === 1
-                            ? "bg-stone-50/50 dark:bg-stone-800/30"
-                            : "bg-white dark:bg-stone-900"
-                        } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
+                        className={`${ idx % 2 === 1 ? "bg-stone-50/50 dark:bg-stone-800/30" : "bg-white dark:bg-stone-900" } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
                       >
                         <td className="px-5 py-3.5">
                           <button
@@ -684,7 +676,7 @@ const ProductSaleTab: React.FC = () => {
                           </button>
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-xs">
+                          <div className="font-semibold text-stone-800 dark:text-stone-100 text-xs">
                             {item.invoiceNo}
                           </div>
                           <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
@@ -727,10 +719,10 @@ const ProductSaleTab: React.FC = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
+                        <td className="px-5 py-3.5 text-right font-semibold text-stone-800 dark:text-stone-100">
                           {formatMoney(item.totalPrice, currency)}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-teal-600 dark:text-teal-400">
+                        <td className="px-5 py-3.5 text-right font-semibold text-teal-600 dark:text-teal-400">
                           {formatMoney(item.totalPaidAmount, currency)}
                         </td>
                         <td className="px-5 py-3.5">
@@ -741,7 +733,7 @@ const ProductSaleTab: React.FC = () => {
                             status={item.paymentStatus as PaymentStatusValue}
                           />
                         </td>
-                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 font-mono text-xs whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 text-xs whitespace-nowrap">
                           {formatDate(item.invoiceDate)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
@@ -803,13 +795,13 @@ const ProductSaleTab: React.FC = () => {
                                           <td className="px-3 py-2 text-center text-stone-600 dark:text-stone-400">
                                             {product.quantity} {product.uom}
                                           </td>
-                                          <td className="px-3 py-2 text-right font-mono text-stone-600 dark:text-stone-400">
+                                          <td className="px-3 py-2 text-right text-stone-600 dark:text-stone-400">
                                             {formatMoney(
                                               product.unitPrice,
                                               currency,
                                             )}
                                           </td>
-                                          <td className="px-3 py-2 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
+                                          <td className="px-3 py-2 text-right font-semibold text-stone-800 dark:text-stone-100">
                                             {formatMoney(
                                               product.totalPrice,
                                               currency,
@@ -826,7 +818,7 @@ const ProductSaleTab: React.FC = () => {
                                         >
                                           Total
                                         </td>
-                                        <td className="px-3 py-2 text-right font-mono font-bold text-stone-800 dark:text-stone-100">
+                                        <td className="px-3 py-2 text-right font-bold text-stone-800 dark:text-stone-100">
                                           {formatMoney(
                                             item.totalPrice,
                                             currency,
@@ -841,7 +833,7 @@ const ProductSaleTab: React.FC = () => {
                                           >
                                             Commission
                                           </td>
-                                          <td className="px-3 py-2 text-right font-mono text-purple-600 dark:text-purple-400">
+                                          <td className="px-3 py-2 text-right text-purple-600 dark:text-purple-400">
                                             {formatMoney(
                                               item.totalCommission,
                                               currency,
@@ -865,7 +857,7 @@ const ProductSaleTab: React.FC = () => {
                                     <span className="text-stone-500 dark:text-stone-400">
                                       Invoice
                                     </span>
-                                    <span className="font-mono font-medium text-stone-800 dark:text-stone-100">
+                                    <span className="font-medium text-stone-800 dark:text-stone-100">
                                       {item.invoiceNo}
                                     </span>
                                   </div>

@@ -201,11 +201,7 @@ function ChequeDetailsView({
                 </div>
                 {!isLast && (
                   <div
-                    className={`h-0.5 flex-1 mb-4 rounded-full ${
-                      currentRank > statusRank[s]
-                        ? STATUS_META[lifecycleOrder[idx + 1]].dot
-                        : "bg-stone-100 dark:bg-[#16231f]"
-                    }`}
+                    className={`h-0.5 flex-1 mb-4 rounded-full ${ currentRank > statusRank[s] ? STATUS_META[lifecycleOrder[idx + 1]].dot : "bg-stone-100 dark:bg-[#16231f]" }`}
                   />
                 )}
               </React.Fragment>
@@ -236,7 +232,7 @@ function ChequeDetailsView({
               Cheque number
             </span>
           </div>
-          <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+          <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
             #{cheque.chequeNumber}
           </div>
         </div>
@@ -311,7 +307,7 @@ function ChequeDetailsView({
                 Against Bill
               </span>
             </div>
-            <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+            <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
               {invoiceNumber}
             </div>
           </div>
@@ -327,7 +323,7 @@ function ChequeDetailsView({
                 Payment ref
               </span>
             </div>
-            <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+            <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
               {paymentNumber}
             </div>
           </div>
@@ -358,7 +354,7 @@ function ChequeDetailsView({
               Amount
             </span>
           </div>
-          <div className="text-lg font-mono font-bold text-stone-800 dark:text-stone-100 pl-[26px]">
+          <div className="text-lg font-bold text-stone-800 dark:text-stone-100 pl-[26px]">
             {formatMoney(cheque.amount, currency)}
           </div>
         </div>
@@ -482,21 +478,21 @@ function ChequeRow({
   switch (cheque.status) {
     case "issued":
       amountCaption = (
-        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 zfm-mono">
+        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
           Awaiting presentation
         </div>
       );
       break;
     case "presented":
       amountCaption = (
-        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 zfm-mono">
+        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
           Awaiting clearance
         </div>
       );
       break;
     case "cleared":
       amountCaption = (
-        <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+        <div className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
           Cleared
         </div>
       );
@@ -504,14 +500,14 @@ function ChequeRow({
     case "returned":
     case "bounced":
       amountCaption = (
-        <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 zfm-mono">
+        <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400">
           Returned / Bounced
         </div>
       );
       break;
     case "cancelled":
       amountCaption = (
-        <div className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 zfm-mono">
+        <div className="text-[10px] font-semibold text-stone-400 dark:text-stone-500">
           Cancelled
         </div>
       );
@@ -532,7 +528,7 @@ function ChequeRow({
             {cheque.payee}
           </div>
           <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
-            <span className="font-mono">#{cheque.chequeNumber}</span>
+            <span className="">#{cheque.chequeNumber}</span>
             <span>·</span>
             <span>{cheque.bank}</span>
             <span>·</span>
@@ -541,15 +537,13 @@ function ChequeRow({
         </div>
         <ChequeStatusPill status={cheque.status} />
         <div className="text-right shrink-0 min-w-[108px]">
-          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+          <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
             {formatMoney(cheque.amount, currency)}
           </div>
           {amountCaption}
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-0" : ""
-          }`}
+          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-0" : "" }`}
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
@@ -561,9 +555,7 @@ function ChequeRow({
 
       {/* Smooth expand/collapse — identical to BillsPayableTab BillRow */}
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -640,7 +632,7 @@ function ChangeStatusModal({
               <FileCheck2 className="w-5 h-5 text-violet-500 dark:text-violet-400" />
             </div>
             <div>
-              <h3 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+              <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
                 Change status
               </h3>
               <p className="text-xs text-stone-400 dark:text-stone-500">
@@ -775,7 +767,7 @@ function StatsSection({
           <div className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
             {s.label}
           </div>
-          <div className="text-lg font-semibold text-stone-800 dark:text-stone-100 zfm-mono">
+          <div className="text-lg font-semibold text-stone-800 dark:text-stone-100">
             {formatMoney(s.value, currency)}
           </div>
         </div>
@@ -853,7 +845,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
             Cheque Manager
           </h2>
           <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
@@ -872,11 +864,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 key={t.value}
                 onClick={() => setStatusFilter(t.value)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                  statusFilter === t.value
-                    ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20"
-                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${ statusFilter === t.value ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50" }`}
               >
                 {t.label}
               </button>

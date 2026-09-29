@@ -200,7 +200,7 @@ function ReportCardHeader({ reportType }: { reportType: ReportType }) {
       </div>
       <div className="min-w-0" style={{ lineHeight: 1.4 }}>
         <h3
-          className="zfm-display font-semibold text-stone-900 dark:text-stone-50"
+          className="font-semibold text-stone-900 dark:text-stone-50"
           style={{ fontSize: 18, margin: 0, lineHeight: 1.3 }}
         >
           {option?.label || "Report"}
@@ -240,7 +240,7 @@ function SettlementBar({
         <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
           Settlement progress
         </span>
-        <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+        <div className="flex items-center gap-3 text-[11px] font-semibold">
           <span className="text-teal-600 dark:text-teal-400">
             {formatMoney(paid, currency)} paid
           </span>
@@ -293,10 +293,7 @@ function DetailField({
 }) {
   return (
     <div
-      className={`rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br ${
-        accent ||
-        "from-[#F8F5EF] to-white dark:from-[#16231f]/60 dark:to-[#111d19]"
-      } p-3.5`}
+      className={`rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br ${ accent || "from-[#F8F5EF] to-white dark:from-[#16231f]/60 dark:to-[#111d19]" } p-3.5`}
     >
       <div className="flex items-center gap-1.5 mb-1.5">
         <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
@@ -349,9 +346,7 @@ function ExpandableRow({
     <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
       <Header
         onClick={forceOpen ? undefined : onToggle}
-        className={`w-full text-left flex items-center gap-4 py-3.5 rounded-xl px-3 transition-colors ${
-          forceOpen ? "" : "hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60"
-        }`}
+        className={`w-full text-left flex items-center gap-4 py-3.5 rounded-xl px-3 transition-colors ${ forceOpen ? "" : "hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60" }`}
       >
         <div
           className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center ${iconColor} shrink-0`}
@@ -372,9 +367,7 @@ function ExpandableRow({
         <div className="text-right shrink-0 min-w-[108px]">{trailing}</div>
         {!forceOpen && (
           <div
-            className={`shrink-0 transition-transform duration-200 ${
-              open ? "rotate-90" : ""
-            }`}
+            className={`shrink-0 transition-transform duration-200 ${ open ? "rotate-90" : "" }`}
           >
             {open ? (
               <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
@@ -439,7 +432,7 @@ function BillRowExpandable({
       title={supplierName}
       meta={
         <>
-          <span className="font-mono">{bill.invoiceNumber}</span>
+          <span className="">{bill.invoiceNumber}</span>
           <span>·</span>
           <span>{bill.category}</span>
           <span>·</span>
@@ -448,7 +441,7 @@ function BillRowExpandable({
       }
       trailing={
         <>
-          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+          <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
             {formatMoney(balance, currency)}
           </div>
           <div className="text-[10px] text-stone-400 dark:text-stone-500">
@@ -481,7 +474,7 @@ function BillRowExpandable({
               icon={<FileText className="w-3.5 h-3.5" />}
               label="Supplier invoice #"
               value={
-                <span className="font-mono">{bill.supplierInvoiceNumber}</span>
+                <span className="">{bill.supplierInvoiceNumber}</span>
               }
               accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
             />
@@ -586,7 +579,7 @@ function PaymentRowExpandable({
       title={supplierName}
       meta={
         <>
-          <span className="font-mono">{p.paymentNumber}</span>
+          <span className="">{p.paymentNumber}</span>
           <span>·</span>
           <span className="capitalize">{methodLabel}</span>
           <span>·</span>
@@ -602,11 +595,7 @@ function PaymentRowExpandable({
       }
       trailing={
         <div
-          className={`font-mono font-semibold text-sm ${
-            p.reversed
-              ? "text-stone-400 dark:text-stone-500 line-through"
-              : "text-teal-600 dark:text-teal-400"
-          }`}
+          className={`font-semibold text-sm ${ p.reversed ? "text-stone-400 dark:text-stone-500 line-through" : "text-teal-600 dark:text-teal-400" }`}
         >
           {formatMoney(p.amount, currency)}
         </div>
@@ -630,7 +619,7 @@ function PaymentRowExpandable({
             <DetailField
               icon={<FileText className="w-3.5 h-3.5" />}
               label="Cheque #"
-              value={<span className="font-mono">{p.chequeNumber}</span>}
+              value={<span className="">{p.chequeNumber}</span>}
               accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
             />
           )}
@@ -744,7 +733,7 @@ function SupplierRowExpandable({
       meta={<span>{row.billCount} bills</span>}
       trailing={
         <>
-          <div className="font-mono font-semibold text-rose-500 dark:text-rose-400 text-sm">
+          <div className="font-semibold text-rose-500 dark:text-rose-400 text-sm">
             {formatMoney(row.totalBalance, currency)}
           </div>
           <div className="text-[10px] text-stone-400 dark:text-stone-500">
@@ -845,7 +834,7 @@ function ExpenseRowExpandable({
       title={row.category}
       meta={<span>{row.count} entries</span>}
       trailing={
-        <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+        <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
           {formatMoney(row.totalSpent, currency)}
         </div>
       }
@@ -1371,7 +1360,7 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
                       </span>
                     </span>
                     <div className="text-right">
-                      <div className="font-mono text-sm font-semibold text-stone-800 dark:text-stone-100">
+                      <div className="text-sm font-semibold text-stone-800 dark:text-stone-100">
                         {formatMoney(r.totalAmount, currency)}
                       </div>
                       <div className="text-[10px] text-stone-400 dark:text-stone-500">
@@ -1618,7 +1607,7 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
   return (
     <div className="space-y-7">
       <div>
-        <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+        <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
           Reports
         </h2>
         <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">

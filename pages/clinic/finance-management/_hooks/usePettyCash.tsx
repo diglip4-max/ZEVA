@@ -169,6 +169,12 @@ export interface UsePettyCashReturn {
   fetchIncome: () => Promise<void>;
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
+  startDate: string;
+  setStartDate: React.Dispatch<React.SetStateAction<string>>;
+  endDate: string;
+  setEndDate: React.Dispatch<React.SetStateAction<string>>;
+  showVoided: boolean;
+  setShowVoided: React.Dispatch<React.SetStateAction<boolean>>;
   page: number;
   limit: number;
   pagination:
@@ -213,6 +219,9 @@ const usePettyCash = (): UsePettyCashReturn => {
   // Filters
   const [search, setSearch] = React.useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = React.useState<string>("");
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
+  const [showVoided, setShowVoided] = React.useState<boolean>(false);
 
   // Pagination
   const [page, setPage] = React.useState<number>(1);
@@ -229,7 +238,7 @@ const usePettyCash = (): UsePettyCashReturn => {
 
   React.useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, viewType]);
+  }, [debouncedSearch, viewType, startDate, endDate, showVoided]);
 
   const fetchPettyCash = React.useCallback(async () => {
     setLoading(true);
@@ -242,6 +251,9 @@ const usePettyCash = (): UsePettyCashReturn => {
           params: {
             viewType: viewType === "income" ? "all" : viewType,
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+            ...(showVoided ? { showVoided: "true" } : {}),
             page,
             limit,
           },
@@ -342,7 +354,16 @@ const usePettyCash = (): UsePettyCashReturn => {
     } finally {
       setLoading(false);
     }
-  }, [token, debouncedSearch, page, limit, viewType]);
+  }, [
+    token,
+    debouncedSearch,
+    page,
+    limit,
+    viewType,
+    startDate,
+    endDate,
+    showVoided,
+  ]);
 
   const fetchIncome = React.useCallback(async () => {
     setLoading(true);
@@ -354,6 +375,8 @@ const usePettyCash = (): UsePettyCashReturn => {
           headers: { Authorization: `Bearer ${token}` },
           params: {
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
             page,
             limit,
           },
@@ -373,7 +396,7 @@ const usePettyCash = (): UsePettyCashReturn => {
     } finally {
       setLoading(false);
     }
-  }, [token, debouncedSearch, page, limit]);
+  }, [token, debouncedSearch, page, limit, startDate, endDate]);
 
   // Fetch based on view type
   React.useEffect(() => {
@@ -421,6 +444,12 @@ const usePettyCash = (): UsePettyCashReturn => {
     fetchIncome,
     search,
     setSearch,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    showVoided,
+    setShowVoided,
     page,
     limit,
     pagination,

@@ -52,15 +52,7 @@ import { formatMoney } from "@/lib/currencyHelper";
 import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 // ============================================================
-// FONTS / SHARED TOKENS
 // ============================================================
-
-const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-.zfm-display { font-family: 'Fraunces', serif; letter-spacing: -0.01em; }
-.zfm-body { font-family: 'Manrope', sans-serif; }
-.zfm-mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
-`;
 
 const COLORS = [
   "#0f766e",
@@ -120,7 +112,7 @@ function StatCard({
           } as React.HTMLAttributes<SVGElement>)}
         </div>
       </div>
-      <div className="zfm-display text-[25px] font-semibold text-stone-900 dark:text-stone-50">
+      <div className="text-[25px] font-semibold text-stone-900 dark:text-stone-50">
         {value}
       </div>
       {trend && (
@@ -182,7 +174,7 @@ function MiniStat({
         <div className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest truncate">
           {label}
         </div>
-        <div className="text-sm font-bold text-stone-800 dark:text-stone-100 zfm-mono">
+        <div className="text-sm font-bold text-stone-800 dark:text-stone-100">
           {value}
         </div>
       </div>
@@ -198,7 +190,7 @@ interface SectionHeadingProps {
 function SectionHeading({ children, action }: SectionHeadingProps) {
   return (
     <div className="flex items-center justify-between mb-5">
-      <h3 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50 flex items-center gap-2.5">
+      <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-50 flex items-center gap-2.5">
         <span
           className="w-1 h-5 rounded-full inline-block"
           style={{ backgroundImage: "linear-gradient(180deg,#2dd4bf,#0f766e)" }}
@@ -331,9 +323,7 @@ function DetailRow({ label, value, mono }: DetailRowProps) {
         {label}
       </div>
       <div
-        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${
-          mono ? "font-mono font-semibold" : ""
-        }`}
+        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${ mono ? " font-semibold" : "" }`}
       >
         {value}
       </div>
@@ -374,10 +364,10 @@ function BillDetailsView({
         </div>
         <div className="flex-1 pt-1.5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 font-mono">
+            <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
               {inr(details.paidAmount || 0)} paid
             </span>
-            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 font-mono">
+            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
               {progress}%
             </span>
           </div>
@@ -390,7 +380,7 @@ function BillDetailsView({
               }}
             />
           </div>
-          <div className="mt-1 text-[11px] font-semibold text-rose-500 dark:text-rose-400 font-mono">
+          <div className="mt-1 text-[11px] font-semibold text-rose-500 dark:text-rose-400">
             {inr(details.balance || 0)} balance due
           </div>
         </div>
@@ -607,11 +597,7 @@ function FilterBar({
                   setActiveRange(r.label);
                   setShowCustom(false);
                 }}
-                className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${
-                  isActive
-                    ? "border-teal-500 bg-teal-600 text-white shadow-sm"
-                    : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-                }`}
+                className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${ isActive ? "border-teal-500 bg-teal-600 text-white shadow-sm" : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700" }`}
               >
                 {r.label}
               </button>
@@ -622,11 +608,7 @@ function FilterBar({
               setShowCustom(!showCustom);
               if (!showCustom) setActiveRange("Custom Range");
             }}
-            className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${
-              activeRange === "Custom Range"
-                ? "border-teal-500 bg-teal-600 text-white shadow-sm"
-                : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-            }`}
+            className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${ activeRange === "Custom Range" ? "border-teal-500 bg-teal-600 text-white shadow-sm" : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700" }`}
           >
             Custom Range
           </button>
@@ -824,10 +806,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   }
 
   return (
-    <div className="zfm-body">
-      <style>{FONTS}</style>
-
-      <FilterBar
+    <div className="">
+<FilterBar
         filters={filters}
         onFiltersChange={setFilters}
         onRefresh={refresh}
@@ -1286,7 +1266,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             <span className="font-medium text-stone-700 dark:text-stone-300 truncate">
                               {s.name}
                             </span>
-                            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
                               {inr(s.outstanding)}
                             </span>
                           </div>
@@ -1352,7 +1332,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                           </div>
                         </div>
-                        <span className="font-mono font-semibold text-stone-800 dark:text-stone-100 shrink-0">
+                        <span className="font-semibold text-stone-800 dark:text-stone-100 shrink-0">
                           {inr(a.currentBalance)}
                         </span>
                       </div>
@@ -1407,7 +1387,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                           key={c._id}
                           className="hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors"
                         >
-                          <td className="px-5 py-3.5 font-mono font-semibold text-stone-800 dark:text-stone-100 text-xs">
+                          <td className="px-5 py-3.5 font-semibold text-stone-800 dark:text-stone-100 text-xs">
                             {c.chequeNumber}
                           </td>
                           <td className="px-5 py-3.5 text-stone-700 dark:text-stone-300">
@@ -1416,7 +1396,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                           <td className="px-5 py-3.5 text-stone-500 dark:text-stone-400 text-xs">
                             {c.bank || "—"}
                           </td>
-                          <td className="px-5 py-3.5 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
+                          <td className="px-5 py-3.5 text-right font-semibold text-stone-800 dark:text-stone-100">
                             {inr(c.amount)}
                           </td>
                           <td className="px-5 py-3.5 text-stone-500 dark:text-stone-400 text-xs">
@@ -1477,7 +1457,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+                            <div className="font-semibold text-stone-800 dark:text-stone-100 text-sm">
                               {inr(item.amount)}
                             </div>
                             <div className="text-[10px] text-stone-400 dark:text-stone-500">
@@ -1485,9 +1465,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                           </div>
                           <div
-                            className={`shrink-0 transition-transform duration-200 ${
-                              isOpen ? "rotate-90" : ""
-                            }`}
+                            className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
                           >
                             {isOpen ? (
                               <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
@@ -1497,11 +1475,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                           </div>
                         </button>
                         <div
-                          className={`grid transition-all duration-300 ease-in-out ${
-                            isOpen
-                              ? "grid-rows-[1fr] opacity-100"
-                              : "grid-rows-[0fr] opacity-0"
-                          }`}
+                          className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
                         >
                           <div className="overflow-hidden">
                             <div className="pt-2 pb-5 pl-13 ml-13 relative">

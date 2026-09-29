@@ -16,6 +16,7 @@ import {
   resolveTransactionIdsForMethod,
 } from "../../../../lib/finance/dashboardFilters";
 import Supplier from "../../../../models/stocks/Supplier";
+import Billing from "../../../../models/Billing";
 import { getPettyCashBreakdown } from "../../../../lib/finance/pettyCash";
 
 export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
@@ -157,16 +158,8 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
     {
       $match: {
         clinicId,
-        reversed: { $ne: true }, // reversed payments ko exclude karo
+        reversed: { $ne: true },
         ...paymentDateMatch,
-        // agar method filter bhi respect karna ho:
-        // ...(req.query.method && req.query.method !== "all"
-        //   ? { method: req.query.method }
-        //   : {}),
-        // agar supplier filter bhi respect karna ho:
-        // ...(req.query.supplierId && req.query.supplierId !== "all"
-        //   ? { supplierId: new Types.ObjectId(req.query.supplierId) }
-        //   : {}),
       },
     },
     {
@@ -180,8 +173,27 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
 
   const totalPaidInRange = parseNumber(paidInRangeAgg?.total || 0);
 
+  const billingDateMatch = {};
+  if (rangeStart || rangeEnd) {
+    billingDateMatch.invoicedDate = {};
+    if (rangeStart) billingDateMatch.invoicedDate.$gte = rangeStart;
+    if (rangeEnd) billingDateMatch.invoicedDate.$lte = rangeEnd;
+  }
+  const [billingIncomeAgg] = await Billing.aggregate([
+    {
+      $match: {
+        clinicId,
+        ...billingDateMatch,
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$paid" } } },
+  ]);
+  const billingIncome = parseNumber(billingIncomeAgg?.total || 0);
+
   const moneyReceived =
-    parseNumber(incomeAgg?.total || 0) + pettyCashPeriod.receivedIntoPettyCash;
+    parseNumber(incomeAgg?.total || 0) +
+    pettyCashPeriod.receivedIntoPettyCash +
+    billingIncome;
   const moneySpent =
     parseNumber(spentAgg?.total || 0) + pettyCashPeriod.spentFromPettyCash;
   const outstandingBills = parseNumber(outstandingAgg?.total || 0);
@@ -189,7 +201,8 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
   const overdueCount = overdueAgg?.count || 0;
   const upcomingAmount = parseNumber(upcomingAgg?.total || 0);
   const upcomingCount = upcomingAgg?.count || 0;
-  const availableCash = totalBankBalance + pettyCashBalance - totalPaidInRange;
+  const availableCash =
+    totalBankBalance + pettyCashBalance + billingIncome - totalPaidInRange;
 
   // --- Trends (previous month vs current filtered period) ---
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
