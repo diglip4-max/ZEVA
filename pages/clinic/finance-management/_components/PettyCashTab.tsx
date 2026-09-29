@@ -114,11 +114,11 @@ const TABS: { value: TabType; label: string; icon: React.ReactNode }[] = [
     label: "Expenses",
     icon: <ArrowDownRight className="w-4 h-4" />,
   },
-  {
-    value: "income",
-    label: "Cash Income",
-    icon: <Coins className="w-4 h-4" />,
-  },
+  // {
+  //   value: "income",
+  //   label: "Cash Income",
+  //   icon: <Coins className="w-4 h-4" />,
+  // },
   {
     value: "manual",
     label: "Manual Petty Cash",
@@ -427,7 +427,7 @@ function AllocationDetailsView({
         </div>
         <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
           <div
-            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${ allocation.isVoided ? "bg-stone-300 dark:bg-stone-600" : "" }`}
+            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${allocation.isVoided ? "bg-stone-300 dark:bg-stone-600" : ""}`}
             style={{
               width: "100%",
               backgroundImage: allocation.isVoided
@@ -445,7 +445,7 @@ function AllocationDetailsView({
             <span />
           )}
           <span
-            className={`inline-flex items-center gap-1 ${ allocation.isVoided ? "text-stone-400 dark:text-stone-500" : "text-teal-600 dark:text-teal-400" }`}
+            className={`inline-flex items-center gap-1 ${allocation.isVoided ? "text-stone-400 dark:text-stone-500" : "text-teal-600 dark:text-teal-400"}`}
           >
             <CheckCircle2 className="w-3 h-3" />
             {allocation.isVoided ? "Voided" : "Active allocation"}
@@ -531,18 +531,18 @@ function AllocationRow({
         <ReceiptLinks receipts={allocation.receipts || []} />
         <div className="text-right shrink-0 min-w-[108px]">
           <div
-            className={`font-semibold text-sm ${ allocation.isVoided ? "text-stone-400 dark:text-stone-500 line-through" : "text-teal-600 dark:text-teal-400" }`}
+            className={`font-semibold text-sm ${allocation.isVoided ? "text-stone-400 dark:text-stone-500 line-through" : "text-teal-600 dark:text-teal-400"}`}
           >
             +{formatMoney(allocation.amount, currency)}
           </div>
           <div
-            className={`text-[10px] font-semibold ${ allocation.isVoided ? "text-stone-400 dark:text-stone-500" : "text-teal-600 dark:text-teal-400" }`}
+            className={`text-[10px] font-semibold ${allocation.isVoided ? "text-stone-400 dark:text-stone-500" : "text-teal-600 dark:text-teal-400"}`}
           >
             {allocation.isVoided ? "Voided" : "Allocated"}
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
+          className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
@@ -553,7 +553,7 @@ function AllocationRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
+        className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -620,9 +620,7 @@ function ExpenseDetailsView({
     {
       label: "Petty Cash ID",
       value: (
-        <span className="">
-          {expense.pettyCashId?._id?.slice(-8) || "N/A"}
-        </span>
+        <span className="">{expense.pettyCashId?._id?.slice(-8) || "N/A"}</span>
       ),
       icon: <Tag className="w-3.5 h-3.5" />,
       accent: "from-teal-50 to-white dark:from-teal-950/40",
@@ -678,7 +676,7 @@ function ExpenseDetailsView({
             {expense.description}
           </span>
           <span
-            className={`inline-flex items-center gap-1 ${ expense.isVoided ? "text-stone-400 dark:text-stone-500" : isPettyCashExpense ? "text-rose-600 dark:text-rose-400" : "text-stone-500 dark:text-stone-400" }`}
+            className={`inline-flex items-center gap-1 ${expense.isVoided ? "text-stone-400 dark:text-stone-500" : isPettyCashExpense ? "text-rose-600 dark:text-rose-400" : "text-stone-500 dark:text-stone-400"}`}
           >
             <CheckCircle2 className="w-3 h-3" />
             {expense.isVoided
@@ -762,7 +760,7 @@ function ExpenseRow({
         className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
         <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${ isPettyCashExpense ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400" : "bg-[#F1ECE0] dark:bg-[#16231f] text-stone-500 dark:text-stone-400" }`}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isPettyCashExpense ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400" : "bg-[#F1ECE0] dark:bg-[#16231f] text-stone-500 dark:text-stone-400"}`}
         >
           {isPettyCashExpense ? (
             <ArrowDownRight className="w-4 h-4" />
@@ -800,13 +798,13 @@ function ExpenseRow({
         <ReceiptLinks receipts={expense.receipts || []} />
         <div className="text-right shrink-0 min-w-[108px]">
           <div
-            className={`font-semibold text-sm ${ expense.isVoided ? "text-stone-400 dark:text-stone-500 line-through" : isPettyCashExpense ? "text-rose-500 dark:text-rose-400" : "text-stone-400 dark:text-stone-500" }`}
+            className={`font-semibold text-sm ${expense.isVoided ? "text-stone-400 dark:text-stone-500 line-through" : isPettyCashExpense ? "text-rose-500 dark:text-rose-400" : "text-stone-400 dark:text-stone-500"}`}
           >
             {isPettyCashExpense ? "−" : ""}
             {formatMoney(expense.spentAmount, currency)}
           </div>
           <div
-            className={`text-[10px] font-semibold ${ expense.isVoided ? "text-stone-400 dark:text-stone-500" : isPettyCashExpense ? "text-rose-500 dark:text-rose-400" : "text-stone-400 dark:text-stone-500" }`}
+            className={`text-[10px] font-semibold ${expense.isVoided ? "text-stone-400 dark:text-stone-500" : isPettyCashExpense ? "text-rose-500 dark:text-rose-400" : "text-stone-400 dark:text-stone-500"}`}
           >
             {expense.isVoided
               ? "Voided"
@@ -816,7 +814,7 @@ function ExpenseRow({
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
+          className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
         >
           {isOpen ? (
             <ChevronDown
@@ -833,12 +831,12 @@ function ExpenseRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
+        className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div
-              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${ isPettyCashExpense ? "from-rose-200 dark:from-rose-900 to-transparent" : "from-stone-200 dark:from-[#1f2e29] to-transparent" }`}
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${isPettyCashExpense ? "from-rose-200 dark:from-rose-900 to-transparent" : "from-stone-200 dark:from-[#1f2e29] to-transparent"}`}
             />
             <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <ExpenseDetailsView expense={expense} currency={currency} />
@@ -1028,7 +1026,7 @@ function IncomeRow({
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
+          className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
@@ -1039,7 +1037,7 @@ function IncomeRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
+        className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
@@ -1148,7 +1146,7 @@ function ManualDetailsView({
             {item.name}
           </span>
           <span
-            className={`inline-flex items-center gap-1 ${ isExpense ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400" }`}
+            className={`inline-flex items-center gap-1 ${isExpense ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
           >
             <CheckCircle2 className="w-3 h-3" />
             Manual entry · {type}
@@ -1237,7 +1235,7 @@ function ManualPettyCashRow({
         className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
         <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${ isExpense ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400" : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500 dark:text-emerald-400" }`}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isExpense ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400" : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500 dark:text-emerald-400"}`}
         >
           {isExpense ? (
             <ArrowDownRight className="w-4 h-4" />
@@ -1272,19 +1270,19 @@ function ManualPettyCashRow({
         <ImageLinks images={item.images || []} />
         <div className="text-right shrink-0 min-w-[108px]">
           <div
-            className={`font-semibold text-sm ${ isExpense ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400" }`}
+            className={`font-semibold text-sm ${isExpense ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
           >
             {isExpense ? "−" : "+"}
             {formatMoney(item.amount, currency)}
           </div>
           <div
-            className={`text-[10px] font-semibold ${ isExpense ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400" }`}
+            className={`text-[10px] font-semibold ${isExpense ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
           >
             {type}
           </div>
         </div>
         <div
-          className={`shrink-0 transition-transform duration-200 ${ isOpen ? "rotate-90" : "" }`}
+          className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
         >
           {isOpen ? (
             <ChevronDown
@@ -1301,12 +1299,12 @@ function ManualPettyCashRow({
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${ isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0" }`}
+        className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div
-              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${ isExpense ? "from-rose-200 dark:from-rose-900 to-transparent" : "from-emerald-200 dark:from-emerald-900 to-transparent" }`}
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${isExpense ? "from-rose-200 dark:from-rose-900 to-transparent" : "from-emerald-200 dark:from-emerald-900 to-transparent"}`}
             />
             <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <ManualDetailsView item={item} currency={currency} />
@@ -2030,7 +2028,7 @@ const StatsSection: React.FC<StatsSectionProps> = ({
             {s.label}
           </div>
           <div
-            className={`text-lg font-semibold ${ s.tone || "text-stone-800 dark:text-stone-100" }`}
+            className={`text-lg font-semibold ${s.tone || "text-stone-800 dark:text-stone-100"}`}
           >
             {s.value}
           </div>
@@ -2216,6 +2214,9 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
     setViewType: setPcViewType,
     search: pcSearch,
     setSearch: setPcSearch,
+    setStartDate: setPcStartDate,
+    setEndDate: setPcEndDate,
+    setShowVoided: setPcShowVoided,
     page: pcPage,
     limit: pcLimit,
     pagination: pcPagination,
@@ -2232,6 +2233,9 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
     summary: manualSummary,
     search: manualSearch,
     setSearch: setManualSearch,
+    setStartDate: setManualStartDate,
+    setEndDate: setManualEndDate,
+    setTypeFilter: setManualTypeFilter,
     page: manualPage,
     limit: manualLimit,
     pagination: manualPagination,
@@ -2243,17 +2247,40 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
   // top-level active tab drives what is rendered; kept separate from the
   // underlying hooks so switching to "manual" doesn't disturb their state
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  const [manualTypeFilter, setManualTypeFilter] =
-    useState<ManualTypeFilter>("all");
 
+  // Shared filter state — synced across both hooks so stats + table stay consistent
   const [startDate, setStartDate] = React.useState<string>("");
   const [endDate, setEndDate] = React.useState<string>("");
   const [showVoided, setShowVoided] = React.useState<boolean>(false);
+  const [manualTypeFilterLocal, setManualTypeFilterLocal] =
+    useState<ManualTypeFilter>("all");
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+
+  // Sync shared date filters to BOTH hooks so summaries and table stay in sync
+  React.useEffect(() => {
+    setPcStartDate(startDate);
+    setManualStartDate(startDate);
+  }, [startDate, setPcStartDate, setManualStartDate]);
+
+  React.useEffect(() => {
+    setPcEndDate(endDate);
+    setManualEndDate(endDate);
+  }, [endDate, setPcEndDate, setManualEndDate]);
+
+  // Sync voided filter to petty cash hook
+  React.useEffect(() => {
+    setPcShowVoided(showVoided);
+  }, [showVoided, setPcShowVoided]);
+
+  // Sync manual type filter to manual hook
+  React.useEffect(() => {
+    setManualTypeFilter(manualTypeFilterLocal);
+  }, [manualTypeFilterLocal, setManualTypeFilter]);
 
   // keep the underlying petty-cash hook's viewType in sync for the tabs it owns
   React.useEffect(() => {
@@ -2286,41 +2313,6 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
     activePage * activeLimit,
     activePagination?.totalResults || 0,
   );
-
-  // Filter data based on date and voided status (client-side filtering)
-  const filteredAllocations = React.useMemo(() => {
-    return allocations.filter((alloc) => {
-      if (showVoided && !alloc.isVoided) return false;
-      if (!showVoided && alloc.isVoided) return false;
-      if (startDate && new Date(alloc.date) < new Date(startDate)) return false;
-      if (endDate && new Date(alloc.date) > new Date(endDate)) return false;
-      return true;
-    });
-  }, [allocations, showVoided, startDate, endDate]);
-
-  const filteredExpenses = React.useMemo(() => {
-    return expenses.filter((exp) => {
-      if (showVoided && !exp.isVoided) return false;
-      if (!showVoided && exp.isVoided) return false;
-      if (startDate && new Date(exp.date) < new Date(startDate)) return false;
-      if (endDate && new Date(exp.date) > new Date(endDate)) return false;
-      return true;
-    });
-  }, [expenses, showVoided, startDate, endDate]);
-
-  const filteredManual = React.useMemo(() => {
-    return manualPettyCash.filter((item) => {
-      if (
-        manualTypeFilter !== "all" &&
-        getManualType(item) !== manualTypeFilter
-      )
-        return false;
-      if (startDate && new Date(item.createdAt) < new Date(startDate))
-        return false;
-      if (endDate && new Date(item.createdAt) > new Date(endDate)) return false;
-      return true;
-    });
-  }, [manualPettyCash, manualTypeFilter, startDate, endDate]);
 
   const handleAddPettyCash = async (input: {
     name: string;
@@ -2473,7 +2465,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                 <button
                   key={tab.value}
                   onClick={() => setActiveTab(tab.value)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${ activeTab === tab.value ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/60" }`}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.value ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/60"}`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -2516,9 +2508,9 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
 
           {isManual && (
             <select
-              value={manualTypeFilter}
+              value={manualTypeFilterLocal}
               onChange={(e) =>
-                setManualTypeFilter(e.target.value as ManualTypeFilter)
+                setManualTypeFilterLocal(e.target.value as ManualTypeFilter)
               }
               className="text-sm rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
             >
@@ -2585,13 +2577,13 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
 
               {activeTab === "allocations" && (
                 <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
-                  {filteredAllocations.length === 0 ? (
+                  {allocations.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No allocations found.</span>
                     </div>
                   ) : (
-                    filteredAllocations.map((alloc) => (
+                    allocations.map((alloc) => (
                       <AllocationRow
                         key={alloc._id}
                         allocation={alloc}
@@ -2610,13 +2602,13 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
 
               {activeTab === "expenses" && (
                 <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
-                  {filteredExpenses.length === 0 ? (
+                  {expenses.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No expenses found.</span>
                     </div>
                   ) : (
-                    filteredExpenses.map((exp) => (
+                    expenses.map((exp) => (
                       <ExpenseRow
                         key={exp._id}
                         expense={exp}
@@ -2635,7 +2627,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
 
               {isManual && (
                 <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
-                  {filteredManual.length === 0 ? (
+                  {manualPettyCash.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">
@@ -2643,7 +2635,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                       </span>
                     </div>
                   ) : (
-                    filteredManual.map((item) => (
+                    manualPettyCash.map((item) => (
                       <ManualPettyCashRow
                         key={item._id}
                         item={item}
@@ -2662,8 +2654,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
 
               {activeTab === "all" && (
                 <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
-                  {filteredAllocations.length === 0 &&
-                  filteredExpenses.length === 0 ? (
+                  {allocations.length === 0 && expenses.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No activity found.</span>
@@ -2671,7 +2662,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                   ) : (
                     <>
                       {/* Expenses first (recent) */}
-                      {filteredExpenses.slice(0, 10).map((exp) => (
+                      {expenses.slice(0, 10).map((exp) => (
                         <ExpenseRow
                           key={exp._id}
                           expense={exp}
@@ -2685,7 +2676,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                         />
                       ))}
                       {/* Then allocations */}
-                      {filteredAllocations.slice(0, 5).map((alloc) => (
+                      {allocations.slice(0, 5).map((alloc) => (
                         <AllocationRow
                           key={alloc._id}
                           allocation={alloc}
@@ -2698,23 +2689,23 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                           }
                         />
                       ))}
-                      {filteredAllocations.length > 5 && (
+                      {/* {allocations.length > 5 && (
                         <div className="px-5 py-3 text-center">
                           <button
                             onClick={() => setActiveTab("allocations")}
                             className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
                           >
-                            View all {filteredAllocations.length} allocations →
+                            View all {allocations.length} allocations →
                           </button>
                         </div>
-                      )}
-                      {filteredExpenses.length > 10 && (
+                      )} */}
+                      {expenses.length > 10 && (
                         <div className="px-5 py-3 text-center border-t border-[#EDE7DA] dark:border-[#1a2622]">
                           <button
                             onClick={() => setActiveTab("expenses")}
                             className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
                           >
-                            View all {filteredExpenses.length} expenses →
+                            View all {expenses.length} expenses →
                           </button>
                         </div>
                       )}
