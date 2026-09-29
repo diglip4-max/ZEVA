@@ -1339,9 +1339,6 @@ const NotificationLogs: React.FC = () => {
   return (
     <div className="font-body text-[#1A1A2E] dark:text-[#E8E8F0] relative px-6 sm:px-10 py-6 sm:py-10 bg-[#FAFAF8] dark:bg-[#0d1117] min-h-screen">
       <style>{`
-        .font-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .font-display { font-family: 'Fraunces', Georgia, serif; }
-        .font-mono { font-family: 'IBM Plex Mono', 'SF Mono', monospace; }
 
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: #E8E3D8; border-radius: 99px; }
@@ -1373,7 +1370,7 @@ const NotificationLogs: React.FC = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-[#C9A86C]" />
               Zeva · Communications
             </div>
-            <h2 className="m-0 font-display text-[clamp(26px,3.5vw,36px)] font-semibold tracking-tight text-[#1A1A2E] dark:text-[#E8E8F0] leading-tight">
+            <h2 className="m-0 font-display text-[clamp(26px,3.5vw,28px)] font-semibold tracking-tight text-[#1A1A2E] dark:text-[#E8E8F0] leading-tight">
               Notification Logs
             </h2>
             <p className="m-0 mt-1.5 text-sm text-[#94A3B8] dark:text-[#64748B]">

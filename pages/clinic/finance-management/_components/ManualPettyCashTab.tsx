@@ -349,11 +349,7 @@ const ManualPettyCashTab: React.FC = () => {
                   return (
                     <React.Fragment key={item._id || idx}>
                       <tr
-                        className={`${
-                          idx % 2 === 1
-                            ? "bg-stone-50/50 dark:bg-stone-800/30"
-                            : "bg-white dark:bg-stone-900"
-                        } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
+                        className={`${ idx % 2 === 1 ? "bg-stone-50/50 dark:bg-stone-800/30" : "bg-white dark:bg-stone-900" } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
                       >
                         <td className="px-5 py-3.5">
                           <button
@@ -379,7 +375,7 @@ const ManualPettyCashTab: React.FC = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold">
+                        <td className="px-5 py-3.5 text-right font-semibold">
                           <span
                             className={
                               isExpense
@@ -405,7 +401,7 @@ const ManualPettyCashTab: React.FC = () => {
                             {getAddedByLabel(item)}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 font-mono text-xs whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 text-xs whitespace-nowrap">
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
@@ -445,11 +441,7 @@ const ManualPettyCashTab: React.FC = () => {
                                       Amount
                                     </span>
                                     <span
-                                      className={`font-mono font-semibold ${
-                                        isExpense
-                                          ? "text-rose-600 dark:text-rose-400"
-                                          : "text-emerald-600 dark:text-emerald-400"
-                                      }`}
+                                      className={`font-semibold ${ isExpense ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400" }`}
                                     >
                                       {isExpense ? "−" : "+"}
                                       {formatMoney(item.amount, currency)}
@@ -491,7 +483,7 @@ const ManualPettyCashTab: React.FC = () => {
                                     <span className="text-stone-500 dark:text-stone-400">
                                       Created
                                     </span>
-                                    <span className="text-stone-800 dark:text-stone-100 font-mono text-xs">
+                                    <span className="text-stone-800 dark:text-stone-100 text-xs">
                                       {formatDateTime(item.createdAt)}
                                     </span>
                                   </div>
@@ -542,11 +534,7 @@ const ManualPettyCashTab: React.FC = () => {
                                           </div>
                                           {it.amount && (
                                             <span
-                                              className={`font-mono font-semibold text-sm ${
-                                                isExpense
-                                                  ? "text-rose-500 dark:text-rose-400"
-                                                  : "text-emerald-600 dark:text-emerald-400"
-                                              }`}
+                                              className={`font-semibold text-sm ${ isExpense ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400" }`}
                                             >
                                               {isExpense ? "−" : "+"}
                                               {formatMoney(it.amount, currency)}

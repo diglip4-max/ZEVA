@@ -44,11 +44,7 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
       {trend && (
         <div
-          className={`flex items-center gap-1 mt-2 text-xs font-semibold ${
-            trendPositive
-              ? "text-teal-600 dark:text-teal-400"
-              : "text-rose-500 dark:text-rose-400"
-          }`}
+          className={`flex items-center gap-1 mt-2 text-xs font-semibold ${ trendPositive ? "text-teal-600 dark:text-teal-400" : "text-rose-500 dark:text-rose-400" }`}
         >
           {trendPositive ? (
             <ArrowUpRight className="w-3 h-3" />

@@ -16,6 +16,8 @@ import {
 import Campaign from "../models/Campaign.js";
 import Template from "../models/Template.js";
 import Provider from "../models/Provider.js";
+import Message from "../models/Message.js";
+import { canSendWhatsAppMessage } from "./whatsapp.js";
 
 export const dispatchNotifications = async ({
   clinicId,
@@ -159,6 +161,29 @@ export const dispatchNotifications = async ({
 
       let job = null;
       if (timingMode === "immediate" && recipient === "patient" && lead) {
+        // Check if already sent the notification to multiple times for this lead on whatsapp but not response from that patient
+        if (channel === "whatsapp") {
+          const shouldSend = await canSendWhatsAppMessage({
+            clinicId,
+            leadId: lead?._id,
+            providerId,
+          });
+
+          if (!shouldSend.allowed) {
+            console.warn(
+              `[WhatsApp][SKIP] lead=${lead?._id} clinic=${clinicId} provider=${providerId} | ` +
+                `reason="${shouldSend.reason ?? "unknown"}" | ` +
+                `meta=${JSON.stringify(shouldSend.meta ?? {})}`,
+            );
+            continue;
+          }
+
+          console.info(
+            `[WhatsApp][ALLOW] lead=${lead?._id} clinic=${clinicId} provider=${providerId} | ` +
+              `meta=${JSON.stringify(shouldSend.meta ?? {})}`,
+          );
+        }
+
         job = await notificationQueue.add(
           `dispatchNotification:${channel}`,
           {
