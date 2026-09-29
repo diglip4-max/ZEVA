@@ -485,7 +485,7 @@ export default function LeadViewModal({ lead, onClose }) {
                         router.pathname?.includes("/staff/")
                       ) {
                         router.push(
-                          `/staff/clinic_inbox?leadId=${lead._id}`,
+                          `/staff/clinic-inbox?leadId=${lead._id}`,
                         );
                       }
                     }}
@@ -510,7 +510,7 @@ export default function LeadViewModal({ lead, onClose }) {
                       router.pathname?.includes("/staff/")
                     ) {
                       router.push(
-                        `/staff/clinic_email_inbox?leadId=${lead._id}`,
+                        `/staff/clinic-email-inbox?leadId=${lead._id}`,
                       );
                     }
                   }}

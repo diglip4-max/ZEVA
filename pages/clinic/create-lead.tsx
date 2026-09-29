@@ -1720,7 +1720,7 @@ const LeadsPage: NextPageWithLayout = () => {
                                         router.pathname?.includes("/staff/")
                                       ) {
                                         router.push(
-                                          `/staff/clinic_inbox?leadId=${lead._id}`,
+                                          `/staff/clinic-inbox?leadId=${lead._id}`,
                                         );
                                       }
                                     }}
@@ -1744,7 +1744,7 @@ const LeadsPage: NextPageWithLayout = () => {
                                         router.pathname?.includes("/staff/")
                                       ) {
                                         router.push(
-                                          `/staff/clinic_email_inbox?leadId=${lead._id}`,
+                                          `/staff/clinic-email-inbox?leadId=${lead._id}`,
                                         );
                                       }
                                     }}
