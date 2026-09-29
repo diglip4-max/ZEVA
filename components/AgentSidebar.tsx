@@ -315,6 +315,15 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
     Campaigns: "Clinic_Campaigns",
     Automation: "Clinic_Automation",
     "Write Blog": "clinic_write_blog",
+    // Finance Management submodules
+    "Finance Management": "clinic_finance_management",
+    Overview: "clinic_finance_overview",
+    "Bills & Payables": "clinic_finance_bills",
+    Expenses: "clinic_finance_expenses",
+    Payments: "clinic_finance_payments",
+    "Bank Accounts": "clinic_finance_bank",
+    "Cheque Manager": "clinic_finance_cheques",
+    "Vendor History": "clinic_finance_vendor",
     Locations: "clinic_stock_locations",
     "Stock Locations": "clinic_stock_locations",
     Suppliers: "clinic_stock_suppliers",
@@ -399,20 +408,26 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             if (!localPermissions || localPermissions.length === 0) return true;
             const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
             if (!parentPerm?.subModules || !Array.isArray(parentPerm.subModules)) return false;
-            const subModule = parentPerm.subModules.find((sm: any) => {
-              const smName = sm.name?.trim().toLowerCase() || "";
-              const lbl = label.trim().toLowerCase();
-              return smName === lbl || smName.includes(lbl) || lbl.includes(smName) ||
-                // Special cases (same as ClinicSidebar)
-                (lbl === "grn" && smName === "good receive note") ||
-                (lbl === "locations" && smName === "stock locations") ||
-                (lbl === "templates" && smName === "template") ||
-                (lbl === "reviews" && smName === "review") ||
-                (lbl === "inbox" && smName === "inbox") ||
-                (lbl === "pass by doctor" && smName === "pass by doctor") ||
-                (lbl === "release requested" && smName === "release requested") ||
-                (lbl === "sale products" && smName === "sale products");
-            });
+            // const smName = label.trim().toLowerCase();
+            const lbl = label.trim().toLowerCase();
+            // First try exact match
+            let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+            // If no exact match, try partial matches
+            if (!subModule) {
+              subModule = parentPerm.subModules.find((sm: any) => {
+                const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
+                return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                  // Special cases (same as ClinicSidebar)
+                  (lbl === "grn" && smNameTrimmed === "good receive note") ||
+                  (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                  (lbl === "templates" && smNameTrimmed === "template") ||
+                  (lbl === "reviews" && smNameTrimmed === "review") ||
+                  (lbl === "inbox" && smNameTrimmed === "inbox") ||
+                  (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
+                  (lbl === "release requested" && smNameTrimmed === "release requested") ||
+                  (lbl === "sale products" && smNameTrimmed === "sale products");
+              });
+            }
             if (subModule?.actions) {
               return localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
                 localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
@@ -453,20 +468,25 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               for (const parentModuleKey of ["clinic_stock", "clinic_marketing", "claims"]) {
                 const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
                 if (parentPerm?.subModules && Array.isArray(parentPerm.subModules)) {
-                  const subModule = parentPerm.subModules.find((sm: any) => {
-                    const smName = sm.name?.trim().toLowerCase() || "";
-                    const lbl = label.trim().toLowerCase();
-                    return smName === lbl || smName.includes(lbl) || lbl.includes(smName) ||
-                      // Special cases (same as ClinicSidebar)
-                      (lbl === "grn" && smName === "good receive note") ||
-                      (lbl === "locations" && smName === "stock locations") ||
-                      (lbl === "templates" && smName === "template") ||
-                      (lbl === "reviews" && smName === "review") ||
-                      (lbl === "inbox" && smName === "inbox") ||
-                      (lbl === "pass by doctor" && smName === "pass by doctor") ||
-                      (lbl === "release requested" && smName === "release requested") ||
-                      (lbl === "sale products" && smName === "sale products");
-                  });
+                  const lbl = label.trim().toLowerCase();
+                  // First try exact match
+                  let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+                  // If no exact match, try partial matches
+                  if (!subModule) {
+                    subModule = parentPerm.subModules.find((sm: any) => {
+                      const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
+                      return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                        // Special cases (same as ClinicSidebar)
+                        (lbl === "grn" && smNameTrimmed === "good receive note") ||
+                        (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                        (lbl === "templates" && smNameTrimmed === "template") ||
+                        (lbl === "reviews" && smNameTrimmed === "review") ||
+                        (lbl === "inbox" && smNameTrimmed === "inbox") ||
+                        (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
+                        (lbl === "release requested" && smNameTrimmed === "release requested") ||
+                        (lbl === "sale products" && smNameTrimmed === "sale products");
+                    });
+                  }
                   if (subModule?.actions) {
                     return localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
                       localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
@@ -518,6 +538,17 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               if (subModuleHasPerm) return true;
               // Only check parent if submodule doesn't have explicit permissions
               return localHasModulePermission("claims");
+            }
+            // Finance Management: check submodule permissions first
+            const financeSubs = ["clinic_finance_overview", "clinic_finance_bills", "clinic_finance_expenses", "clinic_finance_payments", "clinic_finance_petty_cash", "clinic_finance_bank", "clinic_finance_cheques", "clinic_finance_vendor", "clinic_finance_reports"];
+            const itemPath = "path" in item ? (item as NavItemChild).path || "" : "";
+            const isFinanceItem = financeSubs.includes(moduleKey || "") || itemPath.includes("finance-management") || lbl.includes("finance") || lbl.includes("overview") || lbl.includes("bills") || lbl.includes("expenses") || lbl.includes("payments") || lbl.includes("petty") || lbl.includes("bank") || lbl.includes("cheque") || lbl.includes("vendor");
+            if (isFinanceItem) {
+              // Check submodule permission within parent module only
+              const subModuleHasPerm = localHasSubModulePermission("clinic_finance_management", item.label);
+              if (subModuleHasPerm) return true;
+              // Only check parent if submodule doesn't have explicit permissions
+              return localHasModulePermission("clinic_finance_management");
             }
             return localHasModulePermission(moduleKey);
           };
@@ -594,6 +625,20 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           const dashboardTop = pickTop("Dashboard");
           const groupedModules: NavItem[] = [
             ...(dashboardTop ? ([{ label: (dashboardTop.label || "Dashboard").toUpperCase(), path: dashboardTop.path || "/staff/dashboard", icon: dashboardTop.icon, order: 0 }] as NavItem[]) : []),
+            {
+              label: "Finance Management", icon: "💰", headerPath: "/staff/clinic-finance-management", order: 99,
+              children: nonNull(
+                createItem("Overview", "/staff/clinic-finance-management?view=overview", "📊"),
+                createItem("Bills & Payables", "/staff/clinic-finance-management?view=billsPayable", "🧾"),
+                createItem("Expenses", "/staff/clinic-finance-management?view=expenses", "💸"),
+                createItem("Payments", "/staff/clinic-finance-management?view=payments", ""),
+                createItem("Petty Cash", "/staff/clinic-finance-management?view=pettyCash", "💵"),
+                createItem("Bank Accounts", "/staff/clinic-finance-management?view=bankAccounts", "🏦"),
+                createItem("Cheque Manager", "/staff/clinic-finance-management?view=cheques", ""),
+                createItem("Vendor History", "/staff/clinic-finance-management?view=vendorHistory", "🏪"),
+                createItem("Reports", "/staff/clinic-finance-management?view=reports", ""),
+              ),
+            },
             {
               label: "Business Management", icon: "business", order: 100,
               children: nonNull(
@@ -715,7 +760,10 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             },
           ].filter((group) => {
             if (group.path) return localShouldShowItem(group);
-            if (group.headerPath) return true;
+            if (group.headerPath) {
+              // Show headerPath groups only if they have visible children
+              return group.children && group.children.length > 0;
+            }
             return group.children && group.children.length > 0;
           });
 
@@ -751,6 +799,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               "stock management", "automation",
               "marketing", "zeva connect",
               "claim management",
+              "finance management",
             ];
             const isExtraParent = extraParentLabels.includes(toKey(i.label));
             return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance || isLegacyClaimsGroup || isExtraParent);
