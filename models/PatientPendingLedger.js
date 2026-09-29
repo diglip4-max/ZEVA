@@ -1,9 +1,6 @@
 import mongoose from "mongoose";
 
-/* ==============================
-   Per-clearance audit sub-record
-   Each clearance documents ONE allocation that paid down this ledger line.
-================================ */
+
 const clearanceSubSchema = new mongoose.Schema(
   {
     clearingBillingId: {
@@ -33,16 +30,7 @@ const clearanceSubSchema = new mongoose.Schema(
   { _id: false },
 );
 
-/* ==============================
-   Patient Pending Ledger Schema
-   Source of truth for every AED of pending balance.
-   Each row = one "open line of credit" the patient owes the clinic.
-   Enterprise-grade separate collection for:
-     - multi-branch rollups
-     - partial refunds scoped to a specific treatment/package
-     - audit trail per clearance
-     - dispute / write-off workflow
-================================ */
+
 const patientPendingLedgerSchema = new mongoose.Schema(
   {
     // Stable identifier so a payment can be re-linked even if the
@@ -95,7 +83,7 @@ const patientPendingLedgerSchema = new mongoose.Schema(
     // Source identity (the treatment / package that generated this pending amount)
     service: {
       type: String,
-      enum: ["Treatment", "Package", "Service"],
+      enum: ["Treatment", "Package", "Service", "claim"],
       required: true,
     },
     treatmentSlug: { type: String, trim: true, index: true },

@@ -215,10 +215,7 @@ export default async function handler(req, res) {
     console.log(`[Patient Balance] === Claim Amount Calculation for patientId: ${patientId} ===`);
     console.log(`[Patient Balance] Total claims found: ${claims.length}`);
     for (const c of claims) {
-      // Available claim balance is based on advanceAmount for all claim types
-      // For Paid type: advanceAmount is set at creation or increased by pendingClaimUsed payments
-      // For Advance type: advanceAmount increases as pendingClaimUsed payments are made
-      // Deduct co-pay % before adding to claim balance
+      
       const advanceAmt = Number(c.advanceAmount || 0);
       const coPayPct = Number(c.coPayPercent || 0);
       const pendingAmt = Number(c.pendingClaim || 0);
@@ -247,10 +244,6 @@ export default async function handler(req, res) {
     );
     console.log(`[Patient Balance] totalClaimAmountUsed (from billings): ${totalClaimAmountUsed}`);
 
-    // Claim credit transfers (ClaimCreditTransfer ledger, additive layer):
-    //   transfers OUT reduce the source patient's usable credit,
-    //   transfers IN increase the destination patient's usable credit.
-    // InsuranceClaim and Billing stay untouched — the ledger is the
     // source of truth for transfers, exactly like the pending ledger below.
     let claimTransferOut = 0;
     let claimTransferIn = 0;
@@ -269,7 +262,7 @@ export default async function handler(req, res) {
       claimTransferOut = Number(outAgg?.total || 0);
       claimTransferIn = Number(inAgg?.total || 0);
     }
-    console.log(`[Patient Balance] claimTransferOut: ${claimTransferOut}, claimTransferIn: ${claimTransferIn}`);
+    // console.log(`[Patient Balance] claimTransferOut: ${claimTransferOut}, claimTransferIn: ${claimTransferIn}`);
 
     // Calculate remaining claim amount
     const claimAmount = Math.max(
@@ -283,8 +276,8 @@ export default async function handler(req, res) {
         ).toFixed(2)
       )
     );
-    console.log(`[Patient Balance] FINAL claimAmount = totalClaimAmount(${totalClaimAmount}) - totalClaimAmountUsed(${totalClaimAmountUsed}) - claimTransferOut(${claimTransferOut}) + claimTransferIn(${claimTransferIn}) = ${claimAmount}`);
-    console.log(`[Patient Balance] === End Claim Amount Calculation ===`);
+    // console.log(`[Patient Balance] FINAL claimAmount = totalClaimAmount(${totalClaimAmount}) - totalClaimAmountUsed(${totalClaimAmountUsed}) - claimTransferOut(${claimTransferOut}) + claimTransferIn(${claimTransferIn}) = ${claimAmount}`);
+    // console.log(`[Patient Balance] === End Claim Amount Calculation ===`);
     
     // Calculate total pending claim amount from ALL claims (any status)
     // The claim's pendingClaim field is the authoritative source - it is directly updated

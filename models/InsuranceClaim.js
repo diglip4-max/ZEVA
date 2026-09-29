@@ -202,6 +202,13 @@ const InsuranceClaimSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Extra amount added during approval that gets added to pendingClaim
+    advancePendingAmountAdded: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     // Advance-specific fields
     advanceStatus: {
       type: String,
@@ -421,9 +428,8 @@ InsuranceClaimSchema.index({ patientId: 1, createdAt: -1 });
 
 // Pre-save hook: auto-calculate advanceAmount and pendingClaim
 InsuranceClaimSchema.pre("save", function (next) {
-  // For Advance type claims: advanceAmount stays 0 (no payment made yet)
-  // Only claimAmount and pendingClaim store values
-  if (this.claimType === "Advance") {
+  // For Advance type claims: advanceAmount stays 0 unless Partial Pay with amount paid
+  if (this.claimType === "Advance" && this.advanceStatus !== "Partial Pay") {
     this.advanceAmount = 0;
   }
 
@@ -431,10 +437,16 @@ InsuranceClaimSchema.pre("save", function (next) {
   // We skip this on existing docs to avoid overwriting payment reductions
   // made by pay-pending-claim and create-patient-registration APIs.
   if (this.isNew) {
+    const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
     if (this.claimType === "Advance") {
-      // Advance claim: full claim amount is pending (service given now, paid later)
-      const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
-      this.pendingClaim = baseAmount;
+      if (this.advanceStatus === "Partial Pay") {
+        // Advance Partial Pay: pending = base - advance paid (paid amount contributes to available balance)
+        const paidAmount = Number(this.advanceAmount || 0);
+        this.pendingClaim = Math.max(0, baseAmount - paidAmount);
+      } else {
+        // Advance claim: full claim amount is pending (service given now, paid later)
+        this.pendingClaim = baseAmount;
+      }
     } else {
       // Paid claim: pending = base - advance already paid (no co-pay deduction)
       const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);

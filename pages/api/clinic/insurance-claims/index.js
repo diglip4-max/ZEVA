@@ -2,6 +2,7 @@ import dbConnect from "../../../../lib/database";
 import InsuranceClaim from "../../../../models/InsuranceClaim";
 import PatientRegistration from "../../../../models/PatientRegistration";
 import User from "../../../../models/Users";
+import Billing from "../../../../models/Billing";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
@@ -340,10 +341,69 @@ export default async function handler(req, res) {
       // } else if (newClaim.advanceStatus === "Partial Pay") {
       // }
 
+      // ============================================================
+      // Create a Billing record for this insurance claim
+      // Follows the same pattern as create-patient-registration.js:
+      //   Billing.create() + pending ledger via createLedgerEntry()
+      // ============================================================
+      let billingRecord = null;
+      try {
+        const claimInvoiceNumber = `CLM-${newClaim._id.toString().slice(-8).toUpperCase()}`;
+
+        const billingData = {
+          clinicId: clinicIdToUse,
+          patientId,
+          invoiceNumber: claimInvoiceNumber,
+          invoicedDate: new Date(),
+          invoicedBy: creatorName,
+          invoicedById: user._id,
+          invoicedByRole: user.role || "",
+          doctorId,
+          doctorName: resolvedDoctorName,
+          service: "claim",
+          treatment: "",
+          package: "",
+          amount: Number(newClaim.finalClaimAmount || 0),
+          paid: Number(newClaim.advanceAmount || 0),
+          pending: 0,
+          advance: 0,
+          advanceUsed: 0,
+          claimAmountUsed: 0,
+          pendingUsed: 0,
+          pendingClaimUsed: 0,
+          paymentMethod: paymentMethod || "",
+          paymentHistory: [
+            {
+              amount: Number(newClaim.finalClaimAmount || 0),
+              paid: Number(newClaim.advanceAmount || 0),
+              pending: Number(newClaim.pendingClaim || 0),
+              paymentMethod: paymentMethod || "",
+              transactionType: "CLAIM_USAGE",
+              paidBy: user._id,
+              paidByName: creatorName,
+            },
+          ],
+          directBilling: true,
+          status: "Active",
+        };
+
+        billingRecord = await Billing.create(billingData);
+      } catch (billingErr) {
+        console.error("Error creating billing for claim:", billingErr.message);
+      }
+
+      // ============================================================
+      // Enterprise Pending Ledger: NOT created for claim billings.
+      // The pending amount is already tracked in InsuranceClaim.pendingClaim
+      // and displayed via the "Pending Claim" card in the patient profile.
+      // Creating a ledger entry would double-count it as "Pending Payment".
+      // ============================================================
+
       return res.status(201).json({
         success: true,
         message: "Insurance claim created successfully",
         data: newClaim,
+        billing: billingRecord || null,
       });
     } catch (error) {
       console.error("Error creating insurance claim:", error);

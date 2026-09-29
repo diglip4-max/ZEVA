@@ -490,11 +490,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   {/* Results dropdown */}
                   {searchResults.length > 0 && (
                     <div
-                      className="fixed bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-[9999] max-h-80 overflow-y-auto"
+                      className="fixed bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-[9999] max-h-80 overflow-y-auto min-w-[320px] sm:min-w-[380px]"
                       style={{
                         top: searchDropdownPos.top,
                         left: searchDropdownPos.left,
-                        width: searchDropdownPos.width,
+                        width: Math.max(searchDropdownPos.width, 380),
+                        maxWidth: 'calc(100vw - 32px)',
                       }}
                     >
                       <div className="px-3 py-2 border-b border-gray-100 dark:border-zinc-800">
@@ -512,16 +513,16 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                             {item.icon}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{item.label}</span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate flex-1" title={item.label}>{item.label}</span>
                               {item.parentLabel && (
-                                <span className="text-[10px] text-[#2D9AA5] dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                                <span className="text-[10px] text-[#2D9AA5] dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-1.5 py-0.5 rounded font-medium flex-shrink-0 truncate max-w-[120px]" title={item.parentLabel}>
                                   {item.parentLabel}
                                 </span>
                               )}
                             </div>
                             {item.description && item.description !== item.label && (
-                              <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate">{item.description}</p>
+                              <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate" title={item.description}>{item.description}</p>
                             )}
                           </div>
                           <svg className="w-3.5 h-3.5 text-gray-300 dark:text-zinc-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

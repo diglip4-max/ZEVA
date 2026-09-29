@@ -4932,6 +4932,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                         Benefits: <span className={`font-medium ${isExpired ? 'text-red-800' : 'text-gray-700'}`}>{plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount, {plan?.durationMonths || 0} months</span>
                                       </div>
                                     </div>
+                                    {permissions?.canDelete && (
                                     <button
                                       type="button"
                                       className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -4940,6 +4941,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
+                                    )}
                                   </div>
 
                                   {usage && !usage.isExpired && (usage.totalFreeConsultations || 0) > 0 && (() => {
@@ -5492,6 +5494,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                       {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})</span>}
                                       {paymentStatus === 'Unpaid' && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[7px] font-black uppercase">Unpaid</span>}
                                     </div>
+                                    {permissions?.canDelete && (
                                     <button
                                       type="button"
                                       className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -5500,6 +5503,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
+                                    )}
                                   </div>
                                   <div className={`mt-0.5 flex flex-wrap items-center gap-2 ${isExpired ? 'text-red-600' : 'text-gray-600'}`}>
                                     <span className="font-medium">{pkg?.totalSessions} sessions</span>
