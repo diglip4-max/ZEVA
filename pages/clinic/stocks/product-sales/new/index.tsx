@@ -1,4 +1,4 @@
-﻿import ClinicLayout from "@/components/ClinicLayout";
+import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, {
@@ -21,6 +21,7 @@ import {
   CreditCard,
   Package,
   ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import usePaymentMethod from "@/hooks/usePaymentMethod";
@@ -508,35 +509,38 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     return cartItem?.uom || null;
   };
 
-  const getProductPricesPerUnit = (id: string, uom: string) => {
-    const allocatedItem = items.find((i) => i._id === id);
-    if (!allocatedItem) return { costPrice: 0, salePrice: 0 };
-    if (allocatedItem.item.level0?.uom === uom)
-      return {
-        costPrice: allocatedItem.item.level0.price,
-        salePrice:
-          allocatedItem.item.level0.salePrice > 0
-            ? allocatedItem.item.level0.salePrice
-            : allocatedItem.item.level0.price,
-      };
-    if (allocatedItem.item.packagingStructure?.level1?.uom === uom)
-      return {
-        costPrice: allocatedItem.item.packagingStructure?.level1?.price || 0,
-        salePrice:
-          allocatedItem.item.packagingStructure?.level1?.salePrice > 0
-            ? allocatedItem.item.packagingStructure?.level1?.salePrice
-            : allocatedItem.item.packagingStructure?.level1?.price || 0,
-      };
-    if (allocatedItem.item.packagingStructure?.level2?.uom === uom)
-      return {
-        costPrice: allocatedItem.item.packagingStructure?.level2?.price || 0,
-        salePrice:
-          allocatedItem.item.packagingStructure?.level2?.salePrice > 0
-            ? allocatedItem.item.packagingStructure?.level2?.salePrice
-            : allocatedItem.item.packagingStructure?.level2?.price || 0,
-      };
-    return { costPrice: 0, salePrice: 0 };
-  };
+  const getProductPricesPerUnit = useCallback(
+    (id: string, uom: string) => {
+      const allocatedItem = items.find((i) => i._id === id);
+      if (!allocatedItem) return { costPrice: 0, salePrice: 0 };
+      if (allocatedItem.item.level0?.uom === uom)
+        return {
+          costPrice: allocatedItem.item.level0.price,
+          salePrice:
+            allocatedItem.item.level0.salePrice > 0
+              ? allocatedItem.item.level0.salePrice
+              : allocatedItem.item.level0.price,
+        };
+      if (allocatedItem.item.packagingStructure?.level1?.uom === uom)
+        return {
+          costPrice: allocatedItem.item.packagingStructure?.level1?.price || 0,
+          salePrice:
+            allocatedItem.item.packagingStructure?.level1?.salePrice > 0
+              ? allocatedItem.item.packagingStructure?.level1?.salePrice
+              : allocatedItem.item.packagingStructure?.level1?.price || 0,
+        };
+      if (allocatedItem.item.packagingStructure?.level2?.uom === uom)
+        return {
+          costPrice: allocatedItem.item.packagingStructure?.level2?.price || 0,
+          salePrice:
+            allocatedItem.item.packagingStructure?.level2?.salePrice > 0
+              ? allocatedItem.item.packagingStructure?.level2?.salePrice
+              : allocatedItem.item.packagingStructure?.level2?.price || 0,
+        };
+      return { costPrice: 0, salePrice: 0 };
+    },
+    [items],
+  );
 
   // Derived values
   const cartItems = useMemo(() => {
@@ -553,66 +557,89 @@ const NewProductSalesPage: NextPageWithLayout = () => {
         return { item, cartItem, prices, effectivePrice, commission };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-  }, [cart, items]);
+  }, [cart, items, getProductPricesPerUnit]);
 
-  const subtotal = cartItems.reduce(
-    (sum, entry) => sum + entry.effectivePrice * entry.cartItem.quantity,
-    0,
+  const subtotal = useMemo(
+    () =>
+      cartItems.reduce(
+        (sum, entry) => sum + entry.effectivePrice * entry.cartItem.quantity,
+        0,
+      ),
+    [cartItems],
   );
 
-  const totalCommission = cartItems.reduce(
-    (sum, entry) => sum + entry.commission,
-    0,
+  const totalCommission = useMemo(
+    () => cartItems.reduce((sum, entry) => sum + entry.commission, 0),
+    [cartItems],
   );
 
   // Previous pending balance is automatically added to total
   const previousPending = balances.pendingBalance || 0;
-  const total = subtotal + previousPending;
+  const total = useMemo(
+    () => subtotal + previousPending,
+    [subtotal, previousPending],
+  );
 
   // Calculate payment values - user only pays what they're paying now, not including previous pending
-  const totalApplied = paidAmount + advanceUsed + claimAmountUsed;
+  const totalApplied = useMemo(
+    () => paidAmount + advanceUsed + claimAmountUsed,
+    [paidAmount, advanceUsed, claimAmountUsed],
+  );
   // New pending amount is (subtotal + previous pending) - (paid + advance + claim)
-  const pendingAmount = Math.max(0, total - totalApplied);
+  const pendingAmount = useMemo(
+    () => Math.max(0, total - totalApplied),
+    [total, totalApplied],
+  );
 
   // Calculate detailed breakdown
-  const pendingCleared = Math.min(
-    Math.max(0, totalApplied - subtotal),
-    previousPending,
+  const pendingCleared = useMemo(
+    () => Math.min(Math.max(0, totalApplied - subtotal), previousPending),
+    [totalApplied, subtotal, previousPending],
   );
-  const newAdvanceCreated = Math.max(0, totalApplied - total);
+  const newAdvanceCreated = useMemo(
+    () => Math.max(0, totalApplied - total),
+    [totalApplied, total],
+  );
 
-  // Advance and claim are still optional but can be used
+  // SINGLE sync of both advance + claim auto-application.
+  // Done atomically in ONE updater to eliminate the render-loop cascade that used to
+  // happen between the previous two separate useEffect blocks (advance effect fired,
+  // changed advanceUsed → rerender → claim effect fired → another rerender → blink).
   useEffect(() => {
-    if (selectedPatient && applyAdvance && balances.advanceBalance > 0) {
-      // Auto use advance to cover part of the current subtotal if possible
-      const availableForAdvance = Math.max(
-        0,
-        total - paidAmount - claimAmountUsed,
-      );
-      setAdvanceUsed(Math.min(balances.advanceBalance, availableForAdvance));
-    } else {
-      setAdvanceUsed(0);
+    if (!selectedPatient) {
+      if (advanceUsed !== 0) setAdvanceUsed(0);
+      if (claimAmountUsed !== 0) setClaimAmountUsed(0);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    const totalRemaining = Math.max(0, total - paidAmount);
+    let nextAdvance = 0;
+    let nextClaim = 0;
+    let remaining = totalRemaining;
+
+    // Advance first (prefer advance per original logic)
+    if (applyAdvance && balances.advanceBalance > 0 && remaining > 0) {
+      nextAdvance = Math.min(balances.advanceBalance, remaining);
+      remaining -= nextAdvance;
+    }
+    // Then claim on whatever is left
+    if (balances.claimAmount > 0 && remaining > 0) {
+      nextClaim = Math.min(balances.claimAmount, remaining);
+    }
+
+    // Only set if actually different to avoid pointless rerenders
+    if (nextAdvance !== advanceUsed) setAdvanceUsed(nextAdvance);
+    if (nextClaim !== claimAmountUsed) setClaimAmountUsed(nextClaim);
   }, [
     selectedPatient,
     applyAdvance,
     balances.advanceBalance,
+    balances.claimAmount,
     total,
     paidAmount,
+    advanceUsed,
     claimAmountUsed,
   ]);
-
-  useEffect(() => {
-    if (selectedPatient && balances.claimAmount > 0) {
-      // Auto use claim to cover part of the current subtotal if possible
-      const availableForClaim = Math.max(0, total - paidAmount - advanceUsed);
-      setClaimAmountUsed(Math.min(balances.claimAmount, availableForClaim));
-    } else {
-      setClaimAmountUsed(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPatient, balances.claimAmount, total, paidAmount, advanceUsed]);
 
   const canCheckout =
     cartCount > 0 &&
@@ -832,13 +859,33 @@ const NewProductSalesPage: NextPageWithLayout = () => {
       {/* Header Section */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-              Product Sales & Dispensing
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Follow these steps to complete the sale
-            </p>
+          <div className="flex items-start sm:items-center gap-4">
+            {/* Back Button */}
+            <button
+              className="group flex items-center justify-center w-10 h-10 rounded-xl 
+                   bg-white border border-gray-200 shadow-sm
+                   hover:bg-gray-50 hover:border-gray-300 hover:shadow-md
+                   active:scale-95
+                   transition-all duration-200 ease-in-out
+                   focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              aria-label="Go back"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600 group-hover:text-gray-900 transition-colors duration-200" />
+            </button>
+
+            {/* Title Section */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                  Product Sales &amp; Dispensing
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Follow these steps to complete the sale
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1211,7 +1258,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                                         </span>
                                       </div>
                                       <div className="text-sm font-semibold text-teal-600">
-                                        {getCurrencySymbol(currency)} {prices.salePrice.toFixed(2)}
+                                        {getCurrencySymbol(currency)}{" "}
+                                        {prices.salePrice.toFixed(2)}
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200">
@@ -1382,7 +1430,9 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-600">Price:</span>
                           <div className="flex-1 flex items-center gap-2">
-                            <span className="text-sm text-gray-800">{getCurrencySymbol(currency)}</span>
+                            <span className="text-sm text-gray-800">
+                              {getCurrencySymbol(currency)}
+                            </span>
                             <input
                               type="number"
                               step="0.01"
@@ -1413,7 +1463,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                               Commission:
                             </span>
                             <span className="text-xs text-purple-600 font-semibold">
-                              {getCurrencySymbol(currency)} {entry.commission.toFixed(2)}
+                              {getCurrencySymbol(currency)}{" "}
+                              {entry.commission.toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1604,7 +1655,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-text-muted">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
-                        {getCurrencySymbol(currency)} {previousPending.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {previousPending.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1623,19 +1675,22 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-text-muted">Advance Balance:</span>
                     <span className="font-medium text-teal-600">
-                      {getCurrencySymbol(currency)} {balances.advanceBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {balances.advanceBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-text-muted">Pending Balance:</span>
                     <span className="font-medium text-orange-600">
-                      {getCurrencySymbol(currency)} {balances.pendingBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {balances.pendingBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-text-muted">Claim Amount:</span>
                     <span className="font-medium text-blue-600">
-                      {getCurrencySymbol(currency)} {balances.claimAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {balances.claimAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1651,7 +1706,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                     />
                     <span className="text-sm text-gray-700">
-                      Use Advance Balance ({getCurrencySymbol(currency)} {advanceUsed.toFixed(2)})
+                      Use Advance Balance ({getCurrencySymbol(currency)}{" "}
+                      {advanceUsed.toFixed(2)})
                     </span>
                   </label>
                 </div>
@@ -1670,7 +1726,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-blue-600">
                       <span>Claim Applied:</span>
                       <span className="font-semibold">
-                        {getCurrencySymbol(currency)} {claimAmountUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {claimAmountUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1682,7 +1739,9 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     Amount Paid Now
                   </label>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{getCurrencySymbol(currency)}</span>
+                    <span className="text-sm text-gray-600">
+                      {getCurrencySymbol(currency)}
+                    </span>
                     <input
                       type="number"
                       step="0.01"
@@ -1713,7 +1772,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         Previous Pending Cleared:
                       </span>
                       <span className="font-semibold text-orange-600">
-                        {getCurrencySymbol(currency)} {pendingCleared.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {pendingCleared.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1723,7 +1783,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         New Advance Created:
                       </span>
                       <span className="font-semibold text-teal-600">
-                        {getCurrencySymbol(currency)} {newAdvanceCreated.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {newAdvanceCreated.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1889,7 +1950,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                             {entry.item.item.name}
                           </span>
                           <div className="text-xs text-gray-500">
-                            {entry.cartItem.quantity} {entry.cartItem.uom} × {getCurrencySymbol(currency)}{" "}
+                            {entry.cartItem.quantity} {entry.cartItem.uom} ×{" "}
+                            {getCurrencySymbol(currency)}{" "}
                             {entry.prices.salePrice.toFixed(2)}
                           </div>
                         </div>
@@ -1911,14 +1973,16 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-text-muted">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
-                      {getCurrencySymbol(currency)} {currentSaleData.subtotal.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.subtotal.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.previousPending > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-text-muted">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
-                        {getCurrencySymbol(currency)} {currentSaleData.previousPending.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {currentSaleData.previousPending.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1927,7 +1991,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Payable:
                     </span>
                     <span className="text-xl font-bold text-teal-600">
-                      {getCurrencySymbol(currency)} {currentSaleData.total.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.total.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1938,16 +2003,20 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     Payment Breakdown
                   </h4>
                   <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Paid Now (Cash/Card):</span>
+                    <span className="text-text-muted">
+                      Paid Now (Cash/Card):
+                    </span>
                     <span className="font-semibold text-gray-900">
-                      {getCurrencySymbol(currency)} {currentSaleData.paidAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.paidAmount.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.advanceUsed > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-teal-600">Advance Used:</span>
                       <span className="font-semibold text-teal-600">
-                        {getCurrencySymbol(currency)} {currentSaleData.advanceUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {currentSaleData.advanceUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1955,7 +2024,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-blue-600">Claim Used:</span>
                       <span className="font-semibold text-blue-600">
-                        {getCurrencySymbol(currency)} {currentSaleData.claimAmountUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {currentSaleData.claimAmountUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1964,14 +2034,16 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Applied:
                     </span>
                     <span className="font-semibold text-gray-900">
-                      {getCurrencySymbol(currency)} {currentSaleData.totalApplied.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.totalApplied.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.pendingCleared > 0 && (
                     <div className="flex justify-between text-sm text-orange-600">
                       <span>Previous Pending Cleared:</span>
                       <span className="font-semibold">
-                        {getCurrencySymbol(currency)} {currentSaleData.pendingCleared.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {currentSaleData.pendingCleared.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1979,7 +2051,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-sm text-teal-600">
                       <span>New Advance Created:</span>
                       <span className="font-semibold">
-                        {getCurrencySymbol(currency)} {currentSaleData.newAdvanceCreated.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {currentSaleData.newAdvanceCreated.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1992,7 +2065,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                           : "text-gray-900"
                       }`}
                     >
-                      {getCurrencySymbol(currency)} {currentSaleData.pendingAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.pendingAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -2005,7 +2079,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-teal-700">New Advance Balance:</span>
                     <span className="font-semibold text-teal-700">
-                      {getCurrencySymbol(currency)} {currentSaleData.newAdvanceBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.newAdvanceBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -2013,7 +2088,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       New Pending Balance:
                     </span>
                     <span className="font-semibold text-orange-700">
-                      {getCurrencySymbol(currency)} {currentSaleData.newPendingBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)}{" "}
+                      {currentSaleData.newPendingBalance.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -2113,9 +2189,12 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   {transaction.previousPending &&
                     parseFloat(transaction.previousPending) > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-text-muted">Previous Pending:</span>
+                        <span className="text-text-muted">
+                          Previous Pending:
+                        </span>
                         <span className="font-semibold text-orange-600">
-                          {getCurrencySymbol(currency)} {transaction.previousPending}
+                          {getCurrencySymbol(currency)}{" "}
+                          {transaction.previousPending}
                         </span>
                       </div>
                     )}
@@ -2147,7 +2226,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-teal-600">Advance Used:</span>
                         <span className="font-semibold text-teal-600">
-                          {getCurrencySymbol(currency)} {transaction.advanceUsed}
+                          {getCurrencySymbol(currency)}{" "}
+                          {transaction.advanceUsed}
                         </span>
                       </div>
                     )}
@@ -2156,7 +2236,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-blue-600">Claim Used:</span>
                         <span className="font-semibold text-blue-600">
-                          {getCurrencySymbol(currency)} {transaction.claimAmountUsed}
+                          {getCurrencySymbol(currency)}{" "}
+                          {transaction.claimAmountUsed}
                         </span>
                       </div>
                     )}
@@ -2173,7 +2254,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm text-orange-600">
                         <span>Previous Pending Cleared:</span>
                         <span className="font-semibold">
-                          {getCurrencySymbol(currency)} {transaction.pendingCleared}
+                          {getCurrencySymbol(currency)}{" "}
+                          {transaction.pendingCleared}
                         </span>
                       </div>
                     )}
@@ -2182,7 +2264,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm text-teal-600">
                         <span>New Advance Created:</span>
                         <span className="font-semibold">
-                          {getCurrencySymbol(currency)} {transaction.newAdvanceCreated}
+                          {getCurrencySymbol(currency)}{" "}
+                          {transaction.newAdvanceCreated}
                         </span>
                       </div>
                     )}
@@ -2211,13 +2294,15 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-teal-700">Advance Balance:</span>
                     <span className="font-semibold text-teal-700">
-                      {getCurrencySymbol(currency)} {transaction.newAdvanceBalance}
+                      {getCurrencySymbol(currency)}{" "}
+                      {transaction.newAdvanceBalance}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-orange-700">Pending Balance:</span>
                     <span className="font-semibold text-orange-700">
-                      {getCurrencySymbol(currency)} {transaction.newPendingBalance}
+                      {getCurrencySymbol(currency)}{" "}
+                      {transaction.newPendingBalance}
                     </span>
                   </div>
                 </div>
