@@ -109,14 +109,16 @@ export default async function handler(req, res) {
         ? sortBy
         : "createdAt";
 
-      // Build query - ensure clinicId is string
-      const clinicIdStr = String(clinicId);
-      let query = { clinicId: clinicIdStr };
+      // Normalize clinicId to ObjectId so it works for find AND aggregate
+      const clinicIdObj = new mongoose.Types.ObjectId(clinicId);
+
+      // Build query - use ObjectId consistently
+      let query = { clinicId: clinicIdObj };
 
       if (search) {
         // First find patient IDs that match search
         const matchingPatients = await PatientRegistration.find(
-          { clinicId },
+          { clinicId: clinicIdObj },
           { _id: 1 },
         ).or([
           { firstName: { $regex: search, $options: "i" } },
@@ -148,15 +150,21 @@ export default async function handler(req, res) {
       }
 
       if (patientId) {
-        query.patientId = patientId;
+        query.patientId = mongoose.isValidObjectId(patientId)
+          ? new mongoose.Types.ObjectId(patientId)
+          : patientId;
       }
 
       if (paymentMethodId) {
-        query.paymentMethodId = paymentMethodId;
+        query.paymentMethodId = mongoose.isValidObjectId(paymentMethodId)
+          ? new mongoose.Types.ObjectId(paymentMethodId)
+          : paymentMethodId;
       }
 
       if (userId) {
-        query.soldBy = userId;
+        query.soldBy = mongoose.isValidObjectId(userId)
+          ? new mongoose.Types.ObjectId(userId)
+          : userId;
       }
 
       if (startDate || endDate) {
@@ -184,10 +192,8 @@ export default async function handler(req, res) {
         .limit(limit)
         .lean();
 
-      // Statistics - use the full query (including all filters)
-      // Create a copy of query for aggregation, ensuring clinicId is string
+      // Aggregation query — reuse the same query object (already ObjectIds)
       const aggQuery = { ...query };
-      aggQuery.clinicId = clinicIdStr;
 
       const stats = await ProductSale.aggregate([
         { $match: aggQuery },
@@ -229,24 +235,24 @@ export default async function handler(req, res) {
       const totalPages = Math.ceil(totalRecords / limit);
       const hasMore = page < totalPages;
 
-      // Distinct filters
+      // Distinct filters — use ObjectId
       const distinctStatuses = await ProductSale.distinct("status", {
-        clinicId: clinicIdStr,
+        clinicId: clinicIdObj,
       });
       const distinctPaymentStatuses = await ProductSale.distinct(
         "paymentStatus",
-        { clinicId: clinicIdStr },
+        { clinicId: clinicIdObj },
       );
       const distinctPaymentMethods = await ProductSale.distinct(
         "paymentMethodId",
-        { clinicId: clinicIdStr },
+        { clinicId: clinicIdObj },
       );
 
       // Get all users for filter dropdown
       const users = await User.find({
         $or: [
-          { clinicId: clinicId },
-          { _id: (await Clinic.findOne({ _id: clinicId }))?.owner },
+          { clinicId: clinicIdObj },
+          { _id: (await Clinic.findOne({ _id: clinicIdObj }))?.owner },
         ],
       }).select("_id name email");
 
@@ -360,8 +366,6 @@ export default async function handler(req, res) {
       );
 
       const topSellers = topSellersAgg;
-
-      console.log({ stats });
 
       return res.status(200).json({
         success: true,
@@ -532,8 +536,6 @@ export default async function handler(req, res) {
         status: "active",
       });
 
-      console.log({ paymentMethod, paymentMethodId });
-
       if (!paymentMethod) {
         return res.status(404).json({
           success: false,
@@ -599,23 +601,23 @@ export default async function handler(req, res) {
               });
             }
 
-            if (!it.code || !it.code.trim()) {
-              await session.abortTransaction();
-              session.endSession();
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: code is required`,
-              });
-            }
+            // if (!it.code || !it.code.trim()) {
+            //   await session.abortTransaction();
+            //   session.endSession();
+            //   return res.status(400).json({
+            //     success: false,
+            //     message: `Item ${i + 1}: code is required`,
+            //   });
+            // }
 
-            if (!it.description || !it.description.trim()) {
-              await session.abortTransaction();
-              session.endSession();
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: description is required`,
-              });
-            }
+            // if (!it.description || !it.description.trim()) {
+            //   await session.abortTransaction();
+            //   session.endSession();
+            //   return res.status(400).json({
+            //     success: false,
+            //     message: `Item ${i + 1}: description is required`,
+            //   });
+            // }
 
             const qty = Number(quantity || 0);
             if (qty <= 0) {
@@ -688,8 +690,6 @@ export default async function handler(req, res) {
             totalCommission += finalCommission;
           }
         }
-
-        console.log({ totalCommission });
 
         // Validate status and payment status
         const validStatuses = [
@@ -894,7 +894,6 @@ export default async function handler(req, res) {
         });
 
         const savedBilling = await billingRecord.save({ session });
-        console.log({ savedBilling });
 
         // If we cleared pending, update the previous billing records to clear it
         if (pendingCleared > 0) {
