@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import ConsentSignature from "../../../models/ConsentSignature";
 import Consent from "../../../models/Consent";
+import ConsentLog from "../../../models/ConsentLog";
 import PatientRegistration from "../../../models/PatientRegistration";
 
 export default async function handler(req, res) {
@@ -74,6 +75,31 @@ export default async function handler(req, res) {
         appointmentId: appointmentId || null,
         status: "signed",
       });
+
+      // Update the corresponding ConsentLog status to "signed"
+      // Try to match by patientId first, then by patientName
+      const logUpdateQuery = {
+        consentFormId,
+        status: "sent",
+      };
+      
+      if (resolvedPatientId) {
+        logUpdateQuery.patientId = resolvedPatientId;
+      } else if (patientName) {
+        logUpdateQuery.patientName = patientName;
+      }
+      
+      if (logUpdateQuery.patientId || logUpdateQuery.patientName) {
+        await ConsentLog.updateMany(
+          logUpdateQuery,
+          {
+            $set: {
+              status: "signed",
+              signedAt: new Date(),
+            },
+          }
+        );
+      }
 
       return res.status(201).json({
         success: true,

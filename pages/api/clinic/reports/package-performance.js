@@ -593,8 +593,8 @@ export default async function handler(req, res) {
     });
 
     // Combined summary: all metrics from the same filtered match (selected date range)
-    // Use the same grouping logic as packages-sold.js: group by { patientId, package }
-    // Build sales staff filter for combined summary (ObjectId or name)
+    // Use per-billing grouping (not unique patient+package) so repeat purchases count separately
+    // Build sales staff filter for combined summary - use packageSoldBy from PatientRegistration
     const combinedSalesStaffFilter = salesStaffId ? (() => {
       const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
       return isValidObjectId 
@@ -667,13 +667,20 @@ export default async function handler(req, res) {
       },
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$__packageName" },
+          // Include billingId to count EACH billing separately (not unique patient+package)
+          _id: { patientId: "$patientId", package: "$__packageName", billingId: "$_id" },
           // For mixed billings (Package + Treatment), only count package portion
+          // Apply proportional discount: treatment price * (amount / originalAmount)
           totalPaid: { $sum: { $subtract: [
             { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
             { $cond: [
               { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
-              { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+              {
+                $multiply: [
+                  { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                  { $divide: ["$amount", { $ifNull: ["$originalAmount", "$amount"] }] }
+                ]
+              },
               0,
             ] },
           ] } },
@@ -739,6 +746,86 @@ export default async function handler(req, res) {
 
     // ── DEBUG: Log combined summary ───────────────────────────────────
     console.log('[PKG_PERF_DEBUG] Combined summary aggregation raw result:', combinedSummaryAgg);
+
+    // ── DEBUG: Log individual billing breakdown for Total Revenue and Paid Revenue ─
+    try {
+      const breakdownPipeline = [
+        { $match: { ...match, service: "Package" } },
+        {
+          $addFields: {
+            __packageName: "$package"
+          }
+        },
+        {
+          $group: {
+            _id: { patientId: "$patientId", package: "$__packageName", billingId: "$_id" },
+            invoiceNumber: { $first: "$invoiceNumber" },
+            packageName: { $first: "$__packageName" },
+            amount: { $first: "$amount" },
+            originalAmount: { $first: "$originalAmount" },
+            paid: { $first: "$paid" },
+            pending: { $first: "$pending" },
+            selectedTreatments: { $first: "$selectedTreatments" },
+            totalPaid: {
+              $sum: {
+                $subtract: [
+                  { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }] },
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ["$service", "Package"] },
+                          { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }
+                        ]
+                      },
+                      {
+                        $multiply: [
+                          {
+                            $sum: {
+                              $map: {
+                                input: "$selectedTreatments",
+                                as: "st",
+                                in: {
+                                  $multiply: [
+                                    { $ifNull: ["$$st.price", 0] },
+                                    { $ifNull: ["$$st.quantity", 1] }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          { $divide: ["$amount", { $ifNull: ["$originalAmount", "$amount"] }] }
+                        ]
+                      },
+                      0
+                    ]
+                  }
+                ]
+              }
+            },
+            totalPending: { $sum: { $ifNull: ["$pending", 0] } }
+          }
+        },
+        { $sort: { totalPaid: -1 } }
+      ];
+
+      const breakdownResults = await Billing.aggregate(breakdownPipeline);
+      console.log('[PKG_PERF_DEBUG] combinedSummary individual billing breakdown:');
+      breakdownResults.forEach((b, i) => {
+        console.log(`  [${i + 1}] Invoice: ${b.invoiceNumber}`);
+        console.log(`      Package: ${b.packageName}`);
+        console.log(`      Amount: ${b.amount}, OriginalAmount: ${b.originalAmount}`);
+        console.log(`      Paid: ${b.paid}, Pending: ${b.pending}`);
+        console.log(`      Treatments: ${JSON.stringify(b.selectedTreatments || [])}`);
+        console.log(`      → totalPaid (package revenue): ${b.totalPaid}`);
+        console.log(`      → totalPending: ${b.totalPending}`);
+      });
+      console.log('[PKG_PERF_DEBUG] combinedSummary Total Revenue (totalPaid + totalPending):', breakdownResults.reduce((sum, b) => sum + (b.totalPaid || 0) + (b.totalPending || 0), 0));
+      console.log('[PKG_PERF_DEBUG] combinedSummary Paid Revenue (totalPaid):', breakdownResults.reduce((sum, b) => sum + (b.totalPaid || 0), 0));
+      console.log('[PKG_PERF_DEBUG] combinedSummary Total Packages Sold:', breakdownResults.length);
+    } catch (breakdownErr) {
+      console.error('[PKG_PERF_DEBUG] Breakdown logging error:', breakdownErr.message);
+    }
 
     const combinedSummary = combinedSummaryAgg?.[0] || {
       totalPackages: 0,
@@ -1288,22 +1375,33 @@ export default async function handler(req, res) {
           // Note: pendingUsed is NOT added because `paid` already includes
           // any pending cleared on this billing. Adding pendingUsed would double-count.
           totalPaidForPackage: { $sum: { $subtract: [
-            { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
+            { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] } ] },
             { $cond: [
               { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
-              { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+              {
+                $multiply: [
+                  { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                  { $divide: ["$amount", { $ifNull: ["$originalAmount", "$amount"] }] }
+                ]
+              },
               0,
             ] },
           ] } },
           totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
           // For mixed billings (Package + Treatment), only count package amount
+          // Use proportional discount: treatmentPrice * (amount / originalAmount)
           totalAmountForPackage: { $first: { $cond: { 
             if: { $eq: ["$service", "Package"] }, 
             then: { $subtract: [
               { $ifNull: ["$amount", 0] },
               { $cond: [
                 { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
-                { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                {
+                  $multiply: [
+                    { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                    { $divide: ["$amount", { $ifNull: ["$originalAmount", "$amount"] }] }
+                  ]
+                },
                 0,
               ] },
             ] },
@@ -1346,56 +1444,24 @@ export default async function handler(req, res) {
             ]
           },
           totalPaid: {
-            // EDGE CASE: When a Package billing is paid via Advance Balance (advanceUsed > 0),
-            // PatientRegistration.packages.paidAmount may not reflect the advance portion
-            // (PR is typically updated only on direct cash payments). The Billing-driven
-            // totalPaidForPackage now sums advanceUsed as well. Using $max ensures the
-            // advance is counted as paid revenue without double-counting if PR already
-            // includes it. Existing flow (cash-only, partial payments, pending clearings)
-            // is preserved because PR.paidAmount remains the source of truth when it is
-            // greater than or equal to totalPaidForPackage.
-            $max: [
-              { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
-              { $ifNull: ["$totalPaidForPackage", 0] }
-            ]
+            // FIX: Use Billing-driven totalPaidForPackage directly instead of $max with PR.paidAmount.
+            // PR.paidAmount stores the original undiscounted value (e.g. 600), while
+            // totalPaidForPackage now correctly applies proportional discount (e.g. 583.64).
+            // Using $max would pick the larger undiscounted PR value, inflating paid revenue.
+            // totalPaidForPackage already includes advanceUsed, so advance payments are counted.
+            $ifNull: ["$totalPaidForPackage", 0]
           },
           totalPending: {
-            // EDGE CASE: When a Package billing is created with both package
-            // amount AND a separately selected treatment (not in package), the
-            // billing's `amount` covers BOTH the package + treatment while
-            // the PatientRegistration's `paidAmount` reflects only the package
-            // portion. With a fully-paid billing (pending = 0), subtracting
-            // PR.paidAmount from billing.amount incorrectly leaves the
-            // treatment price as "outstanding". Guard the calculation so that
-            // when no actual pending exists on the billing(s), totalPending
-            // is 0. Existing flow (partial payments, split payments,
-            // unpaidPackagesPaid treatment clearings) is preserved.
+            // FIX: Use Billing-driven values directly. When billing pending is 0,
+            // totalPending is 0. Otherwise calculate from totalAmount - totalPaid.
+            // This avoids the old $max logic that could pick undiscounted PR values.
             $cond: {
               if: { $lte: [{ $ifNull: ["$totalPendingForPackage", 0] }, 0] },
               then: 0,
               else: {
                 $subtract: [
-                  {
-                    $ifNull: [
-                      {
-                        $cond: [
-                          { $ne: ["$totalAmountForPackage", 0] },
-                          "$totalAmountForPackage",
-                          "$__patientReg.packages.totalPrice"
-                        ]
-                      },
-                      0
-                    ]
-                  },
-                  {
-                    // Inner totalPaid in the totalPending subtract — mirror the standalone
-                    // totalPaid $max logic so the pending calculation also accounts for
-                    // advanceUsed when the package is partially paid via advance balance.
-                    $max: [
-                      { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
-                      { $ifNull: ["$totalPaidForPackage", 0] }
-                    ]
-                  }
+                  { $ifNull: ["$totalAmountForPackage", 0] },
+                  { $ifNull: ["$totalPaidForPackage", 0] }
                 ]
               }
             }
@@ -1630,10 +1696,26 @@ export default async function handler(req, res) {
     const prKeyToData = new Map();
     salesStaffPrUniqueResults.forEach(r => {
       const key = `${String(r._id.patientId)}__${String(r._id.packageName)}`;
+      prKeyToData.set(key, r);
       if (!salesStaffBillingKeys.has(key)) {
         salesStaffPrFilteredResults.push(r);
       }
     });
+
+    // ── DEBUG: Log PR filter results ─────────────────────────────────────
+    console.log('[PKG_PERF_DEBUG] PR filter debug:', {
+      billingKeysCount: salesStaffBillingKeys.size,
+      billingKeys: Array.from(salesStaffBillingKeys),
+      prUniqueResultsCount: salesStaffPrUniqueResults.length,
+      prFilteredResultsCount: salesStaffPrFilteredResults.length,
+      prFilteredData: salesStaffPrFilteredResults.map(r => ({
+        patientId: String(r._id.patientId),
+        packageName: r._id.packageName,
+        totalPrice: r.totalPrice,
+        paidAmount: r.paidAmount
+      }))
+    });
+    // ── END DEBUG ─────────────────────────────────────────────────────
 
     // Now merge billing results and filtered PR results
     const mergedMonthlyResults = new Map();

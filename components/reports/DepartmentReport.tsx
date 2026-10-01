@@ -51,6 +51,8 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
   const [selectedDeptId, setSelectedDeptId] = useState<string | "all" | null>(null);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [serviceSort, setServiceSort] = useState<"revenue" | "bookings">("revenue");
+  const [servicePage, setServicePage] = useState(1);
+  const servicePageSize = 10;
 
   const currencyFormatter = (n: number) => {
     const symbol = getCurrencySymbol(currency);
@@ -66,6 +68,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
 
   useEffect(() => {
     if (selectedDeptId) {
+      setServicePage(1);
       fetchServices(selectedDeptId, serviceSort);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,7 +376,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {services.map((s) => (
+              {services.slice((servicePage - 1) * servicePageSize, servicePage * servicePageSize).map((s) => (
                 <tr key={s.serviceName}>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[150px] sm:max-w-none truncate dark:text-gray-700">{s.serviceName}</td>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">{s.totalBookings}</td>
@@ -393,6 +396,34 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
             </tbody>
           </table>
         </div>
+        {services.length > servicePageSize && (
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-sm text-gray-600">
+              Showing{" "}
+              {(servicePage - 1) * servicePageSize + 1}
+              {"\u2013"}
+              {Math.min(servicePage * servicePageSize, services.length)}
+              {" of "}
+              {services.length}
+            </div>
+            <div className="inline-flex gap-2">
+              <button
+                className="px-3 py-1 rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                disabled={servicePage <= 1}
+                onClick={() => setServicePage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <button
+                className="px-3 py-1 rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                disabled={servicePage >= Math.ceil(services.length / servicePageSize)}
+                onClick={() => setServicePage((p) => Math.min(Math.ceil(services.length / servicePageSize), p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

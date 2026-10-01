@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import {
   BarChart,
@@ -483,8 +484,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       </div>
 
       {/* Modal for package details */}
-      {selectedPackageStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedPackageStaff && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">Package Billing Details - {selectedPackageStaff.name}</h2>
@@ -548,11 +549,11 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Modal for revenue details */}
-      {selectedRevenueStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedRevenueStaff && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -655,11 +656,11 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Modal for membership details */}
-      {selectedMembershipStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedMembershipStaff && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">Membership Billing Details - {selectedMembershipStaff.name}</h2>
@@ -727,7 +728,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Memberships</h3>
@@ -867,8 +868,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       </div>
 
       {/* Modal for doctor staff commission details */}
-      {selectedDoctorStaffCommission && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedDoctorStaffCommission && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">Doctor Staff Commission Details - {selectedDoctorStaffCommission.name}</h2>
@@ -924,11 +925,11 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Modal for agent commission details */}
-      {selectedAgentCommission && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedAgentCommission && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">Agent Commission Details - {selectedAgentCommission.name}</h2>
@@ -984,7 +985,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

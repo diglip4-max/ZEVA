@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import {
   BarChart,
@@ -66,6 +67,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [hasNext, setHasNext] = useState(false);
+  const [registrySearch, setRegistrySearch] = useState('');
   const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; patientName?: string; data?: any }>(
     { open: false }
   );
@@ -106,6 +108,28 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     return date.toLocaleString('default', { month: 'short' });
   });
   const { paymentMethods } = usePaymentMethod();
+
+  // Filter soldRows based on search term (patient name, package name, EMR/ID)
+  const filteredSoldRows = useMemo(() => {
+    if (!registrySearch.trim()) return soldRows;
+    const term = registrySearch.toLowerCase();
+    return soldRows.filter((row) => {
+      const patientName = (row.patientName || '').toLowerCase();
+      const packageName = (row.packageName || '').toLowerCase();
+      const emr = (row.emrNumber || '').toString().toLowerCase();
+      const patientId = (row.patientId || '').toString().toLowerCase();
+      const phone = (row.phone || '').toString().toLowerCase();
+      const doctor = (row.doctorName || '').toLowerCase();
+      return (
+        patientName.includes(term) ||
+        packageName.includes(term) ||
+        emr.includes(term) ||
+        patientId.includes(term) ||
+        phone.includes(term) ||
+        doctor.includes(term)
+      );
+    });
+  }, [soldRows, registrySearch]);
 
   // Update selectedMonth when startDate changes
   useEffect(() => {
@@ -465,11 +489,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               packageName: p.packageName,
               patientName: p.patientName,
               patientId: p.patientId,
-              amount: p.totalValue || 0,
+              amount: p.totalPaid || 0,  // FIX: Show totalPaid (not totalValue) for paid revenue
+              totalValue: p.totalValue || 0,  // Keep totalValue for reference
               paidAmount: p.totalPaid || 0,
+              pending: p.totalPending || 0,
               date: p.firstPurchaseDate
             }));
           console.log('DEBUG Paid Revenue - Data sum:', data.reduce((sum, d) => sum + d.amount, 0));
+          console.log('DEBUG Paid Revenue - Individual amounts:', data.map(d => ({ name: d.packageName, paidAmount: d.amount, totalValue: d.totalValue })));
           break;
           
         case 'outstanding':
@@ -715,6 +742,19 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       setOverviewDoctorLeaderboard(json.doctorLeaderboard || []);
       setOverviewSalesStaffLeaderboard(json.salesStaffLeaderboard || []);
       setOverviewCombinedSummary(json.combinedSummary || null);
+      
+      // ─ DEBUG: Log what UI receives from API ─────────────────────────────
+      console.log('[PKG_RPT_DEBUG] API response overviewSalesStaffLeaderboard:', json.salesStaffLeaderboard);
+      console.log('[PKG_RPT_DEBUG] API response combinedSummary:', json.combinedSummary);
+      if (json.salesStaffLeaderboard && json.salesStaffLeaderboard.length > 0) {
+        const staffTotals = json.salesStaffLeaderboard.reduce((acc: any, staff: any) => ({
+          totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+          totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+          totalPaid: acc.totalPaid + (staff.totalPaid || 0),
+        }), { totalPackagesSold: 0, totalRevenue: 0, totalPaid: 0 });
+        console.log('[PKG_RPT_DEBUG] Calculated salesStaffTotals from API data:', staffTotals);
+      }
+      // ── END DEBUG ─────────────────────────────────────────────────────
     } catch (e) {
       console.error("Error fetching overview:", e);
       setOverviewMonthlyRevenue([]);
@@ -749,7 +789,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   }
 
   async function fetchPackagesSold(p = 1) {
-    const params: any = { startDate, endDate, page: String(p), limit: "1000", getAll: "true" };
+    const params: any = { startDate, endDate, page: String(p), limit: "10" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
     if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
@@ -2468,11 +2508,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Package Registry</h3>
-              <p className="text-xs text-gray-500">Showing {soldRows.length} results · Page {page}</p>
+              <p className="text-xs text-gray-500">Showing {filteredSoldRows.length} of {totalResults} results · Page {page}</p>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
-                🔍 <input type="text" placeholder="Search patient/package/ID" className="border-0 outline-none text-sm w-40" />
+                🔍 <input type="text" value={registrySearch} onChange={(e) => setRegistrySearch(e.target.value)} placeholder="Search patient/package/ID" className="border-0 outline-none text-sm w-40" />
               </div>
               
             
@@ -2540,7 +2580,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {soldRows.map((row, index) => (
+                {filteredSoldRows.map((row, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                       <input type="checkbox" className="rounded" />
@@ -2616,7 +2656,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   </td>
                 </tr>
               ))}
-              {soldRows.length === 0 && (
+              {filteredSoldRows.length === 0 && (
                 <tr>
                   <td colSpan={19} className="px-4 py-12 text-center text-gray-500">
                     No packages sold in the selected period
@@ -2630,7 +2670,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         {/* Pagination */}
         <div className="p-4 border-t border-gray-200 flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Showing {soldRows.length} of {totalResults} results · Page {page} of {totalPages}
+            Showing {filteredSoldRows.length} of {totalResults} results · Page {page} of {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <button 
@@ -2697,8 +2737,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       </div>
 
       {/* Detail Modal */}
-      {detail.open && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-end md:items-center justify-center">
+      {detail.open && createPortal(
+        <div className="fixed inset-0 bg-black/30 z-[9999] flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-3xl rounded-t-lg md:rounded-lg shadow-lg">
             <div className="p-4 border-b flex items-center justify-between">
               <div className="font-semibold">
@@ -2774,11 +2814,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* KPI Detail Modal */}
-      {kpiModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setKpiModal({ open: false, title: '', data: [] })}>
+      {kpiModal.open && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={() => setKpiModal({ open: false, title: '', data: [] })}>
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -2860,6 +2900,25 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <div className="p-4 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Total: {kpiModal.data.length} package(s)</span>
+                <div className="flex items-center gap-6">
+                  {kpiModal.data.length > 0 && (
+                    <>
+                      <span className="text-sm font-semibold text-gray-900">
+                        Total Amount: {formatCurrency(kpiModal.data.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                      </span>
+                      {kpiModal.data[0]?.paidAmount !== undefined && (
+                        <span className="text-sm font-semibold text-emerald-600">
+                          Total Paid: {formatCurrency(kpiModal.data.reduce((sum, item) => sum + (item.paidAmount || 0), 0))}
+                        </span>
+                      )}
+                      {kpiModal.data[0]?.pending !== undefined && (
+                        <span className="text-sm font-semibold text-red-500">
+                          Total Pending: {formatCurrency(kpiModal.data.reduce((sum, item) => sum + (item.pending || 0), 0))}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
                 <button
                   onClick={() => setKpiModal({ open: false, title: '', data: [] })}
                   className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
@@ -2870,11 +2929,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Action Center Detail Modal */}
-      {actionCenterModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setActionCenterModal({ open: false, title: '', data: [] })}>
+      {actionCenterModal.open && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={() => setActionCenterModal({ open: false, title: '', data: [] })}>
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -2945,7 +3004,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

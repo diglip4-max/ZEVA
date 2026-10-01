@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart,
   Bar,
@@ -514,8 +515,8 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
       </div>
 
       {/* Refund Confirmation Modal */}
-      {showRefundModal && selectedBilling && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      {showRefundModal && selectedBilling && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Offer Refund</h3>
@@ -585,7 +586,7 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

@@ -540,12 +540,12 @@ export default function Overview({ dateFilter = 'Today' }) {
           </div>
 
           <div className="space-y-4">
-            {topPerformingOffers.length === 0 ? (
+            {topPerformingOffers.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
                 No billed offers available yet.
               </div>
             ) : (
-              topPerformingOffers.slice(0, 3).map((offer, index) => (
+              topPerformingOffers.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').slice(0, 3).map((offer, index) => (
                 <div key={offer.offerId || `${offer.offerName}-${index}`} className="border border-gray-200 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700">
@@ -587,7 +587,7 @@ export default function Overview({ dateFilter = 'Today' }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {topPerformingOffers.map((offer, index) => (
+                    {topPerformingOffers.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').map((offer, index) => (
                       <tr key={offer.offerId || `${offer.offerName}-${index}`}>
                         <td className="px-4 py-3 font-medium text-gray-500">{index + 1}</td>
                         <td className="px-4 py-3 font-medium text-gray-900">{offer.offerName}</td>
@@ -595,7 +595,7 @@ export default function Overview({ dateFilter = 'Today' }) {
                         <td className="px-4 py-3 text-right font-medium text-emerald-700">{formatCurrency(offer.totalPaid)}</td>
                       </tr>
                     ))}
-                    {topPerformingOffers.length === 0 && (
+                    {topPerformingOffers.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').length === 0 && (
                       <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-500">No billed offers available yet.</td></tr>
                     )}
                   </tbody>
@@ -619,12 +619,12 @@ export default function Overview({ dateFilter = 'Today' }) {
           </div>
 
           <div className="space-y-4">
-            {offersRequiringAttention.length === 0 ? (
+            {offersRequiringAttention.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
                 No low-usage billed offers available yet.
               </div>
             ) : (
-              offersRequiringAttention.map((offer, index) => (
+              offersRequiringAttention.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer').map((offer, index) => (
                 <div key={offer.offerId || `${offer.offerName}-${index}`} className="border border-red-200 bg-red-50/30 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-sm font-bold text-red-600">
@@ -697,18 +697,24 @@ export default function Overview({ dateFilter = 'Today' }) {
         <h3 className="text-lg font-bold text-gray-900 mb-6">ZEVA Revenue Opportunities</h3>
 
         <div className="space-y-4">
-          <div className="border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-gray-900 mb-1">Improve {offersRequiringAttention[0]?.offerName || 'low-usage offer'} to unlock more revenue</p>
-              <p className="text-xs text-gray-500 mb-2">
-                {offersRequiringAttention[0]
-                  ? `This offer has only ${offersRequiringAttention[0].saleCount} billed sale${offersRequiringAttention[0].saleCount === 1 ? '' : 's'} compared with other offers. Review its billings to improve conversion and revenue.`
-                  : 'No low-usage billed offer is available yet.'}
-              </p>
-              {offersRequiringAttention[0] && <p className="text-xs text-emerald-600 font-medium">{formatCurrency(offersRequiringAttention[0].totalPaid)} generated so far</p>}
-            </div>
-            <button onClick={() => offersRequiringAttention[0] && setSelectedAttentionOffer(offersRequiringAttention[0])} disabled={!offersRequiringAttention[0]} className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors shrink-0 ml-4">Review revenue</button>
-          </div>
+          {(() => {
+            const filteredAttentionOffers = offersRequiringAttention.filter(o => o.offerId && o.offerName && o.offerName !== 'Deleted offer');
+            const firstAttentionOffer = filteredAttentionOffers[0];
+            return (
+              <div className="border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-gray-900 mb-1">Improve {firstAttentionOffer?.offerName || 'low-usage offer'} to unlock more revenue</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {firstAttentionOffer
+                      ? `This offer has only ${firstAttentionOffer.saleCount} billed sale${firstAttentionOffer.saleCount === 1 ? '' : 's'} compared with other offers. Review its billings to improve conversion and revenue.`
+                      : 'No low-usage billed offer is available yet.'}
+                  </p>
+                  {firstAttentionOffer && <p className="text-xs text-emerald-600 font-medium">{formatCurrency(firstAttentionOffer.totalPaid)} generated so far</p>}
+                </div>
+                <button onClick={() => firstAttentionOffer && setSelectedAttentionOffer(firstAttentionOffer)} disabled={!firstAttentionOffer} className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors shrink-0 ml-4">Review revenue</button>
+              </div>
+            );
+          })()}
 
           <div className="border border-gray-200 rounded-xl p-4 flex items-center justify-between">
             <div>

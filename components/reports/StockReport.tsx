@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
@@ -122,22 +123,20 @@ function SupplierReport({ startDate, endDate, headers }: Props) {
   const supplierExportData = useMemo(() => {
     const summary = [{
       "Category": "Supplier Summary",
-      "Total Suppliers": totalSuppliers,
-      "Total Invoice": Math.round(overallStats?.totalInvoice || 0),
-      "Total Paid": Math.round(overallStats?.totalPaid || 0),
-      "Total Balance": Math.round(overallStats?.totalBalance || 0),
+      "Name/Count": `Total Suppliers: ${totalSuppliers}`,
+      "Value/Total": `Invoice: ${Math.round(overallStats?.totalInvoice || 0)}, Paid: ${Math.round(overallStats?.totalPaid || 0)}, Balance: ${Math.round(overallStats?.totalBalance || 0)}`,
     }];
 
     const topList = topSuppliers.map(s => ({
       "Category": "Top Supplier",
-      "Name": s.name || "-",
-      "Invoice Total": s.invoiceTotal || 0,
+      "Name/Count": s.name || "-",
+      "Value/Total": s.invoiceTotal || 0,
     }));
 
     const statusList = statusStats.map(s => ({
       "Category": "Supplier Status",
-      "Name": s.name || "-",
-      "Count": s.count || 0,
+      "Name/Count": s.name || "-",
+      "Value/Total": s.count || 0,
     }));
 
     return [...summary, ...topList, ...statusList];
@@ -429,40 +428,26 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
 
       {/* Filter Controls */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex flex-col">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search Item Name or Code
+        <div className="flex flex-col">
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Filter by Minimum Quantity: <span className="font-bold text-[#2D9AA5]">{minQtyFilter}</span>
             </label>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D9AA5]"
-            />
+            <button 
+              onClick={() => { setMinQtyFilter(0); setSearchTerm(""); }}
+              className="text-xs text-[#2D9AA5] hover:underline"
+            >
+              Reset Filters
+            </button>
           </div>
-          <div className="flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Filter by Minimum Quantity: <span className="font-bold text-[#2D9AA5]">{minQtyFilter}</span>
-              </label>
-              <button 
-                onClick={() => { setMinQtyFilter(0); setSearchTerm(""); }}
-                className="text-xs text-[#2D9AA5] hover:underline"
-              >
-                Reset Filters
-              </button>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max={maxPossibleQty}
-              value={minQtyFilter}
-              onChange={(e) => setMinQtyFilter(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#2D9AA5]"
-            />
-          </div>
+          <input
+            type="range"
+            min="0"
+            max={maxPossibleQty}
+            value={minQtyFilter}
+            onChange={(e) => setMinQtyFilter(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#2D9AA5]"
+          />
         </div>
         <div className="mt-4 text-xs text-gray-500 italic">
           Showing {filteredItems.length} of {items.length} items
@@ -542,7 +527,21 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
       {/* Detailed Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <h4 className="text-lg font-semibold text-gray-800">Detailed Inventory Report</h4>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h4 className="text-lg font-semibold text-gray-800">Detailed Inventory Report</h4>
+            <div className="flex flex-col">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Item Name or Code
+              </label>
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D9AA5]"
+              />
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
@@ -1056,24 +1055,23 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
 
       {/* Sidebar for Low Stock Alerts */}
       <AnimatePresence>
-        {isLowStockSidebarOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsLowStockSidebarOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
-            />
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[60] overflow-y-auto"
-            >
+        {isLowStockSidebarOpen && createPortal(<>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsLowStockSidebarOpen(false)}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9999]"
+          />
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[10000] overflow-y-auto"
+          >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-gray-800">Low Stock Items</h3>
@@ -1106,30 +1104,28 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 </div>
               </div>
             </motion.div>
-          </>
-        )}
+          </>, document.body)}
       </AnimatePresence>
 
       {/* Sidebar for Purchase Requests */}
       <AnimatePresence>
-        {isPRSidebarOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsPRSidebarOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
-            />
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[60] overflow-y-auto"
-            >
+        {isPRSidebarOpen && createPortal(<>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsPRSidebarOpen(false)}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9999]"
+          />
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[10000] overflow-y-auto"
+          >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-gray-800">Purchase Requests</h3>
@@ -1178,30 +1174,28 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 )}
               </div>
             </motion.div>
-          </>
-        )}
+          </>, document.body)}
       </AnimatePresence>
 
       {/* Sidebar for Recent Invoiced GRNs */}
       <AnimatePresence>
-        {isSidebarOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
-            />
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-[60] overflow-y-auto"
-            >
+        {isSidebarOpen && createPortal(<>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9999]"
+          />
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-[10000] overflow-y-auto"
+          >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-gray-800">Recent Invoiced GRNs</h3>
@@ -1249,30 +1243,28 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 )}
               </div>
             </motion.div>
-          </>
-        )}
+          </>, document.body)}
       </AnimatePresence>
 
       {/* Sidebar for Recent Purchase Invoices */}
       <AnimatePresence>
-        {isPISidebarOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsPISidebarOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
-            />
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] overflow-y-auto"
-            >
+        {isPISidebarOpen && createPortal(<>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsPISidebarOpen(false)}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9999]"
+          />
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[10000] overflow-y-auto"
+          >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-gray-800">Recent GRN Invoices</h3>
@@ -1320,8 +1312,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 )}
               </div>
             </motion.div>
-          </>
-        )}
+          </>, document.body)}
       </AnimatePresence>
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart,
   Bar,
@@ -301,8 +302,8 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
         </div>
       </div>
 
-      {detail.open && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-end md:items-center justify-center">
+      {detail.open && createPortal(
+        <div className="fixed inset-0 bg-black/30 z-[9999] flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-3xl rounded-t-lg md:rounded-lg shadow-lg">
             <div className="p-4 border-b flex items-center justify-between">
               <div className="font-semibold">
@@ -356,7 +357,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

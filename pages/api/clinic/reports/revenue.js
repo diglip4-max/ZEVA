@@ -644,20 +644,17 @@ export default async function handler(req, res) {
           },
         },
       },
-      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-      // Lookup user to get role of packageSoldBy person
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      // Lookup user by name to get role of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: { packageSoldByUserId: "$packageSoldByUserId" },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $eq: [
-                    { $toString: "$_id" },
-                    { $toString: "$$packageSoldByUserId" }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
             }
@@ -956,31 +953,75 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
         },
       },
-      // Lookup user to get role of packageSoldBy person
+      // Lookup user by name to get role of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          localField: "packageSoldByUserId",
-          foreignField: "_id",
+          let: { packageSoldByName: "$packageSoldByName" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$name", "$$packageSoldByName"]
+                }
+              }
+            }
+          ],
           as: "packageSoldByUser",
         },
       },
       {
         $addFields: {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+          // Fallback: use invoicedByRole from Billing if packageSoldByRole is not available
+          effectiveSellerRole: {
+            $ifNull: [
+              { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+              "$invoicedByRole"
+            ]
+          }
         },
       },
       // Filter: For Package billings, only include if seller is a doctor or doctorStaff
+      // OR if it's a mixed billing (Package + Treatment from appointment) - treatment portion goes to doctor
       // Mixed billings (Package + Treatment from appointment) are handled
       // separately by the $unionWith at line 1410 to avoid duplication
+      // Use effectiveSellerRole (packageSoldByRole with fallback to invoicedByRole)
+      // Exclude direct-billing treatments (directBilling: true) - they go to Revenue by Staff, not Doctor
       {
         $match: {
           $or: [
-            { service: { $ne: "Package" } },
-            { $and: [{ service: "Package" }, { packageSoldByRole: { $in: ["doctor", "doctorStaff"] } }] },
+            // Non-Package billings that are NOT direct-billing treatments
+            {
+              $and: [
+                { service: { $ne: "Package" } },
+                { $or: [{ directBilling: { $ne: true } }, { directBilling: { $exists: false } }] },
+              ],
+            },
+            { $and: [{ service: "Package" }, { effectiveSellerRole: { $in: ["doctor", "doctorStaff"] } }] },
+            // Mixed billing: Package with selectedTreatments and appointmentId (treatment portion goes to doctor)
+            // This allows appointment-based treatments in mixed billings to be attributed to the doctor
+            {
+              $expr: {
+                $and: [
+                  { $eq: ["$service", "Package"] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                          { $ifNull: ["$selectedTreatments", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
+                  { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
+                ]
+              }
+            },
             // Clearance billing: let it pass so the cleared facet stream can process its breakdown items
             {
               $and: [
@@ -1190,12 +1231,20 @@ export default async function handler(req, res) {
                     // In both cases, direct treatments by staff go to staff revenue.
                     // Appointment-based treatments (isTreatmentFromAppointment=true) are
                     // NOT excluded, even if invoiced by agent.
+                    // FIX: Also exclude mixed Package billings (isTreatmentPortion=true)
+                    // from this filter.
                     {
                       $not: {
                         $and: [
                           { $in: ["$service", ["Treatment", "Service"]] },
                           { $eq: ["$invoicedByRole", "agent"] },
-                          { $eq: ["$isTreatmentFromAppointment", false] },
+                          { $ne: ["$isTreatmentPortion", true] }, // Don't exclude mixed Package billings
+                          {
+                            $or: [
+                              { $eq: ["$isTreatmentFromAppointment", false] },
+                              { $eq: [{ $type: "$isTreatmentFromAppointment" }, "missing"] }
+                            ]
+                          },
                         ],
                       },
                     },
@@ -1267,7 +1316,7 @@ export default async function handler(req, res) {
                         {
                           $and: [
                             { $eq: ["$service", "Package"] },
-                            { $eq: ["$packageSoldByRole", "doctorStaff"] },
+                            { $eq: ["$effectiveSellerRole", "doctorStaff"] },
                             { $ne: ["$packageSoldByUserId", null] },
                           ],
                         },
@@ -1481,6 +1530,11 @@ export default async function handler(req, res) {
             //   always go to doctor revenue, even if invoiced by agent
             // - Direct treatments (isTreatmentFromAppointment=false) invoiced
             //   by agent go to staff revenue only
+            // FIX: Also exclude mixed Package billings (isTreatmentPortion=true)
+            // from this filter. Mixed billings have service changed from "Package"
+            // to "Treatment" but should still go to doctor revenue because the
+            // treatment is appointment-based. isTreatmentFromAppointment is not
+            // computed in byDoctorAgg, so we use isTreatmentPortion instead.
             {
               $match: {
                 $expr: {
@@ -1488,7 +1542,13 @@ export default async function handler(req, res) {
                     $and: [
                       { $in: ["$service", ["Treatment", "Service"]] },
                       { $eq: ["$invoicedByRole", "agent"] },
-                      { $eq: ["$isTreatmentFromAppointment", false] },
+                      { $ne: ["$isTreatmentPortion", true] }, // Don't exclude mixed Package billings
+                      {
+                        $or: [
+                          { $eq: ["$isTreatmentFromAppointment", false] },
+                          { $eq: [{ $type: "$isTreatmentFromAppointment" }, "missing"] }
+                        ]
+                      },
                     ],
                   },
                 },
@@ -1589,20 +1649,17 @@ export default async function handler(req, res) {
                       },
                     },
                   },
-                  { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-                  // Lookup user to get role of packageSoldBy person
+                  { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+                  // Lookup user by name to get role of packageSoldBy person
                   {
                     $lookup: {
                       from: "users",
-                      let: { packageSoldByUserId: "$packageSoldByUserId" },
+                      let: { packageSoldByName: "$packageSoldByName" },
                       pipeline: [
                         {
                           $match: {
                             $expr: {
-                              $eq: [
-                                { $toString: "$_id" },
-                                { $toString: "$$packageSoldByUserId" }
-                              ]
+                              $eq: ["$name", "$$packageSoldByName"]
                             }
                           }
                         }
@@ -1614,6 +1671,8 @@ export default async function handler(req, res) {
                   // Compute effective doctor and amount for the package portion
                   {
                     $addFields: {
+                      // FIX: Fallback to invoicedByRole when packageSoldByRole is not available
+                      effectiveSellerRole: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser.role", 0] }, "$invoicedByRole"] },
                       isClearedItem: { $literal: false },
                       // Keep original behavior: use appointment's doctorId (may be null for direct billings)
                       effectiveDoctorId: "$appointment.doctorId",
@@ -1621,7 +1680,7 @@ export default async function handler(req, res) {
                       isAgentSoldPackageClearance: {
                         $and: [
                           { $eq: ["$service", "Package"] },
-                          { $eq: ["$packageSoldByRole", "agent"] },
+                          { $eq: ["$effectiveSellerRole", "agent"] },
                         ]
                       },
                       effectiveAmount: {
@@ -1774,7 +1833,6 @@ export default async function handler(req, res) {
                   {
                     $addFields: {
                       packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-                      packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
                     },
                   },
                   // Store billing-level paid amount
@@ -1988,6 +2046,94 @@ export default async function handler(req, res) {
       { $sort: { amount: -1 } },
     ]);
 
+    // DEBUG: Log byDoctorAgg results to verify treatment portion of mixed billings is included
+    console.log("[REVENUE_DEBUG] byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
+      doctorId: String(d._id),
+      amount: d.amount,
+      details: d.details.map(det => ({
+        invoiceNumber: det.invoiceNumber,
+        service: det.service,
+        treatmentName: det.treatmentName,
+        packageName: det.packageName,
+        isTreatmentPortion: det.isTreatmentPortion,
+        amount: det.amount,
+        paid: det.paid,
+      }))
+    })), null, 2));
+
+    // DEBUG: Check if appointment lookup is working for mixed billings
+    const appointmentCheck = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      { $limit: 2 },
+      { $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appt"
+        }
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          appointmentId: 1,
+          appointmentIdType: { $type: "$appointmentId" },
+          apptCount: { $size: "$appt" },
+          apptDoctorId: { $arrayElemAt: ["$appt.doctorId", 0] },
+          selectedTreatments: 1,
+          package: 1,
+        }
+      }
+    ]);
+    console.log("[REVENUE_DEBUG] Appointment lookup check:", JSON.stringify(appointmentCheck, null, 2));
+
+    // DEBUG: Trace byDoctorAgg pipeline step by step for mixed billings
+    // Step 1: After basePipeline (match + appointment lookup + unwind)
+    const step1_basePipeline = await Billing.aggregate([
+      ...basePipeline,
+      { $match: { service: "Package" } },
+      { $limit: 2 },
+      { $project: { invoiceNumber: 1, service: 1, package: 1, appointmentId: 1, selectedTreatments: 1, appointment: 1 } }
+    ]);
+    console.log("[REVENUE_DEBUG] Step 1 - After basePipeline (Package billings):", JSON.stringify(step1_basePipeline.map(d => ({
+      invoiceNumber: d.invoiceNumber,
+      service: d.service,
+      package: d.package,
+      appointmentId: d.appointmentId,
+      hasAppointment: !!d.appointment,
+      selectedTreatmentsType: typeof d.selectedTreatments,
+      selectedTreatmentsIsArray: Array.isArray(d.selectedTreatments),
+      selectedTreatmentsLength: Array.isArray(d.selectedTreatments) ? d.selectedTreatments.length : 'N/A',
+    })), null, 2));
+
+    // Step 2: After my filter (mixed billing condition)
+    const step2_mixedFilter = await Billing.aggregate([
+      ...basePipeline,
+      { $match: { service: "Package" } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ["$service", "Package"] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                      { $ifNull: ["$selectedTreatments", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
+              { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
+            ]
+          }
+        }
+      },
+      { $project: { invoiceNumber: 1, service: 1, package: 1, appointmentId: 1 } }
+    ]);
+    console.log("[REVENUE_DEBUG] Step 2 - After mixed billing filter:", JSON.stringify(step2_mixedFilter, null, 2));
+
     // DEBUG: Log byDoctorAgg results with debug fields
     // console.log("DEBUG byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
     //   doctorId: String(d._id),
@@ -2081,20 +2227,17 @@ export default async function handler(req, res) {
           },
         },
       },
-      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-      // Lookup user to get role of packageSoldBy person
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      // Lookup user by name to get role and ID of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: { packageSoldByUserId: "$packageSoldByUserId" },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $eq: [
-                    { $toString: "$_id" },
-                    { $toString: "$$packageSoldByUserId" }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
             }
@@ -2103,8 +2246,11 @@ export default async function handler(req, res) {
         },
       },
       { $addFields: { packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] } } },
-      // Only include billings where package was sold by doctorStaff
-      { $match: { packageSoldByRole: "doctorStaff", packageSoldByUserId: { $ne: null } } },
+      // FIX: Fallback to invoicedByRole when packageSoldByRole is not available
+      { $addFields: { effectiveSellerRole: { $ifNull: ["$packageSoldByRole", "$invoicedByRole"] } } },
+      // Get effective user ID: from lookup result, or fallback to invoicedById
+      { $addFields: { effectivePackageSoldByUserId: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser._id", 0] }, "$invoicedById"] } } },
+      { $match: { effectiveSellerRole: "doctorStaff", effectivePackageSoldByUserId: { $ne: null } } },
       // Lookup patient for display fields
       {
         $lookup: {
@@ -2126,10 +2272,10 @@ export default async function handler(req, res) {
         },
       },
       { $addFields: { patientInfo: { $arrayElemAt: ["$patientInfo", 0] } } },
-      // Group by packageSoldByUserId
+      // Group by effectivePackageSoldByUserId (with fallback to invoicedById)
       {
         $group: {
-          _id: { $toObjectId: "$packageSoldByUserId" },
+          _id: { $toObjectId: "$effectivePackageSoldByUserId" },
           amount: { $sum: "$amount" },
           details: {
             $push: {
@@ -2176,6 +2322,157 @@ export default async function handler(req, res) {
     // SEPARATE PIPELINE: Mixed billing package portion (sold by doctorStaff)
     // For mixed billings (Package + Treatment), treatment revenue goes to doctor (appointment-based)
     // Package revenue should go to the person who sold the package
+    
+    // DEBUG: Check if mixed billings exist
+    const mixedBillingsCheck = await Billing.find({
+      ...clinicMatch,
+      ...dateMatch,
+      service: "Package",
+      package: { $ne: "", $ne: null },
+    }).select({ invoiceNumber: 1, service: 1, package: 1, selectedTreatments: 1, amount: 1, paid: 1, originalAmount: 1, invoicedBy: 1, invoicedByRole: 1 }).lean();
+    console.log("[REVENUE_DEBUG] Mixed billings check:", JSON.stringify(mixedBillingsCheck, null, 2));
+    
+    // DEBUG: Trace the mixed billing pipeline step by step
+    const debugStep1 = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ["$service", "Package"] },
+              { $ne: ["$package", ""] },
+              { $ne: ["$package", null] },
+              { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+            ],
+          },
+        },
+      },
+      { $limit: 1 },
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$patientId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    { $toString: "$_id" },
+                    { $toString: "$$patientId" }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "patient",
+        },
+      },
+      { $addFields: { patient: { $arrayElemAt: ["$patient", 0] } } },
+      {
+        $addFields: {
+          packageSoldByName: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: { $ifNull: ["$patient.packages", []] },
+                  as: "pkg",
+                  cond: {
+                    $and: [
+                      { $eq: ["$$pkg.packageName", "$package"] },
+                      { $ne: ["$$pkg.packageName", ""] },
+                      { $ne: ["$$pkg.packageName", null] },
+                    ],
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        }
+      },
+      {
+        $addFields: {
+          extractedPackageSoldByName: { $ifNull: ["$packageSoldByName.packageSoldBy", null] },
+          patientPackagesCount: { $size: { $ifNull: ["$patient.packages", []] } },
+          patientPackageNames: { $map: { input: { $ifNull: ["$patient.packages", []] }, as: "p", in: "$$p.packageName" } },
+        }
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          package: 1,
+          patientId: 1,
+          extractedPackageSoldByName: 1,
+          patientPackagesCount: 1,
+          patientPackageNames: 1,
+          invoicedBy: 1,
+          invoicedByRole: 1,
+          invoicedById: 1,
+        }
+      }
+    ]);
+    console.log("[REVENUE_DEBUG] Pipeline trace (first mixed billing):", JSON.stringify(debugStep1, null, 2));
+    
+    // DEBUG: Check User lookup by name
+    const userCheck = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      { $limit: 1 },
+      { $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$patientId" },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: "$_id" }, { $toString: "$$patientId" }] } } }
+          ],
+          as: "patient",
+        },
+      },
+      { $addFields: { patient: { $arrayElemAt: ["$patient", 0] } } },
+      {
+        $addFields: {
+          packageSoldBy: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: { $ifNull: ["$patient.packages", []] },
+                  as: "pkg",
+                  cond: { $eq: ["$$pkg.packageName", "$package"] },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      {
+        $lookup: {
+          from: "users",
+          let: { name: "$packageSoldByName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$name", "$$name"] } } },
+            { $limit: 1 }
+          ],
+          as: "matchedUser",
+        },
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          packageSoldByName: 1,
+          matchedUserName: { $arrayElemAt: ["$matchedUser.name", 0] },
+          matchedUserRole: { $arrayElemAt: ["$matchedUser.role", 0] },
+          matchedUserId: { $arrayElemAt: ["$matchedUser._id", 0] },
+          invoicedBy: 1,
+          invoicedByRole: 1,
+          invoicedById: 1,
+          paid: 1,
+          originalAmount: 1,
+          selectedTreatments: 1,
+        }
+      }
+    ]);
+    console.log("[REVENUE_DEBUG] User lookup check:", JSON.stringify(userCheck, null, 2));
+    
     const mixedPackageByDoctorAgg = await Billing.aggregate([
       // Match clinic + date range
       { $match: { ...clinicMatch, ...dateMatch } },
@@ -2223,6 +2520,13 @@ export default async function handler(req, res) {
         },
       },
       { $addFields: { patient: { $arrayElemAt: ["$patient", 0] } } },
+      // DEBUG: Log patient lookup results for mixedPackageByDoctorAgg
+      {
+        $addFields: {
+          __debug_patientPackages: { $ifNull: ["$patient.packages", []] },
+          __debug_packageName: "$package",
+        }
+      },
       // Extract packageSoldBy info
       {
         $addFields: {
@@ -2246,20 +2550,17 @@ export default async function handler(req, res) {
           },
         },
       },
-      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-      // Lookup user to get role of packageSoldBy person
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      // Lookup user by name to get role and ID of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: { packageSoldByUserId: "$packageSoldByUserId" },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $eq: [
-                    { $toString: "$_id" },
-                    { $toString: "$$packageSoldByUserId" }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
             }
@@ -2268,13 +2569,33 @@ export default async function handler(req, res) {
         },
       },
       { $addFields: { packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] } } },
-      // Only include billings where package was sold by doctorStaff or agent
+      // DEBUG: Log User lookup result for mixedPackageByDoctorAgg
+      {
+        $addFields: {
+          __debug_userLookupResult: "$packageSoldByUser",
+          __debug_userFound: { $gt: [{ $size: "$packageSoldByUser" }, 0] },
+        }
+      },
+      // FIX: Fallback to invoicedByRole when packageSoldByRole is not available
+      { $addFields: { effectiveSellerRole: { $ifNull: ["$packageSoldByRole", "$invoicedByRole"] } } },
+      // Get effective user ID: from lookup result, or fallback to invoicedById
+      { $addFields: { effectivePackageSoldByUserId: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser._id", 0] }, "$invoicedById"] } } },
+      // DEBUG: Log the computed fields before filter
+      {
+        $addFields: {
+          __debug_effectiveSellerRole: "$effectiveSellerRole",
+          __debug_effectivePackageSoldByUserId: "$effectivePackageSoldByUserId",
+          __debug_packageSoldByName: "$packageSoldByName",
+          __debug_billingPaid_input_paid: "$paid",
+          __debug_billingPaid_input_advanceUsed: "$advanceUsed",
+        }
+      },
       {
         $match: {
           $expr: {
             $and: [
-              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
-              { $ne: ["$packageSoldByUserId", null] },
+              { $in: ["$effectiveSellerRole", ["doctorStaff", "agent"]] },
+              { $ne: ["$effectivePackageSoldByUserId", null] },
             ],
           },
         }
@@ -2282,7 +2603,7 @@ export default async function handler(req, res) {
       // Calculate treatment portion amount and package portion amount
       {
         $addFields: {
-          billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
           treatmentAmount: {
             $sum: {
               $map: {
@@ -2344,11 +2665,11 @@ export default async function handler(req, res) {
         },
       },
       { $addFields: { patientInfo: { $arrayElemAt: ["$patientInfo", 0] } } },
-      // Group by packageSoldByUserId
+      // Group by effectivePackageSoldByUserId (with fallback to invoicedById)
       {
         $group: {
-          _id: { $toObjectId: "$packageSoldByUserId" },
-          role: { $first: "$packageSoldByRole" },
+          _id: { $toObjectId: "$effectivePackageSoldByUserId" },
+          role: { $first: "$effectiveSellerRole" },
           amount: { $sum: "$packageAmount" },
           details: {
             $push: {
@@ -2376,6 +2697,144 @@ export default async function handler(req, res) {
       },
       { $sort: { amount: -1 } },
     ]);
+
+    // NEW PIPELINE: Treatment portion of mixed billings for Revenue by Doctor
+    // For mixed billings (Package + selectedTreatments + appointmentId), the treatment portion
+    // goes to the doctor from the appointment
+    const mixedTreatmentByDoctorAgg = await Billing.aggregate([
+      // Match clinic + date range
+      { $match: { ...clinicMatch, ...dateMatch } },
+      // Only mixed billings (service: "Package", package: not empty, has selectedTreatments, has appointmentId)
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ["$service", "Package"] },
+              { $ne: ["$package", ""] },
+              { $ne: ["$package", null] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                      { $ifNull: ["$selectedTreatments", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
+              { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
+            ],
+          },
+        },
+      },
+      // Lookup appointment to get doctorId
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: "$appointment" },
+      // Extract appointment service IDs (serviceIds + treatmentIds)
+      {
+        $addFields: {
+          appointmentServiceIds: {
+            $concatArrays: [
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.serviceIds", []] },
+                  as: "sid",
+                  in: { $toString: "$$sid" },
+                }
+              },
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.treatmentIds", []] },
+                  as: "tid",
+                  in: { $toString: "$$tid" },
+                }
+              },
+            ],
+          },
+        },
+      },
+      // Calculate treatment portion amount
+      {
+        $addFields: {
+          billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          treatmentAmount: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$selectedTreatments", []] },
+                as: "st",
+                in: {
+                  $multiply: [
+                    { $ifNull: ["$$st.price", 0] },
+                    { $ifNull: ["$$st.quantity", 1] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      // Unwind selectedTreatments to get individual treatment details
+      { $unwind: "$selectedTreatments" },
+      // Check if current treatment is from appointment (not direct billing)
+      {
+        $addFields: {
+          isTreatmentFromAppointment: {
+            $cond: [
+              { $eq: ["$selectedTreatments", null] },
+              false,
+              {
+                $in: [
+                  { $toString: "$selectedTreatments.treatmentServiceId" },
+                  "$appointmentServiceIds"
+                ]
+              }
+            ]
+          },
+        },
+      },
+      // Only include treatments that are from the appointment (not direct billing)
+      { $match: { isTreatmentFromAppointment: true } },
+      // Group by doctorId
+      {
+        $group: {
+          _id: "$appointment.doctorId",
+          revenue: { $sum: { $multiply: ["$selectedTreatments.price", { $ifNull: ["$selectedTreatments.quantity", 1] }] } },
+          invoices: { $addToSet: "$invoiceNumber" },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: [{ $ifNull: ["$patient.firstName", ""] }, " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "Treatment",
+              packageName: null,
+              treatmentName: "$selectedTreatments.treatmentName",
+              treatmentServiceId: "$selectedTreatments.treatmentServiceId",
+              treatmentQuantity: { $ifNull: ["$selectedTreatments.quantity", 1] },
+              treatmentPrice: "$selectedTreatments.price",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: { $multiply: ["$selectedTreatments.price", { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+              paid: { $multiply: ["$selectedTreatments.price", { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+              pending: 0,
+              advance: 0,
+              packageSoldBy: null,
+              packageSoldByRole: null,
+            },
+          },
+        },
+      },
+      { $sort: { revenue: -1 } },
+    ]);
+
+    console.log("[REVENUE_DEBUG] mixedTreatmentByDoctorAgg results:", JSON.stringify(mixedTreatmentByDoctorAgg, null, 2));
 
     // SEPARATE PIPELINE: Package billing from patient profile view (no appointment, no treatments)
     // For packages added via patient-profile-view page, revenue goes to the person who sold the package
@@ -2433,7 +2892,8 @@ export default async function handler(req, res) {
         }
 
         const group = groupedBillings.get(effectiveSoldByUserId);
-        group.amount += billing.paid || 0;
+        // Include paid, advanceUsed, cashbackWalletUsed, and claimAmountUsed in revenue
+        group.amount += (billing.paid || 0) + (billing.advanceUsed || 0) + (billing.cashbackWalletUsed || 0) + (billing.claimAmountUsed || 0);
         group.invoices += 1;
         // Get patient details from patientDetailsMap (billing from patient-profile-view doesn't have patientName/emrNumber)
         const patientDetails = patientDetailsMap.get(String(billing.patientId));
@@ -2447,7 +2907,7 @@ export default async function handler(req, res) {
           invoiceNumber: billing.invoiceNumber,
           invoicedDate: billing.invoicedDate,
           amount: billing.amount,
-          paid: billing.paid,
+          paid: (billing.paid || 0) + (billing.advanceUsed || 0) + (billing.cashbackWalletUsed || 0) + (billing.claimAmountUsed || 0),
           pending: billing.pending,
           advance: billing.advance,
           advanceUsed: billing.advanceUsed,
@@ -2590,42 +3050,20 @@ export default async function handler(req, res) {
           },
         },
       },
-      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-      // Lookup user to get role of packageSoldBy person
-      // If packageSoldByUserId is valid, match by _id; otherwise match by name
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      // Lookup user by name to get role and ID of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: {
-            packageSoldByUserId: "$packageSoldByUserId",
-            packageSoldByName: "$packageSoldBy.packageSoldBy"
-          },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $or: [
-                    // If packageSoldByUserId is valid, match by _id
-                    {
-                      $and: [
-                        { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
-                        { $ne: ["$$packageSoldByUserId", null] },
-                        { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
-                      ]
-                    },
-                    // If packageSoldByUserId is null, match by name
-                    {
-                      $and: [
-                        { $ne: ["$$packageSoldByName", null] },
-                        { $ne: ["$$packageSoldByName", ""] },
-                        { $eq: ["$name", "$$packageSoldByName"] }
-                      ]
-                    }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
-            },
-            { $limit: 1 }
+            }
           ],
           as: "packageSoldByUser",
         },
@@ -2633,19 +3071,10 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
-          // If packageSoldByUserId was null, use the found user's _id
-          resolvedPackageSoldByUserId: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ["$packageSoldByUserId", null] },
-                  { $gt: [{ $size: "$packageSoldByUser" }, 0] }
-                ]
-              },
-              { $arrayElemAt: ["$packageSoldByUser._id", 0] },
-              "$packageSoldByUserId"
-            ]
-          }
+          // FIX: Fallback to invoicedByRole when packageSoldByRole is not available
+          effectiveSellerRole: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser.role", 0] }, "$invoicedByRole"] },
+          // Get effective user ID: from lookup result, or fallback to invoicedById
+          resolvedPackageSoldByUserId: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser._id", 0] }, "$invoicedById"] }
         }
       },
       // Only include billings where package was sold by doctorStaff or agent
@@ -2653,7 +3082,7 @@ export default async function handler(req, res) {
         $match: {
           $expr: {
             $and: [
-              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+              { $in: ["$effectiveSellerRole", ["doctorStaff", "agent"]] },
               { $ne: ["$resolvedPackageSoldByUserId", null] },
             ],
           },
@@ -2684,7 +3113,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { $toObjectId: "$resolvedPackageSoldByUserId" },
-          role: { $first: "$packageSoldByRole" },
+          role: { $first: "$effectiveSellerRole" },
           amount: { $sum: "$pendingClearedBreakdown.amountCleared" },
           invoices: { $sum: 1 },
           details: {
@@ -2814,39 +3243,20 @@ export default async function handler(req, res) {
           },
         },
       },
-      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
-      // Lookup user to get role of packageSoldBy person
+      { $addFields: { packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", null] } } },
+      // Lookup user by name to get role and ID of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: {
-            packageSoldByUserId: "$packageSoldByUserId",
-            packageSoldByName: "$packageSoldBy.packageSoldBy"
-          },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $or: [
-                    {
-                      $and: [
-                        { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
-                        { $ne: ["$$packageSoldByUserId", null] },
-                        { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
-                      ]
-                    },
-                    {
-                      $and: [
-                        { $ne: ["$$packageSoldByName", null] },
-                        { $ne: ["$$packageSoldByName", ""] },
-                        { $eq: ["$name", "$$packageSoldByName"] }
-                      ]
-                    }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
-            },
-            { $limit: 1 }
+            }
           ],
           as: "packageSoldByUser",
         },
@@ -2854,18 +3264,10 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
-          resolvedPackageSoldByUserId: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ["$packageSoldByUserId", null] },
-                  { $gt: [{ $size: "$packageSoldByUser" }, 0] }
-                ]
-              },
-              { $arrayElemAt: ["$packageSoldByUser._id", 0] },
-              "$packageSoldByUserId"
-            ]
-          }
+          // FIX: Fallback to invoicedByRole when packageSoldByRole is not available
+          effectiveSellerRole: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser.role", 0] }, "$invoicedByRole"] },
+          // Get effective user ID: from lookup result, or fallback to invoicedById
+          resolvedPackageSoldByUserId: { $ifNull: [{ $arrayElemAt: ["$packageSoldByUser._id", 0] }, "$invoicedById"] }
         }
       },
       // Only include billings where package was sold by doctorStaff or agent
@@ -2873,7 +3275,7 @@ export default async function handler(req, res) {
         $match: {
           $expr: {
             $and: [
-              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+              { $in: ["$effectiveSellerRole", ["doctorStaff", "agent"]] },
               { $ne: ["$resolvedPackageSoldByUserId", null] },
             ],
           },
@@ -2904,7 +3306,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { $toObjectId: "$resolvedPackageSoldByUserId" },
-          role: { $first: "$packageSoldByRole" },
+          role: { $first: "$effectiveSellerRole" },
           amount: { $sum: "$paid" },
           invoices: { $sum: 1 },
           details: {
@@ -3415,15 +3817,22 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
         },
       },
-      // Lookup user to get role of packageSoldBy person
+      // Lookup user by name to get role of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          localField: "packageSoldByUserId",
-          foreignField: "_id",
+          let: { packageSoldByName: "$packageSoldByName" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$name", "$$packageSoldByName"]
+                }
+              }
+            }
+          ],
           as: "packageSoldByUser",
         },
       },
@@ -5809,47 +6218,21 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
         },
       },
-      // Lookup user to get role of packageSoldBy person
-      // Use dual lookup: match by _id if packageSoldByUserId is valid, otherwise match by name
+      // Lookup user by name to get role of packageSoldBy person
       {
         $lookup: {
           from: "users",
-          let: {
-            packageSoldByUserId: "$packageSoldByUserId",
-            packageSoldByName: "$packageSoldBy.packageSoldBy"
-          },
+          let: { packageSoldByName: "$packageSoldByName" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $or: [
-                    // If packageSoldByUserId is valid, match by _id
-                    {
-                      $and: [
-                        { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
-                        { $ne: ["$$packageSoldByUserId", null] },
-                        { $ne: ["$$packageSoldByUserId", "undefined"] },
-                        { $ne: ["$$packageSoldByUserId", ""] },
-                        { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
-                      ]
-                    },
-                    // If packageSoldByUserId is null/undefined/empty, match by name
-                    {
-                      $and: [
-                        { $ne: ["$$packageSoldByName", null] },
-                        { $ne: ["$$packageSoldByName", ""] },
-                        { $ne: ["$$packageSoldByName", "undefined"] },
-                        { $eq: ["$name", "$$packageSoldByName"] }
-                      ]
-                    }
-                  ]
+                  $eq: ["$name", "$$packageSoldByName"]
                 }
               }
-            },
-            { $limit: 1 }
+            }
           ],
           as: "packageSoldByUser",
         },
@@ -5857,14 +6240,29 @@ export default async function handler(req, res) {
       {
         $addFields: {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+          // Fallback: use invoicedByRole from Billing if packageSoldByRole is not available
+          effectiveSellerRole: {
+            $ifNull: [
+              { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+              "$invoicedByRole"
+            ]
+          }
         },
       },
       // Filter: For Package billings, only include if seller is an agent
+      // For non-Package billings, exclude doctorStaff (doctors go to Revenue by Doctor, not Staff)
+      // Use effectiveSellerRole (packageSoldByRole with fallback to invoicedByRole)
       {
         $match: {
           $or: [
-            { service: { $ne: "Package" } },
-            { $and: [{ service: "Package" }, { packageSoldByRole: "agent" }] }
+            // Non-Package billings: exclude doctorStaff (they belong in Revenue by Doctor)
+            {
+              $and: [
+                { service: { $ne: "Package" } },
+                { invoicedByRole: { $ne: "doctorStaff" } },
+              ],
+            },
+            { $and: [{ service: "Package" }, { effectiveSellerRole: "agent" }] }
           ]
         }
       },
@@ -6134,17 +6532,27 @@ export default async function handler(req, res) {
               // For both "Treatment" and "Package" service billings, use proportional scaling for partial payments
               // treatmentAmount = billingPaid × (price × quantity / originalAmount)
               // For full payments this equals price × quantity; for partial payments it scales down proportionally
+              // EDGE CASE: When originalAmount < amount (e.g., pending package clearance adds to total),
+              // use actual treatment price directly to avoid over-attribution
               {
-                $multiply: [
-                  { $ifNull: ["$billingPaid", 0] },
+                $cond: [
+                  { $lt: [{ $ifNull: ["$originalAmount", "$amount", 1] }, "$amount"] },
+                  // originalAmount < amount: use actual treatment price (no proportional scaling)
+                  { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                  // originalAmount >= amount: use proportional scaling
                   {
-                    $cond: [
-                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
-                      0,
+                    $multiply: [
+                      { $ifNull: ["$billingPaid", 0] },
                       {
-                        $divide: [
-                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        $cond: [
+                          { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                          0,
+                          {
+                            $divide: [
+                              { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                              { $ifNull: ["$originalAmount", "$amount", 1] }
+                            ]
+                          }
                         ]
                       }
                     ]
@@ -6292,19 +6700,26 @@ export default async function handler(req, res) {
 
     const staffRevenueAgg = await Billing.aggregate(staffRevenuePipeline);
 
+    // DEBUG: Log mixed billing package portion results
+    console.log("[REVENUE_DEBUG] mixedPackageByDoctorAgg results:", JSON.stringify(mixedPackageByDoctorAgg, null, 2));
+    console.log("[REVENUE_DEBUG] staffRevenueAgg before merge:", JSON.stringify(staffRevenueAgg, null, 2));
+
     // Merge mixed billing package portion into appropriate revenue arrays
     // doctorStaff → Revenue by Doctor, agent → Revenue by Staff
     if (mixedPackageByDoctorAgg.length > 0) {
       for (const mixedDoc of mixedPackageByDoctorAgg) {
         const role = mixedDoc.role;
+        console.log("[REVENUE_DEBUG] Processing mixed doc:", { _id: mixedDoc._id, role, amount: mixedDoc.amount });
         if (role === "doctorStaff") {
           // Add to Revenue by Doctor
           const existingDoctor = byDoctorAgg.find(d => String(d._id) === String(mixedDoc._id));
           if (existingDoctor) {
             existingDoctor.amount += mixedDoc.amount;
             existingDoctor.details.push(...mixedDoc.details);
+            console.log("[REVENUE_DEBUG] Added to existing doctor:", mixedDoc._id);
           } else {
             byDoctorAgg.push(mixedDoc);
+            console.log("[REVENUE_DEBUG] Added new doctor:", mixedDoc._id);
           }
         } else if (role === "agent") {
           // Add to Revenue by Staff
@@ -6312,6 +6727,7 @@ export default async function handler(req, res) {
           if (existingStaff) {
             existingStaff.revenue += mixedDoc.amount;
             existingStaff.details.push(...mixedDoc.details);
+            console.log("[REVENUE_DEBUG] Added to existing staff:", mixedDoc._id);
           } else {
             staffRevenueAgg.push({
               _id: mixedDoc._id,
@@ -6319,9 +6735,37 @@ export default async function handler(req, res) {
               invoices: mixedDoc.details.length,
               details: mixedDoc.details,
             });
+            console.log("[REVENUE_DEBUG] Added new staff:", mixedDoc._id);
           }
+        } else {
+          console.log("[REVENUE_DEBUG] Role not matched:", role);
         }
       }
+    } else {
+      console.log("[REVENUE_DEBUG] No mixed billing package portions found");
+    }
+
+    // Merge mixed billing treatment portion into Revenue by Doctor
+    if (mixedTreatmentByDoctorAgg.length > 0) {
+      for (const treatmentDoc of mixedTreatmentByDoctorAgg) {
+        const existingDoctor = byDoctorAgg.find(d => String(d._id) === String(treatmentDoc._id));
+        if (existingDoctor) {
+          existingDoctor.amount += treatmentDoc.revenue;
+          existingDoctor.invoices = new Set([...(existingDoctor.invoices || []), ...(treatmentDoc.invoices || [])]).size;
+          existingDoctor.details.push(...treatmentDoc.details);
+          console.log("[REVENUE_DEBUG] Added treatment portion to existing doctor:", treatmentDoc._id);
+        } else {
+          byDoctorAgg.push({
+            _id: treatmentDoc._id,
+            amount: treatmentDoc.revenue,
+            invoices: treatmentDoc.invoices.length,
+            details: treatmentDoc.details,
+          });
+          console.log("[REVENUE_DEBUG] Added new doctor with treatment portion:", treatmentDoc._id);
+        }
+      }
+    } else {
+      console.log("[REVENUE_DEBUG] No mixed billing treatment portions found");
     }
 
     // Merge patient profile package billing results

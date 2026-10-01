@@ -92,9 +92,6 @@ export default async function handler(req, res) {
     
     // Group UOMs by date
     const uomTimelineMap = {};
-    let runningTotal = 0;
-    let runningMain = 0;
-    let runningSub = 0;
 
     uoms.forEach(uom => {
         const date = uom.createdAt.toISOString().split('T')[0];
@@ -106,17 +103,12 @@ export default async function handler(req, res) {
         else if (uom.category === "Sub") uomTimelineMap[date].sub++;
     });
 
-    const uomTimeline = Object.keys(uomTimelineMap).sort().map(date => {
-        runningTotal += uomTimelineMap[date].total;
-        runningMain += uomTimelineMap[date].main;
-        runningSub += uomTimelineMap[date].sub;
-        return {
-            date,
-            total: runningTotal,
-            main: runningMain,
-            sub: runningSub
-        };
-    });
+    const uomTimeline = Object.keys(uomTimelineMap).sort().map(date => ({
+        date,
+        total: uomTimelineMap[date].total,
+        main: uomTimelineMap[date].main,
+        sub: uomTimelineMap[date].sub
+    }));
 
     // Stock Location Stats
     const stockLocations = await StockLocation.find({ clinicId }).lean();

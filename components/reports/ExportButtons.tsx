@@ -34,16 +34,19 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
     allSections.forEach((section) => {
       // Section title header
       csvParts.push(`"=== ${section.title} ==="`);
-      if (section.data.length === 0) {
-        csvParts.push(section.headers.map(h => `"${h}"`).join(","));
-        csvParts.push("");
-        return;
+      // Build header row
+      const headerRow = section.headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(",");
+      csvParts.push(headerRow);
+      // Build data rows
+      if (section.data.length > 0) {
+        const dataRows = section.data.map((item: any) =>
+          section.headers.map(h => {
+            const val = item[h] ?? "";
+            return `"${String(val).replace(/"/g, '""')}"`;
+          }).join(",")
+        );
+        csvParts.push(dataRows.join("\n"));
       }
-      const rows = section.data.map((item: any) =>
-        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
-      );
-      const worksheet = XLSX.utils.json_to_sheet(rows, { header: section.headers });
-      csvParts.push(XLSX.utils.sheet_to_csv(worksheet));
       csvParts.push(""); // blank line separator
     });
     const csv = csvParts.join("\n");
@@ -61,10 +64,23 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
   const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
     allSections.forEach((section) => {
-      const rows = section.data.map((item: any) =>
-        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
-      );
-      const worksheet = XLSX.utils.json_to_sheet(rows, { header: section.headers });
+      // Build array of arrays: header row + data rows
+      const aoa: any[][] = [section.headers]; // Header row first
+      if (section.data.length > 0) {
+        const dataRows = section.data.map((item: any) =>
+          section.headers.map(h => item[h] ?? "")
+        );
+        aoa.push(...dataRows);
+      }
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      
+      // Auto-adjust column widths for better readability
+      const colWidths = section.headers.map(h => ({
+        wch: Math.max(String(h).length, 15)
+      }));
+      worksheet['!cols'] = colWidths;
+      
       // Sanitize sheet name (Excel has restrictions)
       const sheetName = section.title.replace(/[\\/?*[\]]/g, "").substring(0, 31);
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);

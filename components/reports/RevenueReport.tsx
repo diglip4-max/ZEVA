@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import {
   BarChart,
@@ -828,8 +829,8 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
       </div>
 
       {/* Modal for doctor details */}
-      {selectedDoctor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedDoctor && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -954,10 +955,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {/* Modal for staff details */}
-      {selectedStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedStaff && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1100,10 +1101,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {/* Modal for service details */}
-      {selectedService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedService && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1217,10 +1218,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {/* Modal for package details */}
-      {selectedPackage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedPackage && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1348,10 +1349,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {/* Modal for department details */}
-      {selectedDepartment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedDepartment && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1468,10 +1469,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {/* Modal for payment method details */}
-      {selectedPaymentMethod && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedPaymentMethod && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
@@ -1589,7 +1590,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
