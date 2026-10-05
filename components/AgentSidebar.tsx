@@ -437,6 +437,46 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             return false;
           };
 
+          // Helper: check if submodule EXISTS in parent's subModules list and whether it has permission
+          // Returns { found: true/false, hasPerm: true/false }
+          // Key invariant: if submodule is FOUND in the list, its own actions determine visibility (no parent fallback)
+          const localFindSubModuleInParent = (parentModuleKey: string, label: string): { found: boolean; hasPerm: boolean } => {
+            if (!localPermissions || localPermissions.length === 0) return { found: false, hasPerm: true };
+            const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
+            if (!parentPerm?.subModules || !Array.isArray(parentPerm.subModules)) return { found: false, hasPerm: false };
+            const lbl = label.trim().toLowerCase();
+            // First try exact match
+            let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+            // If no exact match, try partial matches
+            if (!subModule) {
+              subModule = parentPerm.subModules.find((sm: any) => {
+                const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
+                return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                  // Special cases (same as ClinicSidebar)
+                  (lbl === "grn" && smNameTrimmed === "good receive note") ||
+                  (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                  (lbl === "templates" && smNameTrimmed === "template") ||
+                  (lbl === "reviews" && smNameTrimmed === "review") ||
+                  (lbl === "inbox" && smNameTrimmed === "inbox") ||
+                  (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
+                  (lbl === "release requested" && smNameTrimmed === "release requested") ||
+                  (lbl === "sale products" && smNameTrimmed === "sale products");
+              });
+            }
+            if (subModule) {
+              // Submodule FOUND in parent's list — its own actions determine visibility
+              const hasPerm = subModule.actions && (
+                localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
+                localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
+                localIsActionTrue(subModule.actions.delete) || localIsActionTrue(subModule.actions.print) ||
+                localIsActionTrue(subModule.actions.export) || localIsActionTrue(subModule.actions.approve)
+              );
+              return { found: true, hasPerm: !!hasPerm };
+            }
+            // Submodule NOT found in parent's list — caller may fall back to parent permission
+            return { found: false, hasPerm: false };
+          };
+
           const localHasModulePermission = (moduleKey: string, label?: string): boolean => {
             if (!localPermissions || localPermissions.length === 0) return true;
             let keysToCheck = [moduleKey];
@@ -512,31 +552,28 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               "clinic_stock_material_consumptions", "clinic_stock_direct_transfer",
               "clinic_stock_transfer_requests", "clinic_stock_transfer_on_request",
               "clinic_stock_allocated_stock_items", "clinic_stock_purchase_return", "custom_product_sales",
-            ].includes(moduleKey) || lbl.includes("uom") || lbl.includes("location") ||
-              lbl.includes("supplier") || lbl.includes("purchase") || lbl.includes("grn") ||
-              lbl.includes("invoice") || lbl.includes("return") || lbl.includes("stock") ||
-              lbl.includes("transfer") || lbl.includes("material") || lbl.includes("allocated");
+            ].includes(moduleKey);
             if (isStockSubmodule || lbl.includes("stock")) {
               // Check submodule permission within parent module only
-              const subModuleHasPerm = localHasSubModulePermission("clinic_stock", item.label);
-              if (subModuleHasPerm) return true;
-              // Only check parent if submodule doesn't have explicit permissions
+              const subResult = localFindSubModuleInParent("clinic_stock", item.label);
+              if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
+              // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_stock");
             }
             const marketingMods = ["clinic_inbox", "clinic_templates", "clinic_providers", "clinic_review", "clinic_enquiry", "clinic_kaka_customization"];
             if (marketingMods.includes(moduleKey) || lbl.includes("inbox") || lbl.includes("template") || lbl.includes("provider") || lbl.includes("review") || lbl.includes("enquiry")) {
               // Check submodule permission within parent module only (not separate top-level modules)
-              const subModuleHasPerm = localHasSubModulePermission("clinic_marketing", item.label);
-              if (subModuleHasPerm) return true;
-              // Only check parent if submodule doesn't have explicit permissions
+              const subResult = localFindSubModuleInParent("clinic_marketing", item.label);
+              if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
+              // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_marketing");
             }
             const claimsSubs = ["pass_by_doctor", "release_requested", "doctor_claim", "create_claim", "clinic_management"];
             if (claimsSubs.includes(moduleKey || "")) {
               // Check submodule permission within parent module only
-              const subModuleHasPerm = localHasSubModulePermission("claims", item.label);
-              if (subModuleHasPerm) return true;
-              // Only check parent if submodule doesn't have explicit permissions
+              const subResult = localFindSubModuleInParent("claims", item.label);
+              if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
+              // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("claims");
             }
             // Finance Management: check submodule permissions first
@@ -545,9 +582,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             const isFinanceItem = financeSubs.includes(moduleKey || "") || itemPath.includes("finance-management") || lbl.includes("finance") || lbl.includes("overview") || lbl.includes("bills") || lbl.includes("expenses") || lbl.includes("payments") || lbl.includes("petty") || lbl.includes("bank") || lbl.includes("cheque") || lbl.includes("vendor");
             if (isFinanceItem) {
               // Check submodule permission within parent module only
-              const subModuleHasPerm = localHasSubModulePermission("clinic_finance_management", item.label);
-              if (subModuleHasPerm) return true;
-              // Only check parent if submodule doesn't have explicit permissions
+              const subResult = localFindSubModuleInParent("clinic_finance_management", item.label);
+              if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
+              // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_finance_management");
             }
             return localHasModulePermission(moduleKey);
@@ -623,8 +660,15 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
           // Static grouped modules (same structure as ClinicSidebar)
           const dashboardTop = pickTop("Dashboard");
+          const staffDashboardItem: NavItem = {
+            label: "STAFF DASHBOARD",
+            headerPath: dashboardTop?.path || "/staff/dashboard",
+            icon: dashboardTop?.icon || "🏠",
+            order: -1,
+            children: nonNull(createItem("Dashboard", dashboardTop?.path || "/staff/dashboard", dashboardTop?.icon || "🏠")),
+          };
           const groupedModules: NavItem[] = [
-            ...(dashboardTop ? ([{ label: (dashboardTop.label || "Dashboard").toUpperCase(), path: dashboardTop.path || "/staff/dashboard", icon: dashboardTop.icon, order: 0 }] as NavItem[]) : []),
+            staffDashboardItem,
             {
               label: "Finance Management", icon: "💰", headerPath: "/staff/clinic-finance-management", order: 99,
               children: nonNull(
@@ -802,12 +846,19 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               "finance management",
             ];
             const isExtraParent = extraParentLabels.includes(toKey(i.label));
+
+            // KEY RULE: if parent module has a path AND passes permission check,
+            // show it as a standalone item even if label is in extraParentLabels
+            if (i.path && localShouldShowItem(i)) {
+              return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance || isLegacyClaimsGroup);
+            }
+
             return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance || isLegacyClaimsGroup || isExtraParent);
           });
 
           const finalItems = [...groupedModules, ...filteredOriginals];
           const rank = (it: NavItem) => {
-            if (it.path && toKey(it.label) === "dashboard") return -1000;
+            if (it.path && (toKey(it.label) === "dashboard" || toKey(it.label) === "staff dashboard")) return -1000;
             return typeof it.order === "number" ? it.order : 9999;
           };
           const sortedItems = [...finalItems].sort((a, b) => rank(a) - rank(b));

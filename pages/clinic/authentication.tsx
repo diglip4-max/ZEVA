@@ -694,21 +694,38 @@ function AuthSettingsPage() {
     }
   }, []);
 
-  // URL-based role detection — no cross-role token scanning
+  // Multi-token role detection — checks all stored token types
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
-    // This file is inside /clinic/ — always clinic context
-    try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-      if (token) {
+    const tokenEntries: Array<[string, string]> = [
+      ["clinicToken", "clinic"],
+      ["doctorToken", "doctor"],
+      ["agentToken", "agent"],
+      ["staffToken", "staff"],
+      ["userToken", "user"],
+      ["adminToken", "admin"],
+    ];
+    for (const [tokenKey, defaultRole] of tokenEntries) {
+      const token = localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
+      if (!token) continue;
+      try {
         const base64Url = token.split(".")[1];
-        if (!base64Url) return { role: 'clinic', id: null };
+        if (!base64Url) return { role: defaultRole, id: null };
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return { role: decoded.role || defaultRole, id: decoded.userId || decoded.id || null };
+      } catch (e) {
+        // Token decode failed — try next token
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    }
+    return { role: null, id: null };
   };
 
 

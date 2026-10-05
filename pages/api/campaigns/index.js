@@ -217,9 +217,8 @@ export default async function handler(req, res) {
     // Build filter query
     const filter = { clinicId };
 
-    if (["agent", "doctor", "doctorStaff"].includes(me.role)) {
-      filter.userId = me._id;
-    }
+    // All roles (clinic, agent, doctor, doctorStaff) see all campaigns for the clinic
+    // The clinicId filter ensures data isolation between clinics
 
     // Apply status filter if provided
     if (req.query.status) {

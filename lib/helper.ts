@@ -253,9 +253,39 @@ export const getTokenByPath = () => {
   const pathname = window.location.pathname;
 
   if (pathname?.includes("/clinic/")) {
-    return localStorage.getItem("clinicToken");
+    // Check all token types in priority order for clinic routes
+    // (agent/doctorStaff users access clinic pages via /staff/clinic-* slugs)
+    return (
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("staffToken") ||
+      sessionStorage.getItem("staffToken") ||
+      localStorage.getItem("userToken") ||
+      sessionStorage.getItem("userToken") ||
+      localStorage.getItem("adminToken") ||
+      sessionStorage.getItem("adminToken") ||
+      null
+    );
   } else if (pathname?.includes("/staff/")) {
-    return localStorage.getItem("agentToken");
+    return (
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("staffToken") ||
+      sessionStorage.getItem("staffToken") ||
+      localStorage.getItem("userToken") ||
+      sessionStorage.getItem("userToken") ||
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken") ||
+      localStorage.getItem("adminToken") ||
+      sessionStorage.getItem("adminToken") ||
+      null
+    );
   } else {
     return localStorage.getItem("token");
   }

@@ -258,6 +258,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
     import("../clinic/release-requested-claims"),
   "clinic-create-claim": () => import("../clinic/create-claim"),
   "all-claims": () => import("../clinic/all-claims"),
+  
 
   "clinic-invoices": () => import("../clinic/invoices"),
 

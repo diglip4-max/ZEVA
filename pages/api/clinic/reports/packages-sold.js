@@ -1414,17 +1414,9 @@ export default async function handler(req, res) {
       const breakdownResults = await Billing.aggregate(breakdownPipeline);
       // console.log('[PKG_SOLD_DEBUG] Individual billing breakdown:');
       breakdownResults.forEach((b, i) => {
-        // console.log(`  [${i + 1}] Invoice: ${b.invoiceNumber}`);
-        // console.log(`      Package: ${b.packageName}`);
-        // console.log(`      Amount: ${b.amount}, OriginalAmount: ${b.originalAmount}`);
-        // console.log(`      Paid: ${b.paid}, Pending: ${b.pending}`);
-        // console.log(`      Treatments: ${JSON.stringify(b.selectedTreatments || [])}`);
-        // console.log(`      → totalPaid (package revenue): ${b.totalPaid}`);
-        // console.log(`      → totalPending: ${b.totalPending}`);
+       
       });
-      // console.log('[PKG_SOLD_DEBUG] Total Revenue (totalPaid + totalPending):', breakdownResults.reduce((sum, b) => sum + (b.totalPaid || 0) + (b.totalPending || 0), 0));
-      // console.log('[PKG_SOLD_DEBUG] Paid Revenue (totalPaid):', breakdownResults.reduce((sum, b) => sum + (b.totalPaid || 0), 0));
-      // console.log('[PKG_SOLD_DEBUG] Total Packages Sold:', breakdownResults.length);
+    
     } catch (breakdownErr) {
       // console.error('[PKG_SOLD_DEBUG] Breakdown logging error:', breakdownErr.message);
     }

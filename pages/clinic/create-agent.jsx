@@ -173,11 +173,28 @@ const ManageAgentsPage = () => {
     setViewPhotoLoadFailed(false);
   }, [viewAgent?.photo, viewProfile?.photo]);
 
-  // URL-based role detection — no cross-role token scanning
+  // Multi-token role detection — checks all stored token types
   const getUserRole = () => {
     if (typeof window === 'undefined') return null;
-    // This file is inside /clinic/ — always clinic context
-    return 'clinic';
+    const tokenEntries = [
+      ["clinicToken", "clinic"],
+      ["doctorToken", "doctor"],
+      ["agentToken", "agent"],
+      ["staffToken", "staff"],
+      ["userToken", "user"],
+      ["adminToken", "admin"],
+    ];
+    for (const [tokenKey, defaultRole] of tokenEntries) {
+      const token = localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
+      if (!token) continue;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role || defaultRole;
+      } catch (e) {
+        // Token decode failed — try next token
+      }
+    }
+    return null;
   };
 
   // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
