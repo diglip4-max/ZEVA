@@ -17,7 +17,7 @@ import {
   Grid,
   List,
   RefreshCcw,
-  Calendar,
+  ShieldAlert,
 } from "lucide-react";
 import axios from "axios";
 import { Template } from "@/types/templates";
@@ -72,7 +72,8 @@ const TemplatesPage: NextPageWithLayout = () => {
   // Check if on agent route
   const currentPath =
     typeof window !== "undefined" ? window.location.pathname : "";
-  const isAgentRoute = currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/");
+  const isAgentRoute =
+    currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/");
 
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(
@@ -109,16 +110,30 @@ const TemplatesPage: NextPageWithLayout = () => {
     if (typeof window === "undefined") return { role: null, id: null };
     // This file is inside /clinic/ — always clinic context
     try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      const token =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
       if (token) {
         const base64Url = token.split(".")[1];
-        if (!base64Url) return { role: 'clinic', id: null };
+        if (!base64Url) return { role: "clinic", id: null };
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return {
+          role: decoded.role || "clinic",
+          id: decoded.userId || decoded.id || null,
+        };
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    } catch (e) {
+      /* ignore */
+    }
+    return { role: "clinic", id: null };
   };
 
   // Helper function to get user role from token
@@ -150,27 +165,27 @@ const TemplatesPage: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken")
+          sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken")
+          sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken")
+          sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-        sessionStorage.getItem("staffToken")
+          sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken")
+          sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -594,8 +609,9 @@ const TemplatesPage: NextPageWithLayout = () => {
 
     return (
       <span
-        className={`px-2.5 py-1 rounded-full text-xs font-medium border ${colors[category] || "bg-gray-50 text-gray-700"
-          }`}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+          colors[category] || "bg-gray-50 text-gray-700"
+        }`}
       >
         {category}
       </span>
@@ -684,8 +700,8 @@ const TemplatesPage: NextPageWithLayout = () => {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Calendar className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
@@ -721,14 +737,17 @@ const TemplatesPage: NextPageWithLayout = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSyncTemplates}
-              className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${!isSyncing ? "bg-white" : "bg-gray-200"
+            {permissions.canCreate && (
+              <button
+                onClick={handleSyncTemplates}
+                className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${
+                  !isSyncing ? "bg-white" : "bg-gray-200"
                 } border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
-            >
-              <RefreshCcw className="h-5 w-5" />
-              {!isSyncing ? "Sync Templates" : "Syncing..."}
-            </button>
+              >
+                <RefreshCcw className="h-5 w-5" />
+                {!isSyncing ? "Sync Templates" : "Syncing..."}
+              </button>
+            )}
             {permissions.canCreate && (
               <Link href="/clinic/all-templates/new">
                 <button className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium">
@@ -819,15 +838,17 @@ const TemplatesPage: NextPageWithLayout = () => {
           <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-1 rounded-lg">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded ${viewMode === "grid" ? "bg-white shadow" : "hover:bg-gray-100"
-                }`}
+              className={`p-2 rounded ${
+                viewMode === "grid" ? "bg-white shadow" : "hover:bg-gray-100"
+              }`}
             >
               <Grid className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded ${viewMode === "list" ? "bg-white shadow" : "hover:bg-gray-100"
-                }`}
+              className={`p-2 rounded ${
+                viewMode === "list" ? "bg-white shadow" : "hover:bg-gray-100"
+              }`}
             >
               <List className="h-5 w-5" />
             </button>
@@ -1439,10 +1460,11 @@ const TemplatesPage: NextPageWithLayout = () => {
                                 .map((button, index) => (
                                   <div
                                     key={index}
-                                    className={`flex items-center gap-3 px-4 py-3 ${index > 0
-                                      ? "border-t border-gray-100"
-                                      : ""
-                                      } hover:bg-gray-50 transition-colors`}
+                                    className={`flex items-center gap-3 px-4 py-3 ${
+                                      index > 0
+                                        ? "border-t border-gray-100"
+                                        : ""
+                                    } hover:bg-gray-50 transition-colors`}
                                   >
                                     {button?.type === "QUICK_REPLY" && (
                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -1728,14 +1750,15 @@ const TemplatesPage: NextPageWithLayout = () => {
                               >
                                 <div className="flex items-center gap-2">
                                   <div
-                                    className={`w-6 h-6 rounded flex items-center justify-center ${b.type === "QUICK_REPLY"
-                                      ? "bg-green-100 dark:bg-green-900/30"
-                                      : b.type === "URL"
-                                        ? "bg-blue-100 dark:bg-blue-900/30"
-                                        : b.type === "PHONE_NUMBER"
-                                          ? "bg-purple-100 dark:bg-purple-900/30"
-                                          : "bg-gray-100 dark:bg-gray-700"
-                                      }`}
+                                    className={`w-6 h-6 rounded flex items-center justify-center ${
+                                      b.type === "QUICK_REPLY"
+                                        ? "bg-green-100 dark:bg-green-900/30"
+                                        : b.type === "URL"
+                                          ? "bg-blue-100 dark:bg-blue-900/30"
+                                          : b.type === "PHONE_NUMBER"
+                                            ? "bg-purple-100 dark:bg-purple-900/30"
+                                            : "bg-gray-100 dark:bg-gray-700"
+                                    }`}
                                   >
                                     <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                                       {i + 1}

@@ -10,7 +10,13 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { FileText, ShoppingCart, Filter, Printer } from "lucide-react";
+import {
+  FileText,
+  ShoppingCart,
+  Filter,
+  Printer,
+  ShieldAlert,
+} from "lucide-react";
 import { PurchaseRecord } from "@/types/stocks";
 import debounce from "lodash.debounce";
 import AddPurchaseOrderModal from "./_components/AddPurchaseOrderModal";
@@ -35,7 +41,8 @@ const TOKEN_PRIORITY = [
 const getStoredToken = () => {
   if (typeof window === "undefined") return null;
   for (const key of TOKEN_PRIORITY) {
-    const value = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    const value =
+      window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
     if (value) return value;
   }
   return null;
@@ -46,16 +53,30 @@ const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
   // This file is inside /clinic/ — always clinic context
   try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+    const token =
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken");
     if (token) {
       const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
+      if (!base64Url) return { role: "clinic", id: null };
       const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+      const decoded = JSON.parse(
+        decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join(""),
+        ),
+      );
+      return {
+        role: decoded.role || "clinic",
+        id: decoded.userId || decoded.id || null,
+      };
     }
-  } catch (e) { /* ignore */ }
-  return { role: 'clinic', id: null };
+  } catch (e) {
+    /* ignore */
+  }
+  return { role: "clinic", id: null };
 };
 
 const getUserRole = (): string | null => getUserInfo().role;
@@ -200,8 +221,6 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
     }
   }, [searchTerm, filterData, _permissionsLoaded]);
 
-
-
   const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
 
   // Fetch clinic currency
@@ -221,10 +240,6 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
     };
     fetchClinicCurrency();
   }, []);
-
-
-
-
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -251,27 +266,27 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
   const clinicToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("clinicToken") ||
-      window.sessionStorage.getItem("clinicToken")
+        window.sessionStorage.getItem("clinicToken")
       : null;
   const doctorToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("doctorToken") ||
-      window.sessionStorage.getItem("doctorToken")
+        window.sessionStorage.getItem("doctorToken")
       : null;
   const agentToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("agentToken") ||
-      window.sessionStorage.getItem("agentToken")
+        window.sessionStorage.getItem("agentToken")
       : null;
   const staffToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("staffToken") ||
-      window.sessionStorage.getItem("staffToken")
+        window.sessionStorage.getItem("staffToken")
       : null;
   const userToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("userToken") ||
-      window.sessionStorage.getItem("userToken")
+        window.sessionStorage.getItem("userToken")
       : null;
 
   // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
@@ -351,19 +366,21 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
                   if (Array.isArray(parentModule.subModules)) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      const key = (sm.moduleKey || "").toLowerCase();
-                      const name = (sm.name || "").toLowerCase();
-                      return (
-                        key === "clinic_stock_purchase_orders" ||
-                        key === "purchase_orders" ||
-                        key === "stock_purchase_orders" ||
-                        name === "clinic_stock_purchase_orders" ||
-                        name === "purchase orders" ||
-                        name === "purchase_orders" ||
-                        name === "stock_purchase_orders"
-                      );
-                    });
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        const key = (sm.moduleKey || "").toLowerCase();
+                        const name = (sm.name || "").toLowerCase();
+                        return (
+                          key === "clinic_stock_purchase_orders" ||
+                          key === "purchase_orders" ||
+                          key === "stock_purchase_orders" ||
+                          name === "clinic_stock_purchase_orders" ||
+                          name === "purchase orders" ||
+                          name === "purchase_orders" ||
+                          name === "stock_purchase_orders"
+                        );
+                      },
+                    );
                     if (foundInSubModule) {
                       modulePermission = { actions: foundInSubModule.actions };
                       break;
@@ -474,7 +491,6 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           console.log("Agent Permissions API Response:", data);
 
           if (!isMounted) return;
-
 
           // Default to true if module not found in permissions (matches backend logic)
           if (
@@ -636,59 +652,21 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
   if (!permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
           </h3>
-          <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
-            You do not have permission to view purchase orders. Please contact your administrator.
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
           </p>
-          {/* Show create buttons even if read is denied but create is allowed */}
-          {permissions.canCreate && (
-            <div className="flex flex-col gap-2 mt-4">
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleConvertPurchaseRequest}
-              >
-                <FileText className="h-5 w-5" />
-                Convert Purchase Request
-              </button>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddPurchaseOrder}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Purchase Order
-              </button>
-            </div>
-          )}
         </div>
-        {/* Modals for create functionality even when read is denied */}
-        <ConvertPurchaseRequestModal
-          token={token || ""}
-          isOpen={isConvertModalOpen}
-          onClose={() => setIsConvertModalOpen(false)}
-          onSuccess={(_purchaseOrderData: PurchaseRecord) => {
-            setIsConvertModalOpen(false);
-          }}
-        />
-        <AddPurchaseOrderModal
-          token={token || ""}
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={(_purchaseOrderData: PurchaseRecord) => {
-            setIsAddModalOpen(false);
-          }}
-        />
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-bg-page p-4 md:p-6">
@@ -1135,61 +1113,63 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
-                              New: "bg-blue-100 text-blue-800",
-                              Approved: "bg-green-100 text-green-800",
-                              Partly_Delivered:
-                                "bg-yellow-100 text-yellow-800",
-                              Delivered: "bg-teal-100 text-teal-800",
-                              Partly_Invoiced:
-                                "bg-orange-100 text-orange-800",
-                              Invoiced: "bg-emerald-100 text-emerald-800",
-                              Rejected: "bg-red-100 text-red-800",
-                              Cancelled: "bg-gray-100 text-gray-800",
-                              Deleted: "bg-gray-100 text-gray-800",
-                              Converted_To_PO:
-                                "bg-purple-100 text-purple-800",
-                            }[
-                              order.status as
-                              | "New"
-                              | "Approved"
-                              | "Partly_Delivered"
-                              | "Delivered"
-                              | "Partly_Invoiced"
-                              | "Invoiced"
-                              | "Rejected"
-                              | "Cancelled"
-                              | "Deleted"
-                              | "Converted_To_PO"
-                            ] || "bg-gray-100 text-gray-800"
-                              }`}
-                          >
-                            <span
-                              className={`h-2 w-2 rounded-full mr-2 ${{
-                                New: "bg-blue-500",
-                                Approved: "bg-green-500",
-                                Partly_Delivered: "bg-yellow-500",
-                                Delivered: "bg-teal-500",
-                                Partly_Invoiced: "bg-orange-500",
-                                Invoiced: "bg-emerald-500",
-                                Rejected: "bg-red-500",
-                                Cancelled: "bg-gray-500",
-                                Deleted: "bg-gray-500",
-                                Converted_To_PO: "bg-purple-500",
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              {
+                                New: "bg-blue-100 text-blue-800",
+                                Approved: "bg-green-100 text-green-800",
+                                Partly_Delivered:
+                                  "bg-yellow-100 text-yellow-800",
+                                Delivered: "bg-teal-100 text-teal-800",
+                                Partly_Invoiced:
+                                  "bg-orange-100 text-orange-800",
+                                Invoiced: "bg-emerald-100 text-emerald-800",
+                                Rejected: "bg-red-100 text-red-800",
+                                Cancelled: "bg-gray-100 text-gray-800",
+                                Deleted: "bg-gray-100 text-gray-800",
+                                Converted_To_PO:
+                                  "bg-purple-100 text-purple-800",
                               }[
                                 order.status as
-                                | "New"
-                                | "Approved"
-                                | "Partly_Delivered"
-                                | "Delivered"
-                                | "Partly_Invoiced"
-                                | "Invoiced"
-                                | "Rejected"
-                                | "Cancelled"
-                                | "Deleted"
-                                | "Converted_To_PO"
-                              ] || "bg-gray-500"
-                                }`}
+                                  | "New"
+                                  | "Approved"
+                                  | "Partly_Delivered"
+                                  | "Delivered"
+                                  | "Partly_Invoiced"
+                                  | "Invoiced"
+                                  | "Rejected"
+                                  | "Cancelled"
+                                  | "Deleted"
+                                  | "Converted_To_PO"
+                              ] || "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            <span
+                              className={`h-2 w-2 rounded-full mr-2 ${
+                                {
+                                  New: "bg-blue-500",
+                                  Approved: "bg-green-500",
+                                  Partly_Delivered: "bg-yellow-500",
+                                  Delivered: "bg-teal-500",
+                                  Partly_Invoiced: "bg-orange-500",
+                                  Invoiced: "bg-emerald-500",
+                                  Rejected: "bg-red-500",
+                                  Cancelled: "bg-gray-500",
+                                  Deleted: "bg-gray-500",
+                                  Converted_To_PO: "bg-purple-500",
+                                }[
+                                  order.status as
+                                    | "New"
+                                    | "Approved"
+                                    | "Partly_Delivered"
+                                    | "Delivered"
+                                    | "Partly_Invoiced"
+                                    | "Invoiced"
+                                    | "Rejected"
+                                    | "Cancelled"
+                                    | "Deleted"
+                                    | "Converted_To_PO"
+                                ] || "bg-gray-500"
+                              }`}
                             />
                             {order.status.replace(/_/g, " ")}
                           </span>
@@ -1258,26 +1238,26 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                   "Converted_To_PI",
                                   "Converted_To_GRN",
                                 ]?.includes(order.status) && (
-                                    <button
-                                      onClick={() => {
-                                        handleEditClick(order);
-                                        // Close the dropdown after clicking
-                                        const menuEl = document.getElementById(
-                                          `menu-${order._id}`,
-                                        );
-                                        if (menuEl) {
-                                          menuEl.classList.remove("block");
-                                          menuEl.classList.add("hidden");
-                                        }
-                                      }}
-                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                      <div className="flex items-center">
-                                        <PencilIcon className="h-4 w-4 mr-2" />
-                                        Edit
-                                      </div>
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => {
+                                      handleEditClick(order);
+                                      // Close the dropdown after clicking
+                                      const menuEl = document.getElementById(
+                                        `menu-${order._id}`,
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <PencilIcon className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </div>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab
@@ -1733,7 +1713,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-green-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {item.unitPrice.toFixed(2)}
                                               </div>
@@ -1741,7 +1723,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                               <div className="flex items-center">
                                                 <span className="text-green-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {item.totalPrice.toFixed(2)}
                                               </div>
@@ -1751,7 +1735,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                                 <span>
                                                   {item.discount || 0}
                                                   {item.discountType ===
-                                                    "Percentage"
+                                                  "Percentage"
                                                     ? "%"
                                                     : ""}
                                                 </span>
@@ -1765,7 +1749,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-blue-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   item.netPrice ||
@@ -1781,7 +1767,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-orange-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(item.vatAmount || 0).toFixed(
                                                   2,
@@ -1791,13 +1779,15 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                               <div className="flex items-center">
                                                 <span className="text-purple-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   item.netPlusVat ||
                                                   (item.netPrice ||
                                                     item.totalPrice) +
-                                                  (item.vatAmount || 0)
+                                                    (item.vatAmount || 0)
                                                 ).toFixed(2)}
                                               </div>
                                             </td>
@@ -1829,7 +1819,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-green-600 mr-1">
-                                              {getCurrencySymbol(clinicCurrency)}
+                                              {getCurrencySymbol(
+                                                clinicCurrency,
+                                              )}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1848,7 +1840,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-blue-600 mr-1">
-                                              {getCurrencySymbol(clinicCurrency)}
+                                              {getCurrencySymbol(
+                                                clinicCurrency,
+                                              )}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1868,7 +1862,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-orange-600 mr-1">
-                                              {getCurrencySymbol(clinicCurrency)}
+                                              {getCurrencySymbol(
+                                                clinicCurrency,
+                                              )}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1882,7 +1878,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-purple-600 mr-1">
-                                              {getCurrencySymbol(clinicCurrency)}
+                                              {getCurrencySymbol(
+                                                clinicCurrency,
+                                              )}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1891,7 +1889,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                                   (item.netPlusVat ||
                                                     (item.netPrice ||
                                                       item.totalPrice) +
-                                                    (item.vatAmount || 0)),
+                                                      (item.vatAmount || 0)),
                                                 0,
                                               )
                                               .toFixed(2)}
@@ -1961,10 +1959,11 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pageNum === pagination.currentPage
-                            ? "bg-blue-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                            }`}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            pageNum === pagination.currentPage
+                              ? "bg-blue-600 text-white"
+                              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
                         >
                           {pageNum}
                         </button>

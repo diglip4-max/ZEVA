@@ -9,7 +9,13 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { FileText, Filter, PencilIcon, Printer } from "lucide-react";
+import {
+  FileText,
+  Filter,
+  PencilIcon,
+  Printer,
+  ShieldAlert,
+} from "lucide-react";
 import debounce from "lodash.debounce";
 import AddPurchaseInvoiceModal from "./_components/AddPurchaseInvoiceModal";
 import DeletePurchaseInvoiceModal from "./_components/DeletePurchaseInvoiceModal";
@@ -30,7 +36,8 @@ const TOKEN_PRIORITY = [
 const getStoredToken = () => {
   if (typeof window === "undefined") return null;
   for (const key of TOKEN_PRIORITY) {
-    const value = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    const value =
+      window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
     if (value) return value;
   }
   return null;
@@ -41,16 +48,30 @@ const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
   // This file is inside /clinic/ — always clinic context
   try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+    const token =
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken");
     if (token) {
       const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
+      if (!base64Url) return { role: "clinic", id: null };
       const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+      const decoded = JSON.parse(
+        decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join(""),
+        ),
+      );
+      return {
+        role: decoded.role || "clinic",
+        id: decoded.userId || decoded.id || null,
+      };
     }
-  } catch (e) { /* ignore */ }
-  return { role: 'clinic', id: null };
+  } catch (e) {
+    /* ignore */
+  }
+  return { role: "clinic", id: null };
 };
 
 const getUserRole = (): string | null => getUserInfo().role;
@@ -202,18 +223,44 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
   useEffect(() => {
     let isMounted = true;
     const userRole = getUserRole();
-    
-    const clinicToken = typeof window !== "undefined" ? localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken") : null;
-    const doctorToken = typeof window !== "undefined" ? localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken") : null;
-    const agentToken = typeof window !== "undefined" ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") : null;
-    const staffToken = typeof window !== "undefined" ? localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken") : null;
-    const userToken = typeof window !== "undefined" ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken") : null;
-    const authToken = clinicToken || doctorToken || agentToken || staffToken || userToken;
+
+    const clinicToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken")
+        : null;
+    const doctorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken")
+        : null;
+    const agentToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
+        : null;
+    const staffToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken")
+        : null;
+    const userToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken")
+        : null;
+    const authToken =
+      clinicToken || doctorToken || agentToken || staffToken || userToken;
 
     // Admin gets full access
     if (userRole === "admin") {
       if (!isMounted) return;
-      setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
       setPermissionsLoaded(true);
       return;
     }
@@ -224,7 +271,12 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
         try {
           if (!authToken) {
             if (!isMounted) return;
-            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
             setPermissionsLoaded(true);
             return;
           }
@@ -233,8 +285,17 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
           });
           if (!isMounted) return;
           if (res.data.success) {
-            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
-              setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
             } else {
               let modulePermission = res.data.permissions.find((p: any) => {
                 const mod = (p.module || "").toLowerCase();
@@ -252,19 +313,21 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
                   if (Array.isArray(parentModule.subModules)) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      const key = (sm.moduleKey || "").toLowerCase();
-                      const name = (sm.name || "").toLowerCase();
-                      return (
-                        key === "clinic_stock_purchase_invoices" ||
-                        key === "purchase_invoices" ||
-                        key === "stock_purchase_invoices" ||
-                        name === "clinic_stock_purchase_invoices" ||
-                        name === "purchase invoices" ||
-                        name === "purchase_invoices" ||
-                        name === "stock_purchase_invoices"
-                      );
-                    });
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        const key = (sm.moduleKey || "").toLowerCase();
+                        const name = (sm.name || "").toLowerCase();
+                        return (
+                          key === "clinic_stock_purchase_invoices" ||
+                          key === "purchase_invoices" ||
+                          key === "stock_purchase_invoices" ||
+                          name === "clinic_stock_purchase_invoices" ||
+                          name === "purchase invoices" ||
+                          name === "purchase_invoices" ||
+                          name === "stock_purchase_invoices"
+                        );
+                      },
+                    );
                     if (foundInSubModule) {
                       modulePermission = { actions: foundInSubModule.actions };
                       break;
@@ -274,11 +337,26 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
-                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
-                const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
-                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
-                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
-                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
                 setPermissions({
                   canRead: moduleAll || moduleRead,
                   canCreate: moduleAll || moduleCreate,
@@ -286,15 +364,31 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+                setPermissions({
+                  canRead: true,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
               }
             }
           } else {
-            setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
           }
         } catch (err) {
           console.error("Error fetching clinic sidebar permissions:", err);
-          if (isMounted) setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+          if (isMounted)
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
         } finally {
           if (isMounted) setPermissionsLoaded(true);
         }
@@ -306,7 +400,12 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
     // Agent/doctorStaff tokens - check via agent permissions API
     const agentStaffToken = getStoredToken();
     if (!agentStaffToken) {
-      setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+      setPermissions({
+        canRead: false,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      });
       setPermissionsLoaded(true);
       return;
     }
@@ -320,12 +419,24 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
           });
           const data = res.data;
           if (!isMounted) return;
-          if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
-            setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+          if (
+            !data?.permissions &&
+            data?.error?.includes("not found in agent permissions")
+          ) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
             return;
           }
-          const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+          const actions =
+            data?.permissions?.actions || data?.data?.moduleActions || {};
+          const isTrue = (val: any) =>
+            val === true ||
+            val === "true" ||
+            String(val || "").toLowerCase() === "true";
           const canAll = isTrue(actions.all);
           setPermissions({
             canRead: canAll || isTrue(actions.read),
@@ -335,17 +446,29 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
           });
         } catch (err) {
           console.error("Error fetching agent permissions:", err);
-          setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+          setPermissions({
+            canRead: false,
+            canCreate: false,
+            canUpdate: false,
+            canDelete: false,
+          });
         } finally {
           if (isMounted) setPermissionsLoaded(true);
         }
       };
       fetchPermissions();
     } else {
-      setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
       setPermissionsLoaded(true);
     }
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -453,40 +576,18 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
   if (!permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
           </h3>
-          <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
-            You do not have permission to view purchase invoices. Please contact your administrator.
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
           </p>
-          {/* Show create button even if read is denied but create is allowed */}
-          {permissions.canCreate && (
-            <button
-              className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium mt-4"
-              onClick={handleAdd}
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add Purchase Invoice
-            </button>
-          )}
         </div>
-        {/* Modal for create functionality even when read is denied */}
-        <AddPurchaseInvoiceModal
-          token={token || ""}
-          isOpen={isAddModalOpen}
-
-
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={(_invoiceData: any) => {
-            setIsAddModalOpen(false);
-          }}
-        />
       </div>
     );
   }
@@ -887,13 +988,16 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                 : 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(clinicCurrency)} {totalAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {totalAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(clinicCurrency)} {paidAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {paidAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(clinicCurrency)} {remainingAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {remainingAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

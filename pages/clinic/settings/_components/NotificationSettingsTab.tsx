@@ -153,10 +153,12 @@ export function Toggle({
   on,
   onClick,
   size = "md",
+  disabled = false,
 }: {
   on: boolean;
   onClick: () => void;
   size?: "sm" | "md";
+  disabled?: boolean;
 }) {
   const w = size === "sm" ? 38 : 44;
   const h = size === "sm" ? 22 : 24;
@@ -166,8 +168,12 @@ export function Toggle({
       type="button"
       role="switch"
       aria-checked={on}
+      disabled={disabled}
+      title={disabled ? "You don't have permission to update" : undefined}
       onClick={onClick}
-      className="relative flex-shrink-0 rounded-full transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+      className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500/40 ${
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+      }`}
       style={{
         width: w,
         height: h,
@@ -370,6 +376,7 @@ function NotifCard({
   onEdit,
   comingSoon = false,
   comingSoonLabel = "Coming Soon",
+  canUpdate = false,
 }: {
   n: Notification;
   onToggle: (id: string) => void;
@@ -382,6 +389,7 @@ function NotifCard({
   comingSoon?: boolean;
   /** Optional custom label for the coming-soon badge. */
   comingSoonLabel?: string;
+  canUpdate?: boolean;
 }) {
   const cat = catMeta(n.category);
   const CatIcon = cat.icon;
@@ -537,7 +545,12 @@ function NotifCard({
             onClick={(e) => e.stopPropagation()}
             className="flex items-center"
           >
-            <Toggle on={n.isEnabled} onClick={() => onToggle(n.id)} size="sm" />
+            <Toggle
+              on={n.isEnabled}
+              onClick={() => onToggle(n.id)}
+              size="sm"
+              disabled={!canUpdate}
+            />
           </div>
         </div>
 
@@ -553,13 +566,14 @@ function NotifCard({
 }
 
 const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
-  // permissions,
+  permissions,
   permissionsLoaded,
   AccessDenied,
   PermissionLoading,
   canAccessPage,
 }) => {
   const router = useRouter();
+  const canUpdate = Boolean(permissions?.canUpdate);
   const {
     settings,
     analytics,
@@ -648,6 +662,10 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
   });
 
   const toggleNotif = async (id: string) => {
+    if (!canUpdate) {
+      showToast("You don't have permission to update notifications");
+      return;
+    }
     const s = settings.find((x) => x.notificationTypeKey === id);
     if (!s) return;
     if (s.isEnabled && s.isProtected) {
@@ -663,6 +681,11 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
   };
 
   const saveEdit = async (draft: Notification) => {
+    if (!canUpdate) {
+      closeEdit();
+      showToast("You don't have permission to update notifications");
+      return;
+    }
     const result = await saveNotification(draft.id, {
       isEnabled: draft.isEnabled,
       isProtected: draft.isProtected,
@@ -681,6 +704,10 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
   };
 
   const handlePause = async () => {
+    if (!canUpdate) {
+      showToast("You don't have permission to update notifications");
+      return;
+    }
     const newPaused = !meta.isPaused;
     const result = await setPaused(newPaused);
     if (result.ok) {
@@ -868,14 +895,16 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <Btn
-                      icon={meta.isPaused ? Play : Pause}
-                      variant={meta.isPaused ? "primary" : "default"}
-                      onClick={handlePause}
-                      className="h-10 whitespace-nowrap"
-                    >
-                      {meta.isPaused ? "Resume" : "Pause all"}
-                    </Btn>
+                    {canUpdate && (
+                      <Btn
+                        icon={meta.isPaused ? Play : Pause}
+                        variant={meta.isPaused ? "primary" : "default"}
+                        onClick={handlePause}
+                        className="h-10 whitespace-nowrap"
+                      >
+                        {meta.isPaused ? "Resume" : "Pause all"}
+                      </Btn>
+                    )}
                     <Btn
                       icon={Logs}
                       variant="primary"
@@ -965,6 +994,7 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
                     onToggle={toggleNotif}
                     onEdit={openEdit}
                     comingSoon={isComingSoon}
+                    canUpdate={canUpdate}
                   />
                 );
               })}
@@ -1073,6 +1103,7 @@ const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
         notif={editingNotif}
         open={drawerOpen}
         isSaving={saving}
+        readOnly={!canUpdate}
         onClose={closeEdit}
         onSave={saveEdit}
       />

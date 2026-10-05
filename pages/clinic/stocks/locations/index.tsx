@@ -6,7 +6,7 @@ import React, { ReactElement, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
 import AddLocationModal from "./_components/AddLocationModal";
 import DeleteLocationModal from "./_components/DeleteLocationModal";
 import EditLocationModal from "./_components/EditLocationModal";
@@ -93,15 +93,15 @@ const StockLocationPage: NextPageWithLayout = ({
       const hasAgent =
         Boolean(
           localStorage.getItem("agentToken") ||
-            sessionStorage.getItem("agentToken"),
+          sessionStorage.getItem("agentToken"),
         ) ||
         Boolean(
           localStorage.getItem("staffToken") ||
-            sessionStorage.getItem("staffToken"),
+          sessionStorage.getItem("staffToken"),
         ) ||
         Boolean(
           localStorage.getItem("userToken") ||
-            sessionStorage.getItem("userToken"),
+          sessionStorage.getItem("userToken"),
         );
       setHasAgentToken(hasAgent);
     };
@@ -113,8 +113,10 @@ const StockLocationPage: NextPageWithLayout = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
-      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
+      router?.pathname?.startsWith("/agent/") ||
+      router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
@@ -125,7 +127,10 @@ const StockLocationPage: NextPageWithLayout = ({
     }
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
+    if (
+      currentPath.startsWith("/agent/") ||
+      currentPath.startsWith("/staff/")
+    ) {
       setRouteContext("agent");
     } else {
       setRouteContext("clinic");
@@ -152,15 +157,9 @@ const StockLocationPage: NextPageWithLayout = ({
 
     const newPermissions = {
       canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
-      canCreate: Boolean(
-        agentPermissions.canAll || agentPermissions.canCreate,
-      ),
-      canUpdate: Boolean(
-        agentPermissions.canAll || agentPermissions.canUpdate,
-      ),
-      canDelete: Boolean(
-        agentPermissions.canAll || agentPermissions.canDelete,
-      ),
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
     };
 
     setPermissions(newPermissions);
@@ -171,15 +170,29 @@ const StockLocationPage: NextPageWithLayout = ({
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
     try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      const token =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
       if (token) {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return {
+          role: decoded.role || "clinic",
+          id: decoded.userId || decoded.id || null,
+        };
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    } catch (e) {
+      /* ignore */
+    }
+    return { role: "clinic", id: null };
   };
 
   const getUserRole = (): string | null => {
@@ -289,15 +302,16 @@ const StockLocationPage: NextPageWithLayout = ({
 
               // If not found as direct module, check parent clinic_stock module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) => 
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                const parentStockModule = res.data.permissions.find(
+                  (p: any) =>
+                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
                 );
-                
+
                 console.log("Parent stock module found:", parentStockModule);
-                
+
                 if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_locations"
+                  modulePermission = parentStockModule.subModules.find(
+                    (sm: any) => sm?.moduleKey === "clinic_stock_locations",
                   );
                   console.log("Submodule permission found:", modulePermission);
                 }
@@ -577,11 +591,14 @@ const StockLocationPage: NextPageWithLayout = ({
     [fetchLocations, pagination.currentPage, permissions.canCreate],
   );
 
-  const handleDeleteClick = useCallback((location: StockLocation) => {
-    if (!permissions.canDelete) return;
-    setLocationToDelete(location);
-    setIsDeleteModalOpen(true);
-  }, [permissions.canDelete]);
+  const handleDeleteClick = useCallback(
+    (location: StockLocation) => {
+      if (!permissions.canDelete) return;
+      setLocationToDelete(location);
+      setIsDeleteModalOpen(true);
+    },
+    [permissions.canDelete],
+  );
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!locationToDelete || !permissions.canDelete) return;
@@ -607,18 +624,26 @@ const StockLocationPage: NextPageWithLayout = ({
       console.error("Error deleting location:", error);
       alert("Failed to delete location");
     }
-  }, [locationToDelete, fetchLocations, pagination.currentPage, permissions.canDelete]);
+  }, [
+    locationToDelete,
+    fetchLocations,
+    pagination.currentPage,
+    permissions.canDelete,
+  ]);
 
   const handleDeleteCancel = useCallback(() => {
     setIsDeleteModalOpen(false);
     setLocationToDelete(null);
   }, []);
 
-  const handleEditClick = useCallback((location: StockLocation) => {
-    if (!permissions.canUpdate) return;
-    setLocationToEdit(location);
-    setIsEditModalOpen(true);
-  }, [permissions.canUpdate]);
+  const handleEditClick = useCallback(
+    (location: StockLocation) => {
+      if (!permissions.canUpdate) return;
+      setLocationToEdit(location);
+      setIsEditModalOpen(true);
+    },
+    [permissions.canUpdate],
+  );
 
   const handleEditSubmit = useCallback(
     async (locationData: { location: string; status: string }) => {
@@ -650,7 +675,12 @@ const StockLocationPage: NextPageWithLayout = ({
         alert("Failed to update location");
       }
     },
-    [locationToEdit, fetchLocations, pagination.currentPage, permissions.canUpdate],
+    [
+      locationToEdit,
+      fetchLocations,
+      pagination.currentPage,
+      permissions.canUpdate,
+    ],
   );
 
   const handleEditCancel = useCallback(() => {
@@ -671,62 +701,24 @@ const StockLocationPage: NextPageWithLayout = ({
   }
 
   // If canRead is false, show access denied
-  if (!permissions.canRead && !permissions.canCreate) {
+  if (!permissions.canRead) {
     return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view stock locations.
-          </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access to the Stock Locations module.
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view stock locations. Please contact
+            your administrator if you believe this is an error.
           </p>
         </div>
       </div>
     );
   }
-
-  // If canRead is false but canCreate is true, show only add button
-  if (!permissions.canRead && permissions.canCreate) {
-    return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-                  Stock Locations
-                </h1>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                  Manage storage locations for your clinic inventory
-                </p>
-              </div>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddLocation}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Location
-              </button>
-
-              {/* Add Location Modal */}
-              <AddLocationModal
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                onAddLocation={handleAddLocationSubmit}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
