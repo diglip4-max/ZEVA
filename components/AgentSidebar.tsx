@@ -553,61 +553,61 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             String(action).toLowerCase() === "true";
 
           // Check ONLY parent module's subModules (bypasses top-level module check)
-          const localHasSubModulePermission = (
-            parentModuleKey: string,
-            label: string,
-          ): boolean => {
-            if (!localPermissions || localPermissions.length === 0) return true;
-            const parentPerm = localPermissions.find(
-              (p: any) => p.module === parentModuleKey,
-            );
-            if (
-              !parentPerm?.subModules ||
-              !Array.isArray(parentPerm.subModules)
-            )
-              return false;
-            // const smName = label.trim().toLowerCase();
-            const lbl = label.trim().toLowerCase();
-            // First try exact match
-            let subModule = parentPerm.subModules.find(
-              (sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl,
-            );
-            // If no exact match, try partial matches
-            if (!subModule) {
-              subModule = parentPerm.subModules.find((sm: any) => {
-                const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
-                return (
-                  smNameTrimmed.includes(lbl) ||
-                  lbl.includes(smNameTrimmed) ||
-                  // Special cases (same as ClinicSidebar)
-                  (lbl === "grn" && smNameTrimmed === "good receive note") ||
-                  (lbl === "locations" &&
-                    smNameTrimmed === "stock locations") ||
-                  (lbl === "templates" && smNameTrimmed === "template") ||
-                  (lbl === "reviews" && smNameTrimmed === "review") ||
-                  (lbl === "inbox" && smNameTrimmed === "inbox") ||
-                  (lbl === "pass by doctor" &&
-                    smNameTrimmed === "pass by doctor") ||
-                  (lbl === "release requested" &&
-                    smNameTrimmed === "release requested") ||
-                  (lbl === "sale products" && smNameTrimmed === "sale products")
-                );
-              });
-            }
-            if (subModule?.actions) {
-              return (
-                localIsActionTrue(subModule.actions.all) ||
-                localIsActionTrue(subModule.actions.create) ||
-                localIsActionTrue(subModule.actions.read) ||
-                localIsActionTrue(subModule.actions.update) ||
-                localIsActionTrue(subModule.actions.delete) ||
-                localIsActionTrue(subModule.actions.print) ||
-                localIsActionTrue(subModule.actions.export) ||
-                localIsActionTrue(subModule.actions.approve)
-              );
-            }
-            return false;
-          };
+          // const localHasSubModulePermission = (
+          //   parentModuleKey: string,
+          //   label: string,
+          // ): boolean => {
+          //   if (!localPermissions || localPermissions.length === 0) return true;
+          //   const parentPerm = localPermissions.find(
+          //     (p: any) => p.module === parentModuleKey,
+          //   );
+          //   if (
+          //     !parentPerm?.subModules ||
+          //     !Array.isArray(parentPerm.subModules)
+          //   )
+          //     return false;
+          //   // const smName = label.trim().toLowerCase();
+          //   const lbl = label.trim().toLowerCase();
+          //   // First try exact match
+          //   let subModule = parentPerm.subModules.find(
+          //     (sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl,
+          //   );
+          //   // If no exact match, try partial matches
+          //   if (!subModule) {
+          //     subModule = parentPerm.subModules.find((sm: any) => {
+          //       const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
+          //       return (
+          //         smNameTrimmed.includes(lbl) ||
+          //         lbl.includes(smNameTrimmed) ||
+          //         // Special cases (same as ClinicSidebar)
+          //         (lbl === "grn" && smNameTrimmed === "good receive note") ||
+          //         (lbl === "locations" &&
+          //           smNameTrimmed === "stock locations") ||
+          //         (lbl === "templates" && smNameTrimmed === "template") ||
+          //         (lbl === "reviews" && smNameTrimmed === "review") ||
+          //         (lbl === "inbox" && smNameTrimmed === "inbox") ||
+          //         (lbl === "pass by doctor" &&
+          //           smNameTrimmed === "pass by doctor") ||
+          //         (lbl === "release requested" &&
+          //           smNameTrimmed === "release requested") ||
+          //         (lbl === "sale products" && smNameTrimmed === "sale products")
+          //       );
+          //     });
+          //   }
+          //   if (subModule?.actions) {
+          //     return (
+          //       localIsActionTrue(subModule.actions.all) ||
+          //       localIsActionTrue(subModule.actions.create) ||
+          //       localIsActionTrue(subModule.actions.read) ||
+          //       localIsActionTrue(subModule.actions.update) ||
+          //       localIsActionTrue(subModule.actions.delete) ||
+          //       localIsActionTrue(subModule.actions.print) ||
+          //       localIsActionTrue(subModule.actions.export) ||
+          //       localIsActionTrue(subModule.actions.approve)
+          //     );
+          //   }
+          //   return false;
+          // };
 
           // Helper: check if submodule EXISTS in parent's subModules list and whether it has permission
           // Returns { found: true/false, hasPerm: true/false }
