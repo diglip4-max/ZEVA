@@ -30,6 +30,7 @@ import {
   Check,
   Loader2,
   RefreshCcw,
+  ShieldAlert,
 } from "lucide-react";
 import { useAgentPermissions } from "../../../hooks/useAgentPermissions";
 import CreateNewConversation from "./_components/CreateNewConversation";
@@ -648,13 +649,17 @@ const InboxPage: NextPageWithLayout = () => {
 
   if (!permissions.canRead) {
     return (
-      <div className="flex h-[92vh] items-center justify-center bg-gray-50 dark:bg-slate-900">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-800 dark:text-slate-100 mb-2">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
-          </h2>
-          <p className="text-gray-600 dark:text-slate-400">
-            You don't have permission to view this page.
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
           </p>
         </div>
       </div>
@@ -925,15 +930,17 @@ const InboxPage: NextPageWithLayout = () => {
                     selectedProvider={selectedProvider}
                     whatsappRemainingTime={whatsappRemainingTime}
                   />
-                  <AssignConversation
-                    agents={agents}
-                    selectedAgents={selectedAgents}
-                    onAgentsSelect={(agents) =>
-                      handleAgentSelect(agents, selectedConversation?._id)
-                    }
-                    loading={agentFetchLoading}
-                    placeholder="Assign to agents..."
-                  />
+                  {permissions.canUpdate && (
+                    <AssignConversation
+                      agents={agents}
+                      selectedAgents={selectedAgents}
+                      onAgentsSelect={(agents) =>
+                        handleAgentSelect(agents, selectedConversation?._id)
+                      }
+                      loading={agentFetchLoading}
+                      placeholder="Assign to agents..."
+                    />
+                  )}
 
                   {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
               <Info className="h-5 w-5" />
@@ -1478,17 +1485,19 @@ const InboxPage: NextPageWithLayout = () => {
                       <div className="font-semibold text-gray-800 dark:text-slate-100">
                         {selectedConversation?.leadId?.name}
                       </div>
-                      <button
-                        onClick={() =>
-                          handleEditLead(
-                            "name",
-                            selectedConversation?.leadId?.name || "",
-                          )
-                        }
-                        className="p-1 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition-all"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+                      {permissions.canUpdate && (
+                        <button
+                          onClick={() =>
+                            handleEditLead(
+                              "name",
+                              selectedConversation?.leadId?.name || "",
+                            )
+                          }
+                          className="p-1 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition-all"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                   <div
@@ -1519,7 +1528,7 @@ const InboxPage: NextPageWithLayout = () => {
                 <div className="flex flex-col text-sm text-gray-500 dark:text-slate-400">
                   <div className="flex items-center gap-2 group">
                     <div className="flex items-center gap-2">Phone</div>
-                    {editingField !== "phone" && (
+                    {editingField !== "phone" && permissions.canUpdate && (
                       <button
                         onClick={() =>
                           handleEditLead(
@@ -1579,7 +1588,7 @@ const InboxPage: NextPageWithLayout = () => {
                 <div className="flex flex-col text-sm text-gray-500 dark:text-slate-400">
                   <div className="flex items-center gap-2 group">
                     <div className="flex items-center gap-2">Email</div>
-                    {editingField !== "email" && (
+                    {editingField !== "email" && permissions.canUpdate && (
                       <button
                         onClick={() =>
                           handleEditLead(
@@ -1630,10 +1639,7 @@ const InboxPage: NextPageWithLayout = () => {
                       className="font-medium text-gray-800 dark:text-slate-100 select-none"
                     >
                       {user?.role === "agent"
-                        ? maskEmail(
-                            selectedConversation?.leadId?.email ||
-                              "bajuddinkhan0786@gmail.com",
-                          )
+                        ? maskEmail(selectedConversation?.leadId?.email || "")
                         : selectedConversation?.leadId?.email || "—"}
                     </div>
                   )}
@@ -1657,14 +1663,15 @@ const InboxPage: NextPageWithLayout = () => {
           </CollapsibleWrapper>
 
           {/* Lead Status */}
-          <CollapsibleWrapper headerTitle="Stage" loading={false}>
-            <div className="w-full p-1">
-              <select
-                value={leadStatus}
-                onChange={(e) => {
-                  handleLeadStatusChange(e.target.value);
-                }}
-                className="
+          {permissions.canUpdate && (
+            <CollapsibleWrapper headerTitle="Stage" loading={false}>
+              <div className="w-full p-1">
+                <select
+                  value={leadStatus}
+                  onChange={(e) => {
+                    handleLeadStatusChange(e.target.value);
+                  }}
+                  className="
       w-full
       px-3 py-2
       text-sm
@@ -1675,30 +1682,31 @@ const InboxPage: NextPageWithLayout = () => {
       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
       cursor-pointer
     "
-              >
-                <option value="" disabled>
-                  Select status...
-                </option>
-                {[
-                  "New",
-                  "Contacted",
-                  "Engaged",
-                  "Qualified",
-                  "Booked",
-                  "Confirmed",
-                  "Visited",
-                  "Follow-up",
-                  "No-show",
-                  "Not Interested",
-                  "Other",
-                ].map((status) => (
-                  <option key={status} value={status}>
-                    {status}
+                >
+                  <option value="" disabled>
+                    Select status...
                   </option>
-                ))}
-              </select>
-            </div>
-          </CollapsibleWrapper>
+                  {[
+                    "New",
+                    "Contacted",
+                    "Engaged",
+                    "Qualified",
+                    "Booked",
+                    "Confirmed",
+                    "Visited",
+                    "Follow-up",
+                    "No-show",
+                    "Not Interested",
+                    "Other",
+                  ].map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </CollapsibleWrapper>
+          )}
 
           {/* Tags */}
           <CollapsibleWrapper

@@ -3,12 +3,9 @@ import axios from "axios";
 import {
   Check,
   CheckCircle2,
-  // ChevronDown,
   Clock,
   Lock,
-  //   MessageSquareText,
   Package,
-  // Plus,
   Radio,
   SlidersHorizontal,
   Target,
@@ -51,12 +48,14 @@ function NotificationEditDrawer({
   notif,
   open,
   isSaving,
+  readOnly = false,
   onClose,
   onSave,
 }: {
   notif: Notification | null;
   open: boolean;
   isSaving: boolean;
+  readOnly?: boolean;
   onClose: () => void;
   onSave: (draft: Notification) => void;
 }) {
@@ -111,10 +110,13 @@ function NotificationEditDrawer({
     setConfirmOff(false);
   }, [notif?.id]);
 
-  const set = (patch: Partial<Notification>) =>
+  const set = (patch: Partial<Notification>) => {
+    if (readOnly) return;
     setDraft((d) => d && { ...d, ...patch });
+  };
 
-  const setChannel = (idx: number, patch: Partial<NotificationChannel>) =>
+  const setChannel = (idx: number, patch: Partial<NotificationChannel>) => {
+    if (readOnly) return;
     setDraft((d: any) => {
       if (!d) return d;
       const channels = d.channels.map((c: any, i: number) =>
@@ -122,6 +124,7 @@ function NotificationEditDrawer({
       );
       return { ...d, channels };
     });
+  };
 
   // const addChannel = () => {
   //   if (!draft) return;
@@ -150,7 +153,8 @@ function NotificationEditDrawer({
   //   });
   // };
 
-  const removeChannel = (idx: number) =>
+  const removeChannel = (idx: number) => {
+    if (readOnly) return;
     setDraft((d) => {
       if (!d) return null;
       return {
@@ -160,8 +164,10 @@ function NotificationEditDrawer({
           .map((c, i) => ({ ...c, priority: i + 1 })),
       };
     });
+  };
 
-  const moveChannel = (idx: number, dir: -1 | 1) =>
+  const moveChannel = (idx: number, dir: -1 | 1) => {
+    if (readOnly) return;
     setDraft((d) => {
       if (!d) return null;
       const target = idx + dir;
@@ -171,8 +177,10 @@ function NotificationEditDrawer({
       const reindexed = channels.map((c, i) => ({ ...c, priority: i + 1 }));
       return { ...d, channels: reindexed };
     });
+  };
 
   const requestMasterToggle = () => {
+    if (readOnly) return;
     if (draft?.isEnabled && draft?.isProtected) {
       setConfirmOff(true);
       return;
@@ -236,6 +244,12 @@ function NotificationEditDrawer({
             </div>
 
             <div className="p-5 sm:p-6 overflow-y-auto flex-1 text-text-hi space-y-6">
+              {readOnly && (
+                <div className="rounded-xl p-3 text-xs bg-surface-2 border border-border text-text-md flex items-center gap-2">
+                  <Lock size={13} /> View only. You don't have permission to
+                  edit this notification.
+                </div>
+              )}
               <div className="flex items-center justify-between rounded-xl p-4 bg-surface-2 border border-border shadow-xs">
                 <div>
                   <div className="text-sm font-semibold">
@@ -245,7 +259,11 @@ function NotificationEditDrawer({
                     {draft.isEnabled ? "Currently active" : "Currently off"}
                   </div>
                 </div>
-                <Toggle on={draft.isEnabled} onClick={requestMasterToggle} />
+                <Toggle
+                  on={draft.isEnabled}
+                  onClick={requestMasterToggle}
+                  disabled={readOnly}
+                />
               </div>
 
               {confirmOff && (
@@ -508,45 +526,47 @@ function NotificationEditDrawer({
                 onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-surface-3 border border-border text-text-hi"
               >
-                Cancel
+                {readOnly ? "Close" : "Cancel"}
               </button>
-              <button
-                type="button"
-                onClick={() => onSave(draft)}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white flex items-center justify-center gap-2"
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <svg
-                      className="animate-spin h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Check size={15} />
-                    Save changes
-                  </>
-                )}
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => onSave(draft)}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white flex items-center justify-center gap-2"
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <svg
+                        className="animate-spin h-4 w-4"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      Save changes
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </>
         )}

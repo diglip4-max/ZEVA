@@ -291,7 +291,6 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
       agentId,
       isActive: true,
     });
-    console.log({ vap: agentPermission });
 
     if (
       !agentPermission ||

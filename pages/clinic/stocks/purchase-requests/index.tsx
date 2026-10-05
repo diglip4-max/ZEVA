@@ -18,7 +18,7 @@ import DeletePurchaseRequestModal from "./_components/DeletePurchaseRequestModal
 import EditPurchaseRequestModal from "./_components/EditPurchaseRequestModal";
 import PurchaseRequestDetailModal from "./_components/PurchaseRequestDetailModal";
 import FilterModal from "./_components/FilterModal";
-import { Printer, Loader2, Building2 } from "lucide-react";
+import { Printer, Loader2, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/router";
 import { useAgentPermissions } from "@/hooks/useAgentPermissions";
 
@@ -152,8 +152,10 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
-      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
+      router?.pathname?.startsWith("/agent/") ||
+      router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
@@ -164,7 +166,10 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     }
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
+    if (
+      currentPath.startsWith("/agent/") ||
+      currentPath.startsWith("/staff/")
+    ) {
       setRouteContext("agent");
     } else {
       setRouteContext("clinic");
@@ -191,15 +196,9 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
 
     const newPermissions = {
       canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
-      canCreate: Boolean(
-        agentPermissions.canAll || agentPermissions.canCreate,
-      ),
-      canUpdate: Boolean(
-        agentPermissions.canAll || agentPermissions.canUpdate,
-      ),
-      canDelete: Boolean(
-        agentPermissions.canAll || agentPermissions.canDelete,
-      ),
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
     };
 
     setPermissions(newPermissions);
@@ -210,15 +209,29 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
     try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      const token =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
       if (token) {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return {
+          role: decoded.role || "clinic",
+          id: decoded.userId || decoded.id || null,
+        };
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    } catch (e) {
+      /* ignore */
+    }
+    return { role: "clinic", id: null };
   };
 
   const getUserRole = (): string | null => {
@@ -234,27 +247,27 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken")
+          sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken")
+          sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken")
+          sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-        sessionStorage.getItem("staffToken")
+          sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken")
+          sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -328,15 +341,17 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
 
               // If not found as direct module, check parent clinic_stock module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                const parentStockModule = res.data.permissions.find(
+                  (p: any) =>
+                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
                 );
 
                 console.log("Parent stock module found:", parentStockModule);
 
                 if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_purchase_requests"
+                  modulePermission = parentStockModule.subModules.find(
+                    (sm: any) =>
+                      sm?.moduleKey === "clinic_stock_purchase_requests",
                   );
                   console.log("Submodule permission found:", modulePermission);
                 }
@@ -642,11 +657,14 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     setIsAddModalOpen(true);
   }, [permissions.canCreate]);
 
-  const handleDeleteClick = useCallback((purchaseRequest: PurchaseRecord) => {
-    if (!permissions.canDelete) return;
-    setPurchaseRequestToDelete(purchaseRequest);
-    setIsDeleteModalOpen(true);
-  }, [permissions.canDelete]);
+  const handleDeleteClick = useCallback(
+    (purchaseRequest: PurchaseRecord) => {
+      if (!permissions.canDelete) return;
+      setPurchaseRequestToDelete(purchaseRequest);
+      setIsDeleteModalOpen(true);
+    },
+    [permissions.canDelete],
+  );
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!purchaseRequestToDelete || !permissions.canDelete) return;
@@ -693,11 +711,14 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     setPurchaseRequestToDelete(null);
   }, []);
 
-  const handleEditClick = useCallback((purchaseRequest: PurchaseRecord) => {
-    if (!permissions.canUpdate) return;
-    setPurchaseRequestToEdit(purchaseRequest);
-    setIsEditModalOpen(true);
-  }, [permissions.canUpdate]);
+  const handleEditClick = useCallback(
+    (purchaseRequest: PurchaseRecord) => {
+      if (!permissions.canUpdate) return;
+      setPurchaseRequestToEdit(purchaseRequest);
+      setIsEditModalOpen(true);
+    },
+    [permissions.canUpdate],
+  );
 
   const handleEditCancel = useCallback(() => {
     setIsEditModalOpen(false);
@@ -727,65 +748,20 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   }
 
   // If canRead is false, show access denied
-  if (!permissions.canRead && !permissions.canCreate) {
+  if (!permissions.canRead) {
     return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view purchase requests.
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
           </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access to the Purchase Requests module.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // If canRead is false but canCreate is true, show only add button
-  if (!permissions.canRead && permissions.canCreate) {
-    return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-                  Purchase Requests
-                </h1>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                  Manage your purchase requests and procurement workflow
-                </p>
-              </div>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddPurchaseRequest}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Purchase Request
-              </button>
-
-              {/* Add Purchase Request Modal */}
-              <AddPurchaseRequestModal
-                token={token || ""}
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                onSuccess={(purchaseRequestData: PurchaseRecord) => {
-                  setPurchaseRequests((prev) => [...prev, purchaseRequestData]);
-                  fetchPurchaseRequests(
-                    pagination.currentPage,
-                    searchTerm,
-                    filterData,
-                  );
-                }}
-              />
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -875,7 +851,9 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                 purchaseRequestData={purchaseRequestToEdit}
                 onSuccess={(purchaseRequestData) => {
                   const updatedPurchaseRequests = purchaseRequests.map((pr) =>
-                    pr._id === purchaseRequestData._id ? purchaseRequestData : pr,
+                    pr._id === purchaseRequestData._id
+                      ? purchaseRequestData
+                      : pr,
                   );
                   setPurchaseRequests(updatedPurchaseRequests);
                   fetchPurchaseRequests(
@@ -1224,61 +1202,63 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
-                              New: "bg-blue-100 text-blue-800",
-                              Approved: "bg-green-100 text-green-800",
-                              Partly_Delivered:
-                                "bg-yellow-100 text-yellow-800",
-                              Delivered: "bg-teal-100 text-teal-800",
-                              Partly_Invoiced:
-                                "bg-orange-100 text-orange-800",
-                              Invoiced: "bg-emerald-100 text-emerald-800",
-                              Rejected: "bg-red-100 text-red-800",
-                              Cancelled: "bg-gray-100 text-gray-800",
-                              Deleted: "bg-gray-100 text-gray-800",
-                              Converted_To_PO:
-                                "bg-purple-100 text-purple-800",
-                            }[
-                              request.status as
-                              | "New"
-                              | "Approved"
-                              | "Partly_Delivered"
-                              | "Delivered"
-                              | "Partly_Invoiced"
-                              | "Invoiced"
-                              | "Rejected"
-                              | "Cancelled"
-                              | "Deleted"
-                              | "Converted_To_PO"
-                            ] || "bg-gray-100 text-gray-800"
-                              }`}
-                          >
-                            <span
-                              className={`h-2 w-2 rounded-full mr-2 ${{
-                                New: "bg-blue-500",
-                                Approved: "bg-green-500",
-                                Partly_Delivered: "bg-yellow-500",
-                                Delivered: "bg-teal-500",
-                                Partly_Invoiced: "bg-orange-500",
-                                Invoiced: "bg-emerald-500",
-                                Rejected: "bg-red-500",
-                                Cancelled: "bg-gray-500",
-                                Deleted: "bg-gray-500",
-                                Converted_To_PO: "bg-purple-500",
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              {
+                                New: "bg-blue-100 text-blue-800",
+                                Approved: "bg-green-100 text-green-800",
+                                Partly_Delivered:
+                                  "bg-yellow-100 text-yellow-800",
+                                Delivered: "bg-teal-100 text-teal-800",
+                                Partly_Invoiced:
+                                  "bg-orange-100 text-orange-800",
+                                Invoiced: "bg-emerald-100 text-emerald-800",
+                                Rejected: "bg-red-100 text-red-800",
+                                Cancelled: "bg-gray-100 text-gray-800",
+                                Deleted: "bg-gray-100 text-gray-800",
+                                Converted_To_PO:
+                                  "bg-purple-100 text-purple-800",
                               }[
                                 request.status as
-                                | "New"
-                                | "Approved"
-                                | "Partly_Delivered"
-                                | "Delivered"
-                                | "Partly_Invoiced"
-                                | "Invoiced"
-                                | "Rejected"
-                                | "Cancelled"
-                                | "Deleted"
-                                | "Converted_To_PO"
-                              ] || "bg-gray-500"
-                                }`}
+                                  | "New"
+                                  | "Approved"
+                                  | "Partly_Delivered"
+                                  | "Delivered"
+                                  | "Partly_Invoiced"
+                                  | "Invoiced"
+                                  | "Rejected"
+                                  | "Cancelled"
+                                  | "Deleted"
+                                  | "Converted_To_PO"
+                              ] || "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            <span
+                              className={`h-2 w-2 rounded-full mr-2 ${
+                                {
+                                  New: "bg-blue-500",
+                                  Approved: "bg-green-500",
+                                  Partly_Delivered: "bg-yellow-500",
+                                  Delivered: "bg-teal-500",
+                                  Partly_Invoiced: "bg-orange-500",
+                                  Invoiced: "bg-emerald-500",
+                                  Rejected: "bg-red-500",
+                                  Cancelled: "bg-gray-500",
+                                  Deleted: "bg-gray-500",
+                                  Converted_To_PO: "bg-purple-500",
+                                }[
+                                  request.status as
+                                    | "New"
+                                    | "Approved"
+                                    | "Partly_Delivered"
+                                    | "Delivered"
+                                    | "Partly_Invoiced"
+                                    | "Invoiced"
+                                    | "Rejected"
+                                    | "Cancelled"
+                                    | "Deleted"
+                                    | "Converted_To_PO"
+                                ] || "bg-gray-500"
+                              }`}
                             />
                             {request.status.replace(/_/g, " ")}
                           </span>
@@ -1331,10 +1311,11 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                             </button>
                             <div
                               id={`menu-${request._id}`}
-                              className={`hidden absolute ${index >= displayData?.length - 2
-                                ? "bottom-0 right-0"
-                                : "right-0"
-                                } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
+                              className={`hidden absolute ${
+                                index >= displayData?.length - 2
+                                  ? "bottom-0 right-0"
+                                  : "right-0"
+                              } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
                                 {permissions.canUpdate &&
@@ -1526,10 +1507,12 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                                         {item.quantity}
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">
-                                        {getCurrencySymbol(clinicCurrency)} {item.unitPrice.toFixed(2)}
+                                        {getCurrencySymbol(clinicCurrency)}{" "}
+                                        {item.unitPrice.toFixed(2)}
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">
-                                        {getCurrencySymbol(clinicCurrency)} {item.totalPrice.toFixed(2)}
+                                        {getCurrencySymbol(clinicCurrency)}{" "}
+                                        {item.totalPrice.toFixed(2)}
                                       </td>
                                     </tr>
                                   ))}
@@ -1574,21 +1557,24 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                   Previous
                 </button>
                 <div className="flex space-x-1">
-                  {[...Array(Math.min(5, pagination.totalPages))].map((_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.currentPage === pageNum
-                          ? "bg-blue-600 text-white"
-                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  {[...Array(Math.min(5, pagination.totalPages))].map(
+                    (_, i) => {
+                      const pageNum = i + 1;
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            pagination.currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                           }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
                 </div>
                 <button
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
@@ -1616,7 +1602,9 @@ PurchaseRequestsPage.getLayout = function getLayout(page: ReactElement) {
 };
 
 // Export protected page with auth
-const ProtectedPurchaseRequestsPage = withClinicAuth(PurchaseRequestsPage) as NextPageWithLayout;
+const ProtectedPurchaseRequestsPage = withClinicAuth(
+  PurchaseRequestsPage,
+) as NextPageWithLayout;
 ProtectedPurchaseRequestsPage.getLayout = PurchaseRequestsPage.getLayout;
 
 export default ProtectedPurchaseRequestsPage;

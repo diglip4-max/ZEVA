@@ -12,7 +12,14 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ShoppingCart, Filter, Info, Printer, Loader2, Building2 } from "lucide-react";
+import {
+  ShoppingCart,
+  Filter,
+  Info,
+  Printer,
+  Loader2,
+  ShieldAlert,
+} from "lucide-react";
 import debounce from "lodash.debounce";
 import AddPurchaseReturnModal from "./_components/AddPurchaseReturnModal";
 import EditPurchaseReturnModal from "./_components/EditPurchaseReturnModal";
@@ -137,8 +144,10 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
-      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
+      router?.pathname?.startsWith("/agent/") ||
+      router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
@@ -146,15 +155,29 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
     try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      const token =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
       if (token) {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return {
+          role: decoded.role || "clinic",
+          id: decoded.userId || decoded.id || null,
+        };
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    } catch (e) {
+      /* ignore */
+    }
+    return { role: "clinic", id: null };
   };
 
   const getUserRole = (): string | null => {
@@ -169,27 +192,27 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken")
+          sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken")
+          sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken")
+          sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-        sessionStorage.getItem("staffToken")
+          sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken")
+          sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -265,18 +288,20 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
                   if (Array.isArray(parentModule.subModules)) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      const key = (sm.moduleKey || "").toLowerCase();
-                      const name = (sm.name || "").toLowerCase();
-                      return (
-                        key === "clinic_stock_purchase_return" ||
-                        key === "stock_purchase_return" ||
-                        name === "clinic_stock_purchase_return" ||
-                        name === "purchase returns" ||
-                        name === "purchase_returns" ||
-                        name === "stock_purchase_return"
-                      );
-                    });
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        const key = (sm.moduleKey || "").toLowerCase();
+                        const name = (sm.name || "").toLowerCase();
+                        return (
+                          key === "clinic_stock_purchase_return" ||
+                          key === "stock_purchase_return" ||
+                          name === "clinic_stock_purchase_return" ||
+                          name === "purchase returns" ||
+                          name === "purchase_returns" ||
+                          name === "stock_purchase_return"
+                        );
+                      },
+                    );
                     if (foundInSubModule) {
                       modulePermission = { actions: foundInSubModule.actions };
                       break;
@@ -584,57 +609,20 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
     );
   }
 
-  // If canRead is false but canCreate is true, show only add button
-  if (!permissions.canRead && permissions.canCreate) {
-    return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-                  Purchase Returns
-                </h1>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                  Manage your purchase returns and returned items
-                </p>
-              </div>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAdd}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Return
-              </button>
-
-              {/* Add Purchase Return Modal */}
-              <AddPurchaseReturnModal
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                onSuccess={() => fetchRecords(1, searchTerm, filterData)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // If canRead is false (and canCreate is also false), show access denied
   if (!permissions.canRead) {
     return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view purchase returns.
-          </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access.
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
           </p>
         </div>
       </div>
@@ -986,7 +974,9 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                               {r.branch?.name || "N/A"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(r.date || r.createdAt).toLocaleDateString()}
+                              {new Date(
+                                r.date || r.createdAt,
+                              ).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
                               {r.purchasedOrder?.orderNo ||
@@ -1059,9 +1049,10 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                         onClick={() => {
                                           handleEdit(r);
                                           // Close the dropdown after clicking
-                                          const menuEl = document.getElementById(
-                                            `menu-${r._id}`,
-                                          );
+                                          const menuEl =
+                                            document.getElementById(
+                                              `menu-${r._id}`,
+                                            );
                                           if (menuEl) {
                                             menuEl.classList.remove("block");
                                             menuEl.classList.add("hidden");
@@ -1153,9 +1144,10 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                       <button
                                         onClick={() => {
                                           handleDelete(r);
-                                          const menuEl = document.getElementById(
-                                            `menu-${r._id}`,
-                                          );
+                                          const menuEl =
+                                            document.getElementById(
+                                              `menu-${r._id}`,
+                                            );
                                           if (menuEl) {
                                             menuEl.classList.remove("block");
                                             menuEl.classList.add("hidden");
@@ -1310,187 +1302,206 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                             r.purchasedOrder?.items ||
                                             r.items ||
                                             []
-                                          ).map((item: any, itemIndex: number) => (
-                                            <tr
-                                              key={itemIndex}
-                                              className=" transition-colors duration-150"
-                                            >
-                                              <td className="px-4 py-3 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                                    <span className="text-white text-xs font-bold">
-                                                      {(
-                                                        item.name ||
-                                                        item.itemName ||
-                                                        ""
-                                                      ).charAt(0)}
-                                                    </span>
-                                                  </div>
-                                                  <div className="ml-3">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                      {item.name ||
-                                                        item.itemName ||
-                                                        "-"}
+                                          ).map(
+                                            (item: any, itemIndex: number) => (
+                                              <tr
+                                                key={itemIndex}
+                                                className=" transition-colors duration-150"
+                                              >
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                  <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                                      <span className="text-white text-xs font-bold">
+                                                        {(
+                                                          item.name ||
+                                                          item.itemName ||
+                                                          ""
+                                                        ).charAt(0)}
+                                                      </span>
+                                                    </div>
+                                                    <div className="ml-3">
+                                                      <div className="text-sm font-medium text-gray-900">
+                                                        {item.name ||
+                                                          item.itemName ||
+                                                          "-"}
+                                                      </div>
                                                     </div>
                                                   </div>
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3">
-                                                <div className="text-sm text-gray-600 max-w-xs truncate">
-                                                  {item.description ||
-                                                    item.desc || (
-                                                      <span className="text-gray-400 italic">
-                                                        No description
-                                                      </span>
-                                                    )}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    {item.quantity || item.qty || 0}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                  <div className="text-sm text-gray-600 max-w-xs truncate">
+                                                    {item.description ||
+                                                      item.desc || (
+                                                        <span className="text-gray-400 italic">
+                                                          No description
+                                                        </span>
+                                                      )}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                  <div className="flex items-center">
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                      {item.quantity ||
+                                                        item.qty ||
+                                                        0}
+                                                    </span>
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                    {item.uom || "N/A"}
                                                   </span>
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                  {item.uom || "N/A"}
-                                                </span>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                                <div className="flex items-center">
-                                                  <span className="text-green-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
-                                                  </span>
-                                                  {(
-                                                    item.unitPrice ||
-                                                    item.price ||
-                                                    0
-                                                  ).toFixed
-                                                    ? (
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                  <div className="flex items-center">
+                                                    <span className="text-green-600 mr-1">
+                                                      {getCurrencySymbol(
+                                                        clinicCurrency,
+                                                      )}
+                                                    </span>
+                                                    {(
                                                       item.unitPrice ||
                                                       item.price ||
                                                       0
-                                                    ).toFixed(2)
-                                                    : item.unitPrice ||
-                                                    item.price ||
-                                                    0}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                <div className="flex items-center">
-                                                  <span className="text-green-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
-                                                  </span>
-                                                  {(
-                                                    item.totalPrice ||
-                                                    item.total ||
-                                                    0
-                                                  ).toFixed
-                                                    ? (
+                                                    ).toFixed
+                                                      ? (
+                                                          item.unitPrice ||
+                                                          item.price ||
+                                                          0
+                                                        ).toFixed(2)
+                                                      : item.unitPrice ||
+                                                        item.price ||
+                                                        0}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                  <div className="flex items-center">
+                                                    <span className="text-green-600 mr-1">
+                                                      {getCurrencySymbol(
+                                                        clinicCurrency,
+                                                      )}
+                                                    </span>
+                                                    {(
                                                       item.totalPrice ||
                                                       item.total ||
                                                       0
-                                                    ).toFixed(2)
-                                                    : item.totalPrice ||
-                                                    item.total ||
-                                                    0}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <div className="flex items-center space-x-1">
-                                                  <span>
-                                                    {item.discount || 0}
-                                                    {item.discountType ===
+                                                    ).toFixed
+                                                      ? (
+                                                          item.totalPrice ||
+                                                          item.total ||
+                                                          0
+                                                        ).toFixed(2)
+                                                      : item.totalPrice ||
+                                                        item.total ||
+                                                        0}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                  <div className="flex items-center space-x-1">
+                                                    <span>
+                                                      {item.discount || 0}
+                                                      {item.discountType ===
                                                       "Percentage"
-                                                      ? "%"
-                                                      : ""}
-                                                  </span>
-                                                  {(item.discount || 0) > 0 && (
-                                                    <span className="text-xs text-gray-500">
-                                                      ({item.discountType})
+                                                        ? "%"
+                                                        : ""}
                                                     </span>
-                                                  )}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                                <div className="flex items-center">
-                                                  <span className="text-blue-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
-                                                  </span>
-                                                  {(
-                                                    item.netPrice ||
-                                                    item.totalPrice ||
-                                                    0
-                                                  ).toFixed
-                                                    ? (
+                                                    {(item.discount || 0) >
+                                                      0 && (
+                                                      <span className="text-xs text-gray-500">
+                                                        ({item.discountType})
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                  <div className="flex items-center">
+                                                    <span className="text-blue-600 mr-1">
+                                                      {getCurrencySymbol(
+                                                        clinicCurrency,
+                                                      )}
+                                                    </span>
+                                                    {(
                                                       item.netPrice ||
                                                       item.totalPrice ||
                                                       0
-                                                    ).toFixed(2)
-                                                    : item.netPrice ||
-                                                    item.totalPrice ||
-                                                    0}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <span>
-                                                  {item.vatPercentage || 0}%
-                                                </span>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                                <div className="flex items-center">
-                                                  <span className="text-orange-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    ).toFixed
+                                                      ? (
+                                                          item.netPrice ||
+                                                          item.totalPrice ||
+                                                          0
+                                                        ).toFixed(2)
+                                                      : item.netPrice ||
+                                                        item.totalPrice ||
+                                                        0}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                  <span>
+                                                    {item.vatPercentage || 0}%
                                                   </span>
-                                                  {(item.vatAmount || 0).toFixed
-                                                    ? (item.vatAmount || 0).toFixed(
-                                                      2,
-                                                    )
-                                                    : item.vatAmount || 0}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                <div className="flex items-center">
-                                                  <span className="text-purple-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
-                                                  </span>
-                                                  {(
-                                                    item.netPlusVat ||
-                                                    (item.netPrice ||
-                                                      item.totalPrice) +
-                                                    (item.vatAmount || 0) ||
-                                                    0
-                                                  ).toFixed
-                                                    ? (
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                                  <div className="flex items-center">
+                                                    <span className="text-orange-600 mr-1">
+                                                      {getCurrencySymbol(
+                                                        clinicCurrency,
+                                                      )}
+                                                    </span>
+                                                    {(item.vatAmount || 0)
+                                                      .toFixed
+                                                      ? (
+                                                          item.vatAmount || 0
+                                                        ).toFixed(2)
+                                                      : item.vatAmount || 0}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                  <div className="flex items-center">
+                                                    <span className="text-purple-600 mr-1">
+                                                      {getCurrencySymbol(
+                                                        clinicCurrency,
+                                                      )}
+                                                    </span>
+                                                    {(
                                                       item.netPlusVat ||
                                                       (item.netPrice ||
                                                         item.totalPrice) +
-                                                      (item.vatAmount || 0) ||
+                                                        (item.vatAmount || 0) ||
                                                       0
-                                                    ).toFixed(2)
-                                                    : item.netPlusVat ||
-                                                    (item.netPrice ||
-                                                      item.totalPrice) +
-                                                    (item.vatAmount || 0) ||
-                                                    0}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <div className="flex items-center">
-                                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    {item.freeQuantity || 0}
-                                                  </span>
-                                                  {(item.freeQuantity || 0) > 0 &&
-                                                    item.uom && (
-                                                      <span className="ml-1 text-xs text-gray-500">
-                                                        {item.uom}
-                                                      </span>
-                                                    )}
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          ))}
+                                                    ).toFixed
+                                                      ? (
+                                                          item.netPlusVat ||
+                                                          (item.netPrice ||
+                                                            item.totalPrice) +
+                                                            (item.vatAmount ||
+                                                              0) ||
+                                                          0
+                                                        ).toFixed(2)
+                                                      : item.netPlusVat ||
+                                                        (item.netPrice ||
+                                                          item.totalPrice) +
+                                                          (item.vatAmount ||
+                                                            0) ||
+                                                        0}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                  <div className="flex items-center">
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                      {item.freeQuantity || 0}
+                                                    </span>
+                                                    {(item.freeQuantity || 0) >
+                                                      0 &&
+                                                      item.uom && (
+                                                        <span className="ml-1 text-xs text-gray-500">
+                                                          {item.uom}
+                                                        </span>
+                                                      )}
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ),
+                                          )}
                                         </tbody>
                                         <tfoot className="bg-bg-surface dark:bg-opacity-50">
                                           <tr>
@@ -1503,7 +1514,9 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                               <div className="flex items-center justify-end">
                                                 <span className="text-green-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   r.purchasedOrder?.items ||
@@ -1529,7 +1542,9 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                               <div className="flex items-center justify-end">
                                                 <span className="text-blue-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   r.purchasedOrder?.items ||
@@ -1539,7 +1554,8 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                                   .reduce(
                                                     (sum: number, item: any) =>
                                                       sum +
-                                                      (item.discountAmount || 0),
+                                                      (item.discountAmount ||
+                                                        0),
                                                     0,
                                                   )
                                                   .toFixed(2)}
@@ -1553,7 +1569,9 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                               <div className="flex items-center justify-end">
                                                 <span className="text-orange-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   r.purchasedOrder?.items ||
@@ -1562,7 +1580,8 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                                 )
                                                   .reduce(
                                                     (sum: number, item: any) =>
-                                                      sum + (item.vatAmount || 0),
+                                                      sum +
+                                                      (item.vatAmount || 0),
                                                     0,
                                                   )
                                                   .toFixed(2)}
@@ -1571,7 +1590,9 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                               <div className="flex items-center justify-end">
                                                 <span className="text-purple-600 mr-1">
-                                                  {getCurrencySymbol(clinicCurrency)}
+                                                  {getCurrencySymbol(
+                                                    clinicCurrency,
+                                                  )}
                                                 </span>
                                                 {(
                                                   r.purchasedOrder?.items ||
@@ -1584,7 +1605,8 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                                                       (item.netPlusVat ||
                                                         (item.netPrice ||
                                                           item.totalPrice) +
-                                                        (item.vatAmount || 0) ||
+                                                          (item.vatAmount ||
+                                                            0) ||
                                                         0),
                                                     0,
                                                   )
@@ -1622,12 +1644,16 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                       )}
                     </span>{" "}
                     of{" "}
-                    <span className="font-medium">{pagination.totalResults}</span>{" "}
+                    <span className="font-medium">
+                      {pagination.totalResults}
+                    </span>{" "}
                     results
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
                       disabled={pagination.currentPage === 1}
                       className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
@@ -1650,8 +1676,12 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={pagination.currentPage === pagination.totalPages}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
+                      disabled={
+                        pagination.currentPage === pagination.totalPages
+                      }
                       className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
                       Next

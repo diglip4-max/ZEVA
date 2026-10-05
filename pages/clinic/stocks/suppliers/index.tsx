@@ -17,15 +17,7 @@ import OpeningBalanceModal from "./_components/OpeningBalanceModal";
 import SupplierDetailModal from "./_components/SupplierDetailModal";
 import { Supplier } from "@/types/stocks";
 import debounce from "lodash.debounce";
-import {
-  CircleDollarSign,
-  Mail,
-  Phone,
-  Lock,
-  Home,
-  LogOut,
-} from "lucide-react";
-import { useRouter } from "next/router";
+import { CircleDollarSign, Mail, Phone, ShieldAlert } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
@@ -33,7 +25,6 @@ const MODULE_KEY = "clinic_stock_suppliers";
 
 const SuppliersPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
-  const router = useRouter();
   const { currency } = useCurrency();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,8 +130,8 @@ const SuppliersPage: NextPageWithLayout = () => {
         setRole(decoded.role);
         setIsAgentStaff(
           decoded.role === "agent" ||
-          decoded.role === "staff" ||
-          decoded.role === "doctorstaff",
+            decoded.role === "staff" ||
+            decoded.role === "doctorstaff",
         );
 
         if (
@@ -421,45 +412,21 @@ const SuppliersPage: NextPageWithLayout = () => {
 
   // Access Denied Component
   const AccessDenied = () => (
-    <div className="min-h-screen bg-bg-page p-4 md:p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-bg-surface rounded-2xl shadow-xl overflow-hidden">
-          <div className="p-8 md:p-12 text-center">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
-              <Lock className="w-12 h-12 text-red-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-text-primary mb-3">
-              Access Denied
-            </h2>
-            <p className="text-text-muted mb-8 max-w-md mx-auto">
-              You don't have permission to view this page. Please contact your
-              clinic administrator for access.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => router.push("/clinic/clinic-dashboard")}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-all"
-              >
-                <Home className="w-5 h-5" />
-                Go to Dashboard
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  router.push("/");
-                }}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-all"
-              >
-                <LogOut className="w-5 h-5" />
-                Logout
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+          <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
         </div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+          Access Denied
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400">
+          You do not have permission to view this page. Please contact your
+          administrator if you believe this is an error.
+        </p>
       </div>
     </div>
   );
-
   if (!permissionsLoaded) {
     return (
       <div className="min-h-screen bg-bg-page flex items-center justify-center">
@@ -471,7 +438,7 @@ const SuppliersPage: NextPageWithLayout = () => {
     );
   }
 
-  if (!permissions.canRead && !permissions.canCreate) {
+  if (!permissions.canRead) {
     return <AccessDenied />;
   }
 
@@ -867,30 +834,32 @@ const SuppliersPage: NextPageWithLayout = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
-                                Active: "bg-green-100 text-green-800",
-                                Inactive: "bg-red-100 text-red-800",
-                                Allocated: "bg-yellow-100 text-yellow-800",
-                              }[
-                                supplier.status as
-                                | "Active"
-                                | "Inactive"
-                                | "Allocated"
-                              ] || "bg-gray-100 text-gray-800"
-                                }`}
-                            >
-                              <span
-                                className={`h-2 w-2 rounded-full mr-2 ${{
-                                  Active: "bg-green-500",
-                                  Inactive: "bg-red-500",
-                                  Allocated: "bg-yellow-500",
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                {
+                                  Active: "bg-green-100 text-green-800",
+                                  Inactive: "bg-red-100 text-red-800",
+                                  Allocated: "bg-yellow-100 text-yellow-800",
                                 }[
                                   supplier.status as
-                                  | "Active"
-                                  | "Inactive"
-                                  | "Allocated"
-                                ] || "bg-gray-500"
-                                  }`}
+                                    | "Active"
+                                    | "Inactive"
+                                    | "Allocated"
+                                ] || "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full mr-2 ${
+                                  {
+                                    Active: "bg-green-500",
+                                    Inactive: "bg-red-500",
+                                    Allocated: "bg-yellow-500",
+                                  }[
+                                    supplier.status as
+                                      | "Active"
+                                      | "Inactive"
+                                      | "Allocated"
+                                  ] || "bg-gray-500"
+                                }`}
                               />
                               {supplier.status}
                             </span>

@@ -11,7 +11,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ShoppingCart, Filter, Printer } from "lucide-react";
+import { ShoppingCart, Filter, Printer, ShieldAlert } from "lucide-react";
 import { PurchaseRecord } from "@/types/stocks";
 import debounce from "lodash.debounce";
 import AddGRNModal from "./_components/AddGRNModal";
@@ -249,12 +249,17 @@ const GRNPage: NextPageWithLayout = () => {
           decoded.role === "doctorstaff"
         ) {
           // Agent/Staff/DoctorStaff permissions
-          console.log("Fetching Agent/Staff Permissions for clinic_stock_grn...");
+          console.log(
+            "Fetching Agent/Staff Permissions for clinic_stock_grn...",
+          );
           setPermissionsLoaded(false);
-          const agentRes = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: MODULE_KEY },
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const agentRes = await axios.get(
+            "/api/agent/get-module-permissions",
+            {
+              params: { moduleKey: MODULE_KEY },
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
           const data = agentRes.data;
           console.log("Agent Permissions API Response (GRN):", data);
 
@@ -263,7 +268,9 @@ const GRNPage: NextPageWithLayout = () => {
             !data?.permissions &&
             data?.error?.includes("No permissions found for module")
           ) {
-            console.log("Module not found in permissions, granting full access by default (GRN)");
+            console.log(
+              "Module not found in permissions, granting full access by default (GRN)",
+            );
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -294,7 +301,10 @@ const GRNPage: NextPageWithLayout = () => {
           });
 
           if (clinicRes.data.success) {
-            console.log("Clinic Sidebar Permissions Response (GRN):", clinicRes.data);
+            console.log(
+              "Clinic Sidebar Permissions Response (GRN):",
+              clinicRes.data,
+            );
             if (
               clinicRes.data.permissions === null ||
               !Array.isArray(clinicRes.data.permissions) ||
@@ -308,26 +318,38 @@ const GRNPage: NextPageWithLayout = () => {
                 canDelete: true,
               });
             } else {
-              let modulePermission = clinicRes.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_grn") return true;
-                return false;
-              });
+              let modulePermission = clinicRes.data.permissions.find(
+                (p: any) => {
+                  if (!p?.module) return false;
+                  if (p.module === "clinic_stock_grn") return true;
+                  return false;
+                },
+              );
 
-              console.log("Direct module permission found (GRN):", modulePermission);
+              console.log(
+                "Direct module permission found (GRN):",
+                modulePermission,
+              );
 
               if (!modulePermission) {
-                const parentStockModule = clinicRes.data.permissions.find((p: any) => 
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                const parentStockModule = clinicRes.data.permissions.find(
+                  (p: any) =>
+                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
                 );
-                
-                console.log("Parent stock module found (GRN):", parentStockModule);
-                
+
+                console.log(
+                  "Parent stock module found (GRN):",
+                  parentStockModule,
+                );
+
                 if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_grn"
+                  modulePermission = parentStockModule.subModules.find(
+                    (sm: any) => sm?.moduleKey === "clinic_stock_grn",
                   );
-                  console.log("Submodule permission found (GRN):", modulePermission);
+                  console.log(
+                    "Submodule permission found (GRN):",
+                    modulePermission,
+                  );
                 }
               }
 
@@ -469,50 +491,21 @@ const GRNPage: NextPageWithLayout = () => {
   }
 
   // Access Denied - when both canRead and canCreate are false
-  if (!permissions.canRead && !permissions.canCreate) {
+  if (!permissions.canRead) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-text-muted">You do not have permission to view GRN records.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Create-only view - when canRead is false but canCreate is true
-  if (!permissions.canRead && permissions.canCreate) {
-    return (
-      <div className="min-h-screen bg-bg-page p-4 md:p-6">
-        <div className="mb-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-                  Goods Received Notes
-                </h1>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                  Manage your goods received notes and inventory receiveds
-                </p>
-              </div>
-              <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddGRN}
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add GRN
-              </button>
-            </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            You do not have permission to view this page. Please contact your
+            administrator if you believe this is an error.
+          </p>
         </div>
-        {/* Add GRN Modal */}
-        <AddGRNModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onAddGRN={(_grnData: PurchaseRecord) => {
-            // Refresh or handle post-creation
-          }}
-        />
       </div>
     );
   }
@@ -947,19 +940,24 @@ const GRNPage: NextPageWithLayout = () => {
                               "N/A"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(clinicCurrency)} {totalAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {totalAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                            {getCurrencySymbol(clinicCurrency)} {discountAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {discountAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
-                            {getCurrencySymbol(clinicCurrency)} {netAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {netAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                            {getCurrencySymbol(clinicCurrency)} {vatAmount.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {vatAmount.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                            {getCurrencySymbol(clinicCurrency)} {netPlusVat.toFixed(2)}
+                            {getCurrencySymbol(clinicCurrency)}{" "}
+                            {netPlusVat.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -1043,28 +1041,29 @@ const GRNPage: NextPageWithLayout = () => {
                                 } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                               >
                                 <div className="py-1" role="none">
-                                  {permissions.canUpdate && ![
-                                    "Partly_Invoiced",
-                                    "Invoiced",
-                                    "Partly_Paid",
-                                    "Paid",
-                                    "Deleted",
-                                  ].includes(grn.status) && (
-                                    <button
-                                      onClick={() => {
-                                        handleEditClick(grn);
-                                        document
-                                          .getElementById(`menu-${grn._id}`)
-                                          ?.classList.add("hidden");
-                                      }}
-                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                      <div className="flex items-center">
-                                        <PencilIcon className="h-4 w-4 mr-2" />
-                                        Edit
-                                      </div>
-                                    </button>
-                                  )}
+                                  {permissions.canUpdate &&
+                                    ![
+                                      "Partly_Invoiced",
+                                      "Invoiced",
+                                      "Partly_Paid",
+                                      "Paid",
+                                      "Deleted",
+                                    ].includes(grn.status) && (
+                                      <button
+                                        onClick={() => {
+                                          handleEditClick(grn);
+                                          document
+                                            .getElementById(`menu-${grn._id}`)
+                                            ?.classList.add("hidden");
+                                        }}
+                                        className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                      >
+                                        <div className="flex items-center">
+                                          <PencilIcon className="h-4 w-4 mr-2" />
+                                          Edit
+                                        </div>
+                                      </button>
+                                    )}
                                   <button
                                     onClick={() => {
                                       // Open print page in new tab
@@ -1192,7 +1191,8 @@ const GRNPage: NextPageWithLayout = () => {
                                         />
                                       </svg>
                                       <span>
-                                        {getCurrencySymbol(clinicCurrency)} {totalAmount.toFixed(2)} total
+                                        {getCurrencySymbol(clinicCurrency)}{" "}
+                                        {totalAmount.toFixed(2)} total
                                       </span>
                                     </div>
                                   </div>
@@ -1288,7 +1288,9 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-green-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    {getCurrencySymbol(
+                                                      clinicCurrency,
+                                                    )}
                                                   </span>
                                                   {(
                                                     item.unitPrice || 0
@@ -1298,7 +1300,9 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                                 <div className="flex items-center">
                                                   <span className="text-green-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    {getCurrencySymbol(
+                                                      clinicCurrency,
+                                                    )}
                                                   </span>
                                                   {(
                                                     item.totalPrice || 0
@@ -1328,7 +1332,9 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-blue-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    {getCurrencySymbol(
+                                                      clinicCurrency,
+                                                    )}
                                                   </span>
                                                   {(
                                                     item.netPrice ||
@@ -1345,7 +1351,9 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 <div className="flex items-center">
                                                   <span className="text-orange-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    {getCurrencySymbol(
+                                                      clinicCurrency,
+                                                    )}
                                                   </span>
                                                   {(
                                                     item.vatAmount || 0
@@ -1355,7 +1363,9 @@ const GRNPage: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                                 <div className="flex items-center">
                                                   <span className="text-purple-600 mr-1">
-                                                    {getCurrencySymbol(clinicCurrency)}
+                                                    {getCurrencySymbol(
+                                                      clinicCurrency,
+                                                    )}
                                                   </span>
                                                   {(
                                                     item.netPlusVat ||
@@ -1394,7 +1404,9 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-bold text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-green-600 mr-1">
-                                                {getCurrencySymbol(clinicCurrency)}
+                                                {getCurrencySymbol(
+                                                  clinicCurrency,
+                                                )}
                                               </span>
                                               {totalAmount.toFixed(2)}
                                             </div>
@@ -1407,7 +1419,9 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-blue-600 mr-1">
-                                                {getCurrencySymbol(clinicCurrency)}
+                                                {getCurrencySymbol(
+                                                  clinicCurrency,
+                                                )}
                                               </span>
                                               {discountAmount.toFixed(2)}
                                             </div>
@@ -1420,7 +1434,9 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-orange-600 mr-1">
-                                                {getCurrencySymbol(clinicCurrency)}
+                                                {getCurrencySymbol(
+                                                  clinicCurrency,
+                                                )}
                                               </span>
                                               {vatAmount.toFixed(2)}
                                             </div>
@@ -1428,7 +1444,9 @@ const GRNPage: NextPageWithLayout = () => {
                                           <td className="px-4 py-3 text-sm font-bold text-gray-900">
                                             <div className="flex items-center">
                                               <span className="text-purple-600 mr-1">
-                                                {getCurrencySymbol(clinicCurrency)}
+                                                {getCurrencySymbol(
+                                                  clinicCurrency,
+                                                )}
                                               </span>
                                               {netPlusVat.toFixed(2)}
                                             </div>

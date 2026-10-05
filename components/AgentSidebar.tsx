@@ -6,17 +6,82 @@ import React, { FC, useEffect, useState } from "react";
 import clsx from "clsx";
 import axios from "axios";
 import {
-  BarChart3, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard,
-  Star, Mail, TrendingUp, Lock, LayoutDashboard, Stethoscope, Building2,
-  UserCircle, Menu, Inbox, UserPlus, ClipboardList, Gift, UserCog, PenTool,
-  Eye, Phone, MessageCircle, Send, FileEdit, HelpCircle,
-  Bell, CalendarCheck, CalendarDays, Clock, DollarSign, Package, ShoppingBag,
-  Heart, Activity, Zap, Target, Award, Shield, BookOpen, Newspaper, Image,
-  Video, Music, Folder, File, Database, Server, Cloud, Wifi, Globe,
-  Link as LinkIcon, Share2, Download, Upload, RefreshCw, Search, Filter,
-  MoreHorizontal, Plus, Minus, Edit, Trash2, Save, XCircle, Info,
-  CheckCircle, AlertTriangle, Megaphone, Home, ClipboardCheck,
-  Wallet, Tag, ChevronDown,
+  BarChart3,
+  Users,
+  FileText,
+  Briefcase,
+  MessageSquare,
+  Calendar,
+  CreditCard,
+  Star,
+  Mail,
+  TrendingUp,
+  Lock,
+  LayoutDashboard,
+  Stethoscope,
+  Building2,
+  UserCircle,
+  Menu,
+  Inbox,
+  UserPlus,
+  ClipboardList,
+  Gift,
+  UserCog,
+  PenTool,
+  Eye,
+  Phone,
+  MessageCircle,
+  Send,
+  FileEdit,
+  HelpCircle,
+  Bell,
+  CalendarCheck,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  Package,
+  ShoppingBag,
+  Heart,
+  Activity,
+  Zap,
+  Target,
+  Award,
+  Shield,
+  BookOpen,
+  Newspaper,
+  Image,
+  Video,
+  Music,
+  Folder,
+  File,
+  Database,
+  Server,
+  Cloud,
+  Wifi,
+  Globe,
+  Link as LinkIcon,
+  Share2,
+  Download,
+  Upload,
+  RefreshCw,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Plus,
+  Minus,
+  Edit,
+  Trash2,
+  Save,
+  XCircle,
+  Info,
+  CheckCircle,
+  AlertTriangle,
+  Megaphone,
+  Home,
+  ClipboardCheck,
+  Wallet,
+  Tag,
+  ChevronDown,
   Receipt as Billing,
 } from "lucide-react";
 import useZevaConnect from "@/hooks/useZevaConnect";
@@ -202,9 +267,17 @@ const iconMap: { [key: string]: React.ReactNode } = {
 const renderIcon = (key: string, isActive: boolean = false) => {
   let node = iconMap[key];
   if (!node) {
-    if (key.includes("📊") || key.includes("dashboard") || key.includes("analytics"))
+    if (
+      key.includes("📊") ||
+      key.includes("dashboard") ||
+      key.includes("analytics")
+    )
       node = <BarChart3 className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("👥") || key.includes("users") || key.includes("staff"))
+    else if (
+      key.includes("👥") ||
+      key.includes("users") ||
+      key.includes("staff")
+    )
       node = <Users className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("📝") || key.includes("file") || key.includes("text"))
       node = <FileText className="w-4 h-4 text-[#6B7280]" />;
@@ -212,52 +285,121 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       node = <Briefcase className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("💬") || key.includes("message"))
       node = <MessageSquare className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("📅") || key.includes("calendar") || key.includes("appointment"))
+    else if (
+      key.includes("📅") ||
+      key.includes("calendar") ||
+      key.includes("appointment")
+    )
       node = <Calendar className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("💳") || key.includes("credit") || key.includes("payment"))
+    else if (
+      key.includes("💳") ||
+      key.includes("credit") ||
+      key.includes("payment")
+    )
       node = <CreditCard className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("⭐") || key.includes("star") || key.includes("review"))
+    else if (
+      key.includes("⭐") ||
+      key.includes("star") ||
+      key.includes("review")
+    )
       node = <Star className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("📧") || key.includes("mail"))
       node = <Mail className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("📈") || key.includes("trending"))
       node = <TrendingUp className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🔒") || key.includes("lock") || key.includes("security"))
+    else if (
+      key.includes("🔒") ||
+      key.includes("lock") ||
+      key.includes("security")
+    )
       node = <Lock className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("🏠") || key.includes("home"))
       node = <LayoutDashboard className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🩺") || key.includes("stethoscope") || key.includes("doctor") || key.includes("medical"))
+    else if (
+      key.includes("🩺") ||
+      key.includes("stethoscope") ||
+      key.includes("doctor") ||
+      key.includes("medical")
+    )
       node = <Stethoscope className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🏢") || key.includes("building") || key.includes("clinic"))
+    else if (
+      key.includes("🏢") ||
+      key.includes("building") ||
+      key.includes("clinic")
+    )
       node = <Building2 className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("👤") || key.includes("user") || key.includes("patient"))
+    else if (
+      key.includes("👤") ||
+      key.includes("user") ||
+      key.includes("patient")
+    )
       node = <UserCircle className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("📨") || key.includes("inbox"))
       node = <Inbox className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🎁") || key.includes("gift") || key.includes("offer"))
+    else if (
+      key.includes("🎁") ||
+      key.includes("gift") ||
+      key.includes("offer")
+    )
       node = <Gift className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("📋") || key.includes("clipboard") || key.includes("list"))
+    else if (
+      key.includes("📋") ||
+      key.includes("clipboard") ||
+      key.includes("list")
+    )
       node = <ClipboardList className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("💰") || key.includes("dollar") || key.includes("finance"))
+    else if (
+      key.includes("💰") ||
+      key.includes("dollar") ||
+      key.includes("finance")
+    )
       node = <DollarSign className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("📦") || key.includes("package") || key.includes("box"))
+    else if (
+      key.includes("📦") ||
+      key.includes("package") ||
+      key.includes("box")
+    )
       node = <Package className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🔔") || key.includes("bell") || key.includes("notification"))
+    else if (
+      key.includes("🔔") ||
+      key.includes("bell") ||
+      key.includes("notification")
+    )
       node = <Bell className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🎯") || key.includes("target") || key.includes("marketing") || key.includes("lead"))
+    else if (
+      key.includes("🎯") ||
+      key.includes("target") ||
+      key.includes("marketing") ||
+      key.includes("lead")
+    )
       node = <Target className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("📢") || key.includes("megaphone") || key.includes("campaign"))
+    else if (
+      key.includes("📢") ||
+      key.includes("megaphone") ||
+      key.includes("campaign")
+    )
       node = <Megaphone className="w-4 h-4 text-[#6B7280]" />;
     else if (key.includes("🌐") || key.includes("globe"))
       node = <Globe className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🔗") || key.includes("link") || key.includes("connect"))
+    else if (
+      key.includes("🔗") ||
+      key.includes("link") ||
+      key.includes("connect")
+    )
       node = <LinkIcon className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("📊") || key.includes("chart") || key.includes("report"))
+    else if (
+      key.includes("📊") ||
+      key.includes("chart") ||
+      key.includes("report")
+    )
       node = <BarChart3 className="w-4 h-4 text-[#6B7280]" />;
-    else if (key.includes("🗄️") || key.includes("database") || key.includes("stock"))
+    else if (
+      key.includes("🗄️") ||
+      key.includes("database") ||
+      key.includes("stock")
+    )
       node = <Database className="w-4 h-4 text-[#6B7280]" />;
-    else
-      node = <FileText className="w-4 h-4 text-[#6B7280]" />;
+    else node = <FileText className="w-4 h-4 text-[#6B7280]" />;
   }
   if (React.isValidElement(node)) {
     return React.cloneElement(node as React.ReactElement<any>, {
@@ -377,11 +519,13 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       try {
         const agentToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+            ? localStorage.getItem("agentToken") ||
+              sessionStorage.getItem("agentToken")
             : null;
         const userToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+            ? localStorage.getItem("userToken") ||
+              sessionStorage.getItem("userToken")
             : null;
         const token = agentToken || userToken;
 
@@ -396,43 +540,71 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
         });
 
         if (res.data.success) {
-          const localPermissions = res.data.permissions && Array.isArray(res.data.permissions) ? res.data.permissions : [];
+          const localPermissions =
+            res.data.permissions && Array.isArray(res.data.permissions)
+              ? res.data.permissions
+              : [];
           setPermissions(localPermissions);
 
           // Permission check helpers (same logic as ClinicSidebar)
           const localIsActionTrue = (action: any): boolean =>
-            action === true || action === "true" || String(action).toLowerCase() === "true";
+            action === true ||
+            action === "true" ||
+            String(action).toLowerCase() === "true";
 
           // Check ONLY parent module's subModules (bypasses top-level module check)
-          const localHasSubModulePermission = (parentModuleKey: string, label: string): boolean => {
+          const localHasSubModulePermission = (
+            parentModuleKey: string,
+            label: string,
+          ): boolean => {
             if (!localPermissions || localPermissions.length === 0) return true;
-            const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
-            if (!parentPerm?.subModules || !Array.isArray(parentPerm.subModules)) return false;
+            const parentPerm = localPermissions.find(
+              (p: any) => p.module === parentModuleKey,
+            );
+            if (
+              !parentPerm?.subModules ||
+              !Array.isArray(parentPerm.subModules)
+            )
+              return false;
             // const smName = label.trim().toLowerCase();
             const lbl = label.trim().toLowerCase();
             // First try exact match
-            let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+            let subModule = parentPerm.subModules.find(
+              (sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl,
+            );
             // If no exact match, try partial matches
             if (!subModule) {
               subModule = parentPerm.subModules.find((sm: any) => {
                 const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
-                return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                return (
+                  smNameTrimmed.includes(lbl) ||
+                  lbl.includes(smNameTrimmed) ||
                   // Special cases (same as ClinicSidebar)
                   (lbl === "grn" && smNameTrimmed === "good receive note") ||
-                  (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                  (lbl === "locations" &&
+                    smNameTrimmed === "stock locations") ||
                   (lbl === "templates" && smNameTrimmed === "template") ||
                   (lbl === "reviews" && smNameTrimmed === "review") ||
                   (lbl === "inbox" && smNameTrimmed === "inbox") ||
-                  (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
-                  (lbl === "release requested" && smNameTrimmed === "release requested") ||
-                  (lbl === "sale products" && smNameTrimmed === "sale products");
+                  (lbl === "pass by doctor" &&
+                    smNameTrimmed === "pass by doctor") ||
+                  (lbl === "release requested" &&
+                    smNameTrimmed === "release requested") ||
+                  (lbl === "sale products" && smNameTrimmed === "sale products")
+                );
               });
             }
             if (subModule?.actions) {
-              return localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
-                localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
-                localIsActionTrue(subModule.actions.delete) || localIsActionTrue(subModule.actions.print) ||
-                localIsActionTrue(subModule.actions.export) || localIsActionTrue(subModule.actions.approve);
+              return (
+                localIsActionTrue(subModule.actions.all) ||
+                localIsActionTrue(subModule.actions.create) ||
+                localIsActionTrue(subModule.actions.read) ||
+                localIsActionTrue(subModule.actions.update) ||
+                localIsActionTrue(subModule.actions.delete) ||
+                localIsActionTrue(subModule.actions.print) ||
+                localIsActionTrue(subModule.actions.export) ||
+                localIsActionTrue(subModule.actions.approve)
+              );
             }
             return false;
           };
@@ -440,98 +612,172 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           // Helper: check if submodule EXISTS in parent's subModules list and whether it has permission
           // Returns { found: true/false, hasPerm: true/false }
           // Key invariant: if submodule is FOUND in the list, its own actions determine visibility (no parent fallback)
-          const localFindSubModuleInParent = (parentModuleKey: string, label: string): { found: boolean; hasPerm: boolean } => {
-            if (!localPermissions || localPermissions.length === 0) return { found: false, hasPerm: true };
-            const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
-            if (!parentPerm?.subModules || !Array.isArray(parentPerm.subModules)) return { found: false, hasPerm: false };
+          const localFindSubModuleInParent = (
+            parentModuleKey: string,
+            label: string,
+          ): { found: boolean; hasPerm: boolean } => {
+            if (!localPermissions || localPermissions.length === 0)
+              return { found: false, hasPerm: true };
+            const parentPerm = localPermissions.find(
+              (p: any) => p.module === parentModuleKey,
+            );
+            if (
+              !parentPerm?.subModules ||
+              !Array.isArray(parentPerm.subModules)
+            )
+              return { found: false, hasPerm: false };
             const lbl = label.trim().toLowerCase();
             // First try exact match
-            let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+            let subModule = parentPerm.subModules.find(
+              (sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl,
+            );
             // If no exact match, try partial matches
             if (!subModule) {
               subModule = parentPerm.subModules.find((sm: any) => {
                 const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
-                return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                return (
+                  smNameTrimmed.includes(lbl) ||
+                  lbl.includes(smNameTrimmed) ||
                   // Special cases (same as ClinicSidebar)
                   (lbl === "grn" && smNameTrimmed === "good receive note") ||
-                  (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                  (lbl === "locations" &&
+                    smNameTrimmed === "stock locations") ||
                   (lbl === "templates" && smNameTrimmed === "template") ||
                   (lbl === "reviews" && smNameTrimmed === "review") ||
                   (lbl === "inbox" && smNameTrimmed === "inbox") ||
-                  (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
-                  (lbl === "release requested" && smNameTrimmed === "release requested") ||
-                  (lbl === "sale products" && smNameTrimmed === "sale products");
+                  (lbl === "pass by doctor" &&
+                    smNameTrimmed === "pass by doctor") ||
+                  (lbl === "release requested" &&
+                    smNameTrimmed === "release requested") ||
+                  (lbl === "sale products" && smNameTrimmed === "sale products")
+                );
               });
             }
             if (subModule) {
               // Submodule FOUND in parent's list — its own actions determine visibility
-              const hasPerm = subModule.actions && (
-                localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
-                localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
-                localIsActionTrue(subModule.actions.delete) || localIsActionTrue(subModule.actions.print) ||
-                localIsActionTrue(subModule.actions.export) || localIsActionTrue(subModule.actions.approve)
-              );
+              const hasPerm =
+                subModule.actions &&
+                (localIsActionTrue(subModule.actions.all) ||
+                  localIsActionTrue(subModule.actions.create) ||
+                  localIsActionTrue(subModule.actions.read) ||
+                  localIsActionTrue(subModule.actions.update) ||
+                  localIsActionTrue(subModule.actions.delete) ||
+                  localIsActionTrue(subModule.actions.print) ||
+                  localIsActionTrue(subModule.actions.export) ||
+                  localIsActionTrue(subModule.actions.approve));
               return { found: true, hasPerm: !!hasPerm };
             }
             // Submodule NOT found in parent's list — caller may fall back to parent permission
             return { found: false, hasPerm: false };
           };
 
-          const localHasModulePermission = (moduleKey: string, label?: string): boolean => {
+          const localHasModulePermission = (
+            moduleKey: string,
+            label?: string,
+          ): boolean => {
             if (!localPermissions || localPermissions.length === 0) return true;
             let keysToCheck = [moduleKey];
-            if (moduleKey.includes("referral")) keysToCheck.push(moduleKey.replace("referral", "referal"));
-            if (moduleKey.includes("referal")) keysToCheck.push(moduleKey.replace("referal", "referral"));
+            if (moduleKey.includes("referral"))
+              keysToCheck.push(moduleKey.replace("referral", "referal"));
+            if (moduleKey.includes("referal"))
+              keysToCheck.push(moduleKey.replace("referal", "referral"));
             const moduleCandidates = Array.from(
-              new Set(keysToCheck.flatMap((key) => [
-                key,
-                key?.replace(/^(admin|clinic|doctor)_/, ""),
-                key ? `admin_${key.replace(/^(admin|clinic|doctor)_/, "")}` : null,
-                key ? `clinic_${key.replace(/^(admin|clinic|doctor)_/, "")}` : null,
-                key ? `doctor_${key.replace(/^(admin|clinic|doctor)_/, "")}` : null,
-              ]).filter(Boolean))
+              new Set(
+                keysToCheck
+                  .flatMap((key) => [
+                    key,
+                    key?.replace(/^(admin|clinic|doctor)_/, ""),
+                    key
+                      ? `admin_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                    key
+                      ? `clinic_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                    key
+                      ? `doctor_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                  ])
+                  .filter(Boolean),
+              ),
             );
             const modulePerm = localPermissions.find((p: any) => {
               const permModule = p.module || "";
-              return moduleCandidates.some((candidate) =>
-                permModule === candidate ||
-                permModule.replace(/^(admin|clinic|doctor)_/, "") === (candidate as string).replace(/^(admin|clinic|doctor)_/, "")
+              return moduleCandidates.some(
+                (candidate) =>
+                  permModule === candidate ||
+                  permModule.replace(/^(admin|clinic|doctor)_/, "") ===
+                    (candidate as string).replace(
+                      /^(admin|clinic|doctor)_/,
+                      "",
+                    ),
               );
             });
             if (modulePerm) {
               const actions = modulePerm.actions || {};
-              return localIsActionTrue(actions.all) || localIsActionTrue(actions.create) || localIsActionTrue(actions.read) ||
-                localIsActionTrue(actions.update) || localIsActionTrue(actions.delete) || localIsActionTrue(actions.print) ||
-                localIsActionTrue(actions.export) || localIsActionTrue(actions.approve);
+              return (
+                localIsActionTrue(actions.all) ||
+                localIsActionTrue(actions.create) ||
+                localIsActionTrue(actions.read) ||
+                localIsActionTrue(actions.update) ||
+                localIsActionTrue(actions.delete) ||
+                localIsActionTrue(actions.print) ||
+                localIsActionTrue(actions.export) ||
+                localIsActionTrue(actions.approve)
+              );
             }
             if (label) {
-              for (const parentModuleKey of ["clinic_stock", "clinic_marketing", "claims"]) {
-                const parentPerm = localPermissions.find((p: any) => p.module === parentModuleKey);
-                if (parentPerm?.subModules && Array.isArray(parentPerm.subModules)) {
+              for (const parentModuleKey of [
+                "clinic_stock",
+                "clinic_marketing",
+                "claims",
+              ]) {
+                const parentPerm = localPermissions.find(
+                  (p: any) => p.module === parentModuleKey,
+                );
+                if (
+                  parentPerm?.subModules &&
+                  Array.isArray(parentPerm.subModules)
+                ) {
                   const lbl = label.trim().toLowerCase();
                   // First try exact match
-                  let subModule = parentPerm.subModules.find((sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl);
+                  let subModule = parentPerm.subModules.find(
+                    (sm: any) => (sm.name?.trim().toLowerCase() || "") === lbl,
+                  );
                   // If no exact match, try partial matches
                   if (!subModule) {
                     subModule = parentPerm.subModules.find((sm: any) => {
                       const smNameTrimmed = sm.name?.trim().toLowerCase() || "";
-                      return smNameTrimmed.includes(lbl) || lbl.includes(smNameTrimmed) ||
+                      return (
+                        smNameTrimmed.includes(lbl) ||
+                        lbl.includes(smNameTrimmed) ||
                         // Special cases (same as ClinicSidebar)
-                        (lbl === "grn" && smNameTrimmed === "good receive note") ||
-                        (lbl === "locations" && smNameTrimmed === "stock locations") ||
+                        (lbl === "grn" &&
+                          smNameTrimmed === "good receive note") ||
+                        (lbl === "locations" &&
+                          smNameTrimmed === "stock locations") ||
                         (lbl === "templates" && smNameTrimmed === "template") ||
                         (lbl === "reviews" && smNameTrimmed === "review") ||
                         (lbl === "inbox" && smNameTrimmed === "inbox") ||
-                        (lbl === "pass by doctor" && smNameTrimmed === "pass by doctor") ||
-                        (lbl === "release requested" && smNameTrimmed === "release requested") ||
-                        (lbl === "sale products" && smNameTrimmed === "sale products");
+                        (lbl === "pass by doctor" &&
+                          smNameTrimmed === "pass by doctor") ||
+                        (lbl === "release requested" &&
+                          smNameTrimmed === "release requested") ||
+                        (lbl === "sale products" &&
+                          smNameTrimmed === "sale products")
+                      );
                     });
                   }
                   if (subModule?.actions) {
-                    return localIsActionTrue(subModule.actions.all) || localIsActionTrue(subModule.actions.create) ||
-                      localIsActionTrue(subModule.actions.read) || localIsActionTrue(subModule.actions.update) ||
-                      localIsActionTrue(subModule.actions.delete) || localIsActionTrue(subModule.actions.print) ||
-                      localIsActionTrue(subModule.actions.export) || localIsActionTrue(subModule.actions.approve);
+                    return (
+                      localIsActionTrue(subModule.actions.all) ||
+                      localIsActionTrue(subModule.actions.create) ||
+                      localIsActionTrue(subModule.actions.read) ||
+                      localIsActionTrue(subModule.actions.update) ||
+                      localIsActionTrue(subModule.actions.delete) ||
+                      localIsActionTrue(subModule.actions.print) ||
+                      localIsActionTrue(subModule.actions.export) ||
+                      localIsActionTrue(subModule.actions.approve)
+                    );
                   }
                 }
               }
@@ -539,50 +785,128 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             return false;
           };
 
-          const localShouldShowItem = (item: NavItemChild | NavItem): boolean => {
+          const localShouldShowItem = (
+            item: NavItemChild | NavItem,
+          ): boolean => {
             let moduleKey: string | undefined;
-            if ("moduleKey" in item && (item as NavItem).moduleKey) moduleKey = (item as NavItem).moduleKey;
-            else if (item.label in labelToModuleKey) moduleKey = labelToModuleKey[item.label];
+            if ("moduleKey" in item && (item as NavItem).moduleKey)
+              moduleKey = (item as NavItem).moduleKey;
+            else if (item.label in labelToModuleKey)
+              moduleKey = labelToModuleKey[item.label];
             if (!moduleKey) return true;
             const lbl = item.label.toLowerCase();
             const isStockSubmodule = [
-              "clinic_stock_uom", "clinic_stock_locations", "clinic_stock_suppliers",
-              "clinic_stock_purchase_requests", "clinic_stock_purchase_orders", "clinic_stock_grn",
-              "clinic_stock_purchase_invoices", "clinic_stock_qty_adjustment",
-              "clinic_stock_material_consumptions", "clinic_stock_direct_transfer",
-              "clinic_stock_transfer_requests", "clinic_stock_transfer_on_request",
-              "clinic_stock_allocated_stock_items", "clinic_stock_purchase_return", "custom_product_sales",
+              "clinic_stock_uom",
+              "clinic_stock_locations",
+              "clinic_stock_suppliers",
+              "clinic_stock_purchase_requests",
+              "clinic_stock_purchase_orders",
+              "clinic_stock_grn",
+              "clinic_stock_purchase_invoices",
+              "clinic_stock_qty_adjustment",
+              "clinic_stock_material_consumptions",
+              "clinic_stock_direct_transfer",
+              "clinic_stock_transfer_requests",
+              "clinic_stock_transfer_on_request",
+              "clinic_stock_allocated_stock_items",
+              "clinic_stock_purchase_return",
+              "custom_product_sales",
             ].includes(moduleKey);
             if (isStockSubmodule || lbl.includes("stock")) {
               // Check submodule permission within parent module only
-              const subResult = localFindSubModuleInParent("clinic_stock", item.label);
+              const subResult = localFindSubModuleInParent(
+                "clinic_stock",
+                item.label,
+              );
               if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
               // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_stock");
             }
-            const marketingMods = ["clinic_inbox", "clinic_templates", "clinic_providers", "clinic_review", "clinic_enquiry", "clinic_kaka_customization"];
-            if (marketingMods.includes(moduleKey) || lbl.includes("inbox") || lbl.includes("template") || lbl.includes("provider") || lbl.includes("review") || lbl.includes("enquiry")) {
+            const marketingMods = [
+              "clinic_inbox",
+              "clinic_templates",
+              "clinic_providers",
+              "clinic_review",
+              "clinic_enquiry",
+              "clinic_kaka_customization",
+            ];
+            if (
+              marketingMods.includes(moduleKey) ||
+              lbl.includes("inbox") ||
+              lbl.includes("template") ||
+              lbl.includes("provider") ||
+              lbl.includes("review") ||
+              lbl.includes("enquiry")
+            ) {
               // Check submodule permission within parent module only (not separate top-level modules)
-              const subResult = localFindSubModuleInParent("clinic_marketing", item.label);
+              const subResult = localFindSubModuleInParent(
+                "clinic_marketing",
+                item.label,
+              );
               if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
               // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_marketing");
             }
-            const claimsSubs = ["pass_by_doctor", "release_requested", "doctor_claim", "create_claim", "clinic_management"];
+            const claimsSubs = [
+              "pass_by_doctor",
+              "release_requested",
+              "doctor_claim",
+              "create_claim",
+              "clinic_management",
+            ];
             if (claimsSubs.includes(moduleKey || "")) {
               // Check submodule permission within parent module only
-              const subResult = localFindSubModuleInParent("claims", item.label);
+              const subResult = localFindSubModuleInParent(
+                "claims",
+                item.label,
+              );
               if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
               // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("claims");
             }
+
+            // Zeva Connect: check submodule inside parent clinic_zeva_connect
+            const zevaConnectSubs = ["clinic_team_chat"];
+            if (zevaConnectSubs.includes(moduleKey || "")) {
+              const subResult = localFindSubModuleInParent(
+                "clinic_zeva_connect",
+                item.label,
+              );
+              if (subResult.found) return subResult.hasPerm;
+              return localHasModulePermission("clinic_zeva_connect");
+            }
             // Finance Management: check submodule permissions first
-            const financeSubs = ["clinic_finance_overview", "clinic_finance_bills", "clinic_finance_expenses", "clinic_finance_payments", "clinic_finance_petty_cash", "clinic_finance_bank", "clinic_finance_cheques", "clinic_finance_vendor", "clinic_finance_reports"];
-            const itemPath = "path" in item ? (item as NavItemChild).path || "" : "";
-            const isFinanceItem = financeSubs.includes(moduleKey || "") || itemPath.includes("finance-management") || lbl.includes("finance") || lbl.includes("overview") || lbl.includes("bills") || lbl.includes("expenses") || lbl.includes("payments") || lbl.includes("petty") || lbl.includes("bank") || lbl.includes("cheque") || lbl.includes("vendor");
+            const financeSubs = [
+              "clinic_finance_overview",
+              "clinic_finance_bills",
+              "clinic_finance_expenses",
+              "clinic_finance_payments",
+              "clinic_finance_petty_cash",
+              "clinic_finance_bank",
+              "clinic_finance_cheques",
+              "clinic_finance_vendor",
+              "clinic_finance_reports",
+            ];
+            const itemPath =
+              "path" in item ? (item as NavItemChild).path || "" : "";
+            const isFinanceItem =
+              financeSubs.includes(moduleKey || "") ||
+              itemPath.includes("finance-management") ||
+              lbl.includes("finance") ||
+              lbl.includes("overview") ||
+              lbl.includes("bills") ||
+              lbl.includes("expenses") ||
+              lbl.includes("payments") ||
+              lbl.includes("petty") ||
+              lbl.includes("bank") ||
+              lbl.includes("cheque") ||
+              lbl.includes("vendor");
             if (isFinanceItem) {
               // Check submodule permission within parent module only
-              const subResult = localFindSubModuleInParent("clinic_finance_management", item.label);
+              const subResult = localFindSubModuleInParent(
+                "clinic_finance_management",
+                item.label,
+              );
               if (subResult.found) return subResult.hasPerm; // submodule found — its own actions decide (no parent fallback)
               // Submodule not found in parent's list — fall back to parent permission
               return localHasModulePermission("clinic_finance_management");
@@ -594,21 +918,36 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           const convertedItems: NavItem[] = (res.data.navigationItems || [])
             .map((item: NavigationItemFromAPI): NavItem => {
               const navItem: NavItem = {
-                label: item.label, path: item.path, icon: item.icon,
-                description: item.description, moduleKey: item.moduleKey, order: item.order,
+                label: item.label,
+                path: item.path,
+                icon: item.icon,
+                description: item.description,
+                moduleKey: item.moduleKey,
+                order: item.order,
               };
               if (item.subModules && item.subModules.length > 0) {
-                navItem.children = item.subModules.map((subModule: {
-                  name: string; path?: string; icon: string; order: number;
-                  permissions?: Record<string, boolean> | null;
-                }): NavItemChild => ({
-                  label: subModule.name, path: subModule.path, icon: subModule.icon,
-                  description: subModule.name, order: subModule.order,
-                  permissions: subModule.permissions || null,
-                  ...(item.moduleKey === "clinic_zeva_connect" && {
-                    onClick: subModule?.name === "Team Chat" ? handleZevaConnect : undefined,
+                navItem.children = item.subModules.map(
+                  (subModule: {
+                    name: string;
+                    path?: string;
+                    icon: string;
+                    order: number;
+                    permissions?: Record<string, boolean> | null;
+                  }): NavItemChild => ({
+                    label: subModule.name,
+                    path: subModule.path,
+                    icon: subModule.icon,
+                    description: subModule.name,
+                    order: subModule.order,
+                    permissions: subModule.permissions || null,
+                    ...(item.moduleKey === "clinic_zeva_connect" && {
+                      onClick:
+                        subModule?.name === "Team Chat"
+                          ? handleZevaConnect
+                          : undefined,
+                    }),
                   }),
-                }));
+                );
               }
               if (item.permissions) navItem.permissions = item.permissions;
               return navItem;
@@ -617,7 +956,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
           convertedItems.sort((a, b) => (a.order || 0) - (b.order || 0));
           convertedItems.forEach((item) => {
-            if (item.children) item.children.sort((a, b) => (a.order || 0) - (b.order || 0));
+            if (item.children)
+              item.children.sort((a, b) => (a.order || 0) - (b.order || 0));
           });
 
           // Build lookup maps for static grouping
@@ -626,14 +966,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           const childByLabel: Record<string, NavItemChild> = {};
           convertedItems.forEach((i) => {
             if (i.label) byLabel[toKey(i.label)] = i;
-            (i.children || []).forEach((c) => { if (c.label) childByLabel[toKey(c.label)] = c; });
+            (i.children || []).forEach((c) => {
+              if (c.label) childByLabel[toKey(c.label)] = c;
+            });
           });
 
           const pickTop = (label: string): NavItemChild | null => {
             const found = byLabel[toKey(label)];
             if (found) {
               const toCheck = { ...found, label };
-              return localShouldShowItem(toCheck) ? { label: found.label, path: found.path, icon: found.icon } : null;
+              return localShouldShowItem(toCheck)
+                ? { label: found.label, path: found.path, icon: found.icon }
+                : null;
             }
             return null;
           };
@@ -641,7 +985,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             const found = childByLabel[toKey(label)];
             if (found) {
               const toCheck = { ...found, label };
-              return localShouldShowItem(toCheck) ? { label: found.label, path: found.path, icon: found.icon } : null;
+              return localShouldShowItem(toCheck)
+                ? { label: found.label, path: found.path, icon: found.icon }
+                : null;
             }
             return null;
           };
@@ -649,11 +995,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             const unique: NavItemChild[] = [];
             const seen = new Set<string>();
             for (const item of items) {
-              if (item && !seen.has(item.label)) { unique.push(item); seen.add(item.label); }
+              if (item && !seen.has(item.label)) {
+                unique.push(item);
+                seen.add(item.label);
+              }
             }
             return unique;
           };
-          const createItem = (label: string, path: string, icon: string): NavItemChild | null => {
+          const createItem = (
+            label: string,
+            path: string,
+            icon: string,
+          ): NavItemChild | null => {
             const item = { label, path, icon };
             return localShouldShowItem(item) ? item : null;
           };
@@ -665,52 +1018,122 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             headerPath: dashboardTop?.path || "/staff/dashboard",
             icon: dashboardTop?.icon || "🏠",
             order: -1,
-            children: nonNull(createItem("Dashboard", dashboardTop?.path || "/staff/dashboard", dashboardTop?.icon || "🏠")),
+            children: nonNull(
+              createItem(
+                "Dashboard",
+                dashboardTop?.path || "/staff/dashboard",
+                dashboardTop?.icon || "🏠",
+              ),
+            ),
           };
+
+          const teamChatItem = createItem("Team Chat", "", "chat-icon");
           const groupedModules: NavItem[] = [
             staffDashboardItem,
             {
-              label: "Finance Management", icon: "💰", headerPath: "/staff/clinic-finance-management", order: 99,
+              label: "Finance Management",
+              icon: "💰",
+              headerPath: "/staff/clinic-finance-management",
+              order: 99,
               children: nonNull(
-                createItem("Overview", "/staff/clinic-finance-management?view=overview", "📊"),
-                createItem("Bills & Payables", "/staff/clinic-finance-management?view=billsPayable", "🧾"),
-                createItem("Expenses", "/staff/clinic-finance-management?view=expenses", "💸"),
-                createItem("Payments", "/staff/clinic-finance-management?view=payments", ""),
-                createItem("Petty Cash", "/staff/clinic-finance-management?view=pettyCash", "💵"),
-                createItem("Bank Accounts", "/staff/clinic-finance-management?view=bankAccounts", "🏦"),
-                createItem("Cheque Manager", "/staff/clinic-finance-management?view=cheques", ""),
-                createItem("Vendor History", "/staff/clinic-finance-management?view=vendorHistory", "🏪"),
-                createItem("Reports", "/staff/clinic-finance-management?view=reports", ""),
+                createItem(
+                  "Overview",
+                  "/staff/clinic-finance-management?view=overview",
+                  "📊",
+                ),
+                createItem(
+                  "Bills & Payables",
+                  "/staff/clinic-finance-management?view=billsPayable",
+                  "🧾",
+                ),
+                createItem(
+                  "Expenses",
+                  "/staff/clinic-finance-management?view=expenses",
+                  "💸",
+                ),
+                createItem(
+                  "Payments",
+                  "/staff/clinic-finance-management?view=payments",
+                  "",
+                ),
+                createItem(
+                  "Petty Cash",
+                  "/staff/clinic-finance-management?view=pettyCash",
+                  "💵",
+                ),
+                createItem(
+                  "Bank Accounts",
+                  "/staff/clinic-finance-management?view=bankAccounts",
+                  "🏦",
+                ),
+                createItem(
+                  "Cheque Manager",
+                  "/staff/clinic-finance-management?view=cheques",
+                  "",
+                ),
+                createItem(
+                  "Vendor History",
+                  "/staff/clinic-finance-management?view=vendorHistory",
+                  "🏪",
+                ),
+                createItem(
+                  "Reports",
+                  "/staff/clinic-finance-management?view=reports",
+                  "",
+                ),
               ),
             },
             {
-              label: "Business Management", icon: "business", order: 100,
+              label: "Business Management",
+              icon: "business",
+              order: 100,
               children: nonNull(
                 pickTop("Manage Health Center"),
                 createItem("Create Offers", "/staff/clinic-create-offer", ""),
-                createItem("User Package", "/staff/clinic-userpackages", "package"),
-                createItem("Service Setup", "/staff/clinic-services_setup", "services"),
-                createItem("Setup & Operation", "/staff/clinic-add-room", "clinic"),
+                createItem(
+                  "User Package",
+                  "/staff/clinic-userpackages",
+                  "package",
+                ),
+                createItem(
+                  "Service Setup",
+                  "/staff/clinic-services_setup",
+                  "services",
+                ),
+                createItem(
+                  "Setup & Operation",
+                  "/staff/clinic-add-room",
+                  "clinic",
+                ),
                 pickChild("Membership"),
               ),
             },
             {
-              label: "HR Management", icon: "users", order: 110,
+              label: "HR Management",
+              icon: "users",
+              order: 110,
               children: nonNull(
                 createItem("Consent Form", "/staff/clinic-consent", ""),
                 createItem("Job Posting", "/staff/clinic-job-posting", "📝"),
                 createItem("Commission", "/staff/clinic-commission", "💰"),
                 pickTop("Assigned Leads"),
-                pickTop("Referral"), pickTop("Referal"),
+                pickTop("Referral"),
+                pickTop("Referal"),
                 pickTop("Track-Members"),
                 createItem("Referral", "/staff/clinic-referal", "leads"),
-                createItem("Track Members", "/staff/clinic-Track-Members", "users"),
+                createItem(
+                  "Track Members",
+                  "/staff/clinic-Track-Members",
+                  "users",
+                ),
                 pickChild("Membership"),
                 pickTop("Create Agent"),
               ),
             },
             {
-              label: "Marketing", icon: "🎯", order: 120,
+              label: "Marketing",
+              icon: "🎯",
+              order: 120,
               children: nonNull(
                 createItem("Create Lead", "/staff/clinic-create-lead", "➕"),
                 createItem("Inbox", "/staff/clinic-inbox", "📨"),
@@ -720,87 +1143,223 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 createItem("Reviews", "/staff/clinic-getAllReview", "⭐"),
                 createItem("Enquiry", "/staff/clinic-get-Enquiry", "❓"),
                 createItem("Campaigns", "/staff/clinic-campaigns", "campaigns"),
-                createItem("KAKA Customization", "/staff/clinic-kaka-customization", "settings"),
+                createItem(
+                  "KAKA Customization",
+                  "/staff/clinic-kaka-customization",
+                  "settings",
+                ),
               ),
             },
             {
-              label: "Claim Management", icon: "🏥", headerPath: "/staff/clinic-claim-management", order: 125,
+              label: "Claim Management",
+              icon: "🏥",
+              headerPath: "/staff/clinic-claim-management",
+              order: 125,
               children: nonNull(
-                pickTop("Create Claim"), pickChild("Create Claim"),
+                pickTop("Create Claim"),
+                pickChild("Create Claim"),
                 createItem("Create Claim", "/staff/clinic-create-claim", "➕"),
-                pickTop("Pass By Doctor"), pickChild("Pass By Doctor"),
+                pickTop("Pass By Doctor"),
+                pickChild("Pass By Doctor"),
                 createItem("Pass By Doctor", "/staff/clinic-pass-claims", "✅"),
-                pickTop("Release Requested"), pickChild("Release Requested"),
-                createItem("Release Requested", "/staff/clinic-release-requested-claims", "🚀"),
-                pickTop("Doctor's Claim"), pickChild("Doctor's Claim"),
+                pickTop("Release Requested"),
+                pickChild("Release Requested"),
+                createItem(
+                  "Release Requested",
+                  "/staff/clinic-release-requested-claims",
+                  "🚀",
+                ),
+                pickTop("Doctor's Claim"),
+                pickChild("Doctor's Claim"),
                 createItem("Doctor's Claim", "/staff/clinic-all-claims", "‍⚕️"),
               ),
             },
             {
-              label: "Automation", icon: "⚡", order: 126,
-              children: nonNull(createItem("Automation", "/staff/clinic-automation", "⚡")),
-            },
-            {
-              label: "Content & SEO", icon: "documents", order: 130,
-              children: nonNull(pickTop("Write Blog")),
-            },
-            {
-              label: "Stock Management", icon: "archive", order: 135,
+              label: "Automation",
+              icon: "⚡",
+              order: 126,
               children: nonNull(
-                createItem("Locations", "/staff/clinic-stocks-locations", "storage"),
-                createItem("Suppliers", "/staff/clinic-stocks-suppliers", "archive"),
-                createItem("UOM", "/staff/clinic-stocks-uom", "database"),
-                createItem("Purchase Requests", "/staff/clinic-stocks-purchase-requests", "reports"),
-                createItem("Purchase Orders", "/staff/clinic-stocks-purchase-orders", "deals"),
-                createItem("GRN", "/staff/clinic-stocks-grn", "billing"),
-                createItem("Purchase Invoices", "/staff/clinic-stocks-purchase-invoices", "billing"),
-                createItem("Purchase Returns", "/staff/clinic-stocks-purchase-returns", "billing"),
-                createItem("Stock Quantity Adjustment", "/staff/clinic-stocks-stock-qty-adjustment", "statistics"),
-                createItem("Stock Qty Adjustment", "/staff/clinic-stocks-stock-qty-adjustment", "statistics"),
-                createItem("Direct Stock Transfer", "/staff/clinic-stocks-stock-transfer-direct-stock-transfer", "arrow-right"),
-                createItem("Stock Transfer Request", "/staff/clinic-stocks-stock-transfer-stock-transfer-requests", "share"),
-                createItem("Transfer Stock On Request", "/staff/clinic-stocks-stock-transfer-transfer-stock", "refresh-cw"),
-                createItem("Material Activity Consumption", "/staff/clinic-stocks-material-consumptions", "⚡"),
-                createItem("Material Consumptions", "/staff/clinic-stocks-material-consumptions", "⚡"),
-                createItem("Allocated Stock Items", "/staff/clinic-stocks-allocated-stock-items", "package"),
-                createItem("Custom Stock Items", "/staff/clinic-stocks-custom-stock-items", "package"),
-                createItem("Sale Products", "/staff/clinic-stocks-product-sales", "🛒"),
+                createItem("Automation", "/staff/clinic-automation", "⚡"),
               ),
             },
             {
-              label: "Policy & Compliance", icon: "🛡️", order: 136,
-              children: nonNull(createItem("Policy & Compliance", "/staff/clinic-policy_compliance", "🛡️")),
+              label: "Content & SEO",
+              icon: "documents",
+              order: 130,
+              children: nonNull(pickTop("Write Blog")),
             },
             {
-              label: "Security & Privacy", icon: "security", order: 170,
-              children: nonNull(createItem("Authentication", "/staff/clinic-authentication", "")),
-            },
-            {
-              label: "Patients & Appointments", icon: "appointments", order: 160,
+              label: "Stock Management",
+              icon: "archive",
+              order: 135,
               children: nonNull(
-                createItem("Book Appointments", "/staff/clinic-appointment", "booking"),
-                createItem("Scheduled Appointments", "/staff/clinic-all-appointment", "calendar"),
+                createItem(
+                  "Locations",
+                  "/staff/clinic-stocks-locations",
+                  "storage",
+                ),
+                createItem(
+                  "Suppliers",
+                  "/staff/clinic-stocks-suppliers",
+                  "archive",
+                ),
+                createItem("UOM", "/staff/clinic-stocks-uom", "database"),
+                createItem(
+                  "Purchase Requests",
+                  "/staff/clinic-stocks-purchase-requests",
+                  "reports",
+                ),
+                createItem(
+                  "Purchase Orders",
+                  "/staff/clinic-stocks-purchase-orders",
+                  "deals",
+                ),
+                createItem("GRN", "/staff/clinic-stocks-grn", "billing"),
+                createItem(
+                  "Purchase Invoices",
+                  "/staff/clinic-stocks-purchase-invoices",
+                  "billing",
+                ),
+                createItem(
+                  "Purchase Returns",
+                  "/staff/clinic-stocks-purchase-returns",
+                  "billing",
+                ),
+                createItem(
+                  "Stock Quantity Adjustment",
+                  "/staff/clinic-stocks-stock-qty-adjustment",
+                  "statistics",
+                ),
+                createItem(
+                  "Stock Qty Adjustment",
+                  "/staff/clinic-stocks-stock-qty-adjustment",
+                  "statistics",
+                ),
+                createItem(
+                  "Direct Stock Transfer",
+                  "/staff/clinic-stocks-stock-transfer-direct-stock-transfer",
+                  "arrow-right",
+                ),
+                createItem(
+                  "Stock Transfer Request",
+                  "/staff/clinic-stocks-stock-transfer-stock-transfer-requests",
+                  "share",
+                ),
+                createItem(
+                  "Transfer Stock On Request",
+                  "/staff/clinic-stocks-stock-transfer-transfer-stock",
+                  "refresh-cw",
+                ),
+                createItem(
+                  "Material Activity Consumption",
+                  "/staff/clinic-stocks-material-consumptions",
+                  "⚡",
+                ),
+                createItem(
+                  "Material Consumptions",
+                  "/staff/clinic-stocks-material-consumptions",
+                  "⚡",
+                ),
+                createItem(
+                  "Allocated Stock Items",
+                  "/staff/clinic-stocks-allocated-stock-items",
+                  "package",
+                ),
+                createItem(
+                  "Custom Stock Items",
+                  "/staff/clinic-stocks-custom-stock-items",
+                  "package",
+                ),
+                createItem(
+                  "Sale Products",
+                  "/staff/clinic-stocks-product-sales",
+                  "🛒",
+                ),
+              ),
+            },
+            {
+              label: "Policy & Compliance",
+              icon: "🛡️",
+              order: 136,
+              children: nonNull(
+                createItem(
+                  "Policy & Compliance",
+                  "/staff/clinic-policy_compliance",
+                  "🛡️",
+                ),
+              ),
+            },
+            {
+              label: "Security & Privacy",
+              icon: "security",
+              order: 170,
+              children: nonNull(
+                createItem(
+                  "Authentication",
+                  "/staff/clinic-authentication",
+                  "",
+                ),
+              ),
+            },
+            {
+              label: "Patients & Appointments",
+              icon: "appointments",
+              order: 160,
+              children: nonNull(
+                createItem(
+                  "Book Appointments",
+                  "/staff/clinic-appointment",
+                  "booking",
+                ),
+                createItem(
+                  "Scheduled Appointments",
+                  "/staff/clinic-all-appointment",
+                  "calendar",
+                ),
                 createItem("Invoices", "/staff/clinic-invoices", "📋"),
-                createItem("Patient Registration", "/staff/clinic-patient-registration", "👤"),
+                createItem(
+                  "Patient Registration",
+                  "/staff/clinic-patient-registration",
+                  "👤",
+                ),
                 pickChild("Patient Information"),
               ),
             },
             {
-              label: "Reports & Analytics", icon: "reports", order: 180,
+              label: "Reports & Analytics",
+              icon: "reports",
+              order: 180,
               children: nonNull(
-                pickChild("Add Expense"), pickTop("Add Expense"),
-                pickTop("Petty Cash"), pickChild("Petty Cash"),
-                createItem("Petty Cash", "/staff/clinic-pettycash", "dollar-sign"),
+                pickChild("Add Expense"),
+                pickTop("Add Expense"),
+                pickTop("Petty Cash"),
+                pickChild("Petty Cash"),
+                createItem(
+                  "Petty Cash",
+                  "/staff/clinic-pettycash",
+                  "dollar-sign",
+                ),
                 createItem("Reports", "/staff/clinic-report", "reports"),
-                createItem("KAKA Analytics", "/staff/clinic-kaka-analytics", "analytics"),
+                createItem(
+                  "KAKA Analytics",
+                  "/staff/clinic-kaka-analytics",
+                  "analytics",
+                ),
               ),
             },
             {
-              label: "Zeva Connect", icon: "connect-icon", order: 181,
-              children: nonNull(createItem("Team Chat", "", "chat-icon")),
+              label: "Zeva Connect",
+              icon: "connect-icon",
+              order: 181,
+              children: teamChatItem
+                ? [{ ...teamChatItem, onClick: handleZevaConnect }]
+                : [],
             },
             {
-              label: "Workflow Guide", path: "/staff/clinic-workflow-guide", icon: "workflowGuide", order: 190,
+              label: "Workflow Guide",
+              path: "/staff/clinic-workflow-guide",
+              icon: "workflowGuide",
+              order: 190,
             },
           ].filter((group) => {
             if (group.path) return localShouldShowItem(group);
@@ -811,16 +1370,27 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             return group.children && group.children.length > 0;
           });
 
+          console.log({ groupedModules });
+
           // Dedup: remove API items already covered by static groups
           const usedLabels = new Set<string>([
-            ...groupedModules.flatMap((g) => (g.children || []).map((c) => toKey(c.label))),
+            ...groupedModules.flatMap((g) =>
+              (g.children || []).map((c) => toKey(c.label)),
+            ),
             ...groupedModules.filter((g) => g.path).map((g) => toKey(g.label)),
           ]);
           const usedPaths = new Set<string>([
-            ...groupedModules.flatMap((g) => (g.children || []).map((c) => c.path || "").filter(Boolean)),
-            ...groupedModules.filter((g) => g.path).map((g) => g.path || "").filter(Boolean),
+            ...groupedModules.flatMap((g) =>
+              (g.children || []).map((c) => c.path || "").filter(Boolean),
+            ),
+            ...groupedModules
+              .filter((g) => g.path)
+              .map((g) => g.path || "")
+              .filter(Boolean),
           ]);
-          const usedGroupLabels = new Set<string>(groupedModules.map((g) => toKey(g.label)));
+          const usedGroupLabels = new Set<string>(
+            groupedModules.map((g) => toKey(g.label)),
+          );
           const filteredOriginals = convertedItems.filter((i) => {
             const labelUsed = usedLabels.has(toKey(i.label));
             const pathUsed = i.path ? usedPaths.has(i.path) : false;
@@ -828,20 +1398,32 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             const isStockGeneric = toKey(i.label) === "stock";
             const isPolicyCompliance = toKey(i.label) === "policy & compliance";
             const isLegacyClaimsGroup =
-              (toKey(i.label) === "claims" || toKey(i.label) === "clinic management") &&
+              (toKey(i.label) === "claims" ||
+                toKey(i.label) === "clinic management") &&
               !!(i.children && i.children.length > 0);
             // Extra parent labels from API already covered by static groups
             const extraParentLabels = [
-              "appointment", "appointments", "patients & appointments",
-              "services & setup", "service & setup",
-              "referals", "referrals",
-              "report", "reports & analytics",
-              "pettycash", "petty cash",
-              "content & seo", "write blog",
-              "hr management", "business management",
-              "security & privacy", "policy & compliance",
-              "stock management", "automation",
-              "marketing", "zeva connect",
+              "appointment",
+              "appointments",
+              "patients & appointments",
+              "services & setup",
+              "service & setup",
+              "referals",
+              "referrals",
+              "report",
+              "reports & analytics",
+              "pettycash",
+              "petty cash",
+              "content & seo",
+              "write blog",
+              "hr management",
+              "business management",
+              "security & privacy",
+              "policy & compliance",
+              "stock management",
+              "automation",
+              "marketing",
+              "zeva connect",
               "claim management",
               "finance management",
             ];
@@ -850,15 +1432,35 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             // KEY RULE: if parent module has a path AND passes permission check,
             // show it as a standalone item even if label is in extraParentLabels
             if (i.path && localShouldShowItem(i)) {
-              return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance || isLegacyClaimsGroup);
+              return !(
+                labelUsed ||
+                pathUsed ||
+                groupLabelDuplicate ||
+                isStockGeneric ||
+                isPolicyCompliance ||
+                isLegacyClaimsGroup
+              );
             }
 
-            return !(labelUsed || pathUsed || groupLabelDuplicate || isStockGeneric || isPolicyCompliance || isLegacyClaimsGroup || isExtraParent);
+            return !(
+              labelUsed ||
+              pathUsed ||
+              groupLabelDuplicate ||
+              isStockGeneric ||
+              isPolicyCompliance ||
+              isLegacyClaimsGroup ||
+              isExtraParent
+            );
           });
 
           const finalItems = [...groupedModules, ...filteredOriginals];
           const rank = (it: NavItem) => {
-            if (it.path && (toKey(it.label) === "dashboard" || toKey(it.label) === "staff dashboard")) return -1000;
+            if (
+              it.path &&
+              (toKey(it.label) === "dashboard" ||
+                toKey(it.label) === "staff dashboard")
+            )
+              return -1000;
             return typeof it.order === "number" ? it.order : 9999;
           };
           const sortedItems = [...finalItems].sort((a, b) => rank(a) - rank(b));
@@ -876,9 +1478,13 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
     };
 
     fetchNavigationAndPermissions();
-    const handleRouteChange = () => { fetchNavigationAndPermissions(); };
+    const handleRouteChange = () => {
+      fetchNavigationAndPermissions();
+    };
     router.events.on("routeChangeComplete", handleRouteChange);
-    return () => { router.events.off("routeChangeComplete", handleRouteChange); };
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+    };
   }, [router]);
 
   return (
@@ -916,7 +1522,13 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           },
           className,
         )}
-        style={{ height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 30 }}
+        style={{
+          height: "100vh",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          zIndex: 30,
+        }}
       >
         <div className="flex flex-col h-full">
           {/* Desktop Header */}
@@ -924,11 +1536,17 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             <div className="group cursor-pointer">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-bg-sidebar transition-all duration-200 border border-border-default">
                 <div className="w-10 h-10 bg-[#2D9AA5] rounded-lg flex items-center justify-center">
-                  <span className="text-white font-medium inter-font text-lg">Z</span>
+                  <span className="text-white font-medium inter-font text-lg">
+                    Z
+                  </span>
                 </div>
                 <div>
-                  <span className="font-medium text-base text-text-primary block inter-font">ZEVA</span>
-                  <span className="text-xs text-text-secondary font-medium inter-font">Team Workspace</span>
+                  <span className="font-medium text-base text-text-primary block inter-font">
+                    ZEVA
+                  </span>
+                  <span className="text-xs text-text-secondary font-medium inter-font">
+                    Team Workspace
+                  </span>
                 </div>
               </div>
             </div>
@@ -938,8 +1556,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               className="absolute right-4 top-4 text-text-secondary p-1.5 transition-all duration-200"
               aria-label="Close sidebar"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -948,13 +1576,16 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
             <div className="space-y-1">
               {isLoading ? (
-                <div className="text-xs text-[#374151] px-2 inter-font">Loading menu…</div>
+                <div className="text-xs text-[#374151] px-2 inter-font">
+                  Loading menu…
+                </div>
               ) : (
                 items.map((item) => {
                   const isDropdownOpen = openDropdown === item.label;
-                  const isActive = (item.path || item.headerPath)
-                    ? router.pathname === (item.path || item.headerPath)
-                    : false;
+                  const isActive =
+                    item.path || item.headerPath
+                      ? router.pathname === (item.path || item.headerPath)
+                      : false;
 
                   if (item.children && item.children.length > 0) {
                     return (
@@ -967,7 +1598,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
                             {
                               "bg-[#2D9AA5] text-white": isDropdownOpen,
-                              "text-text-secondary hover:bg-bg-hover": !isDropdownOpen,
+                              "text-text-secondary hover:bg-bg-hover":
+                                !isDropdownOpen,
                             },
                           )}
                         >
@@ -1012,46 +1644,49 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               const childActive = child.path
                                 ? router.pathname === child.path
                                 : false;
-                              if (child.onClick) {
-                                return (
-                                  <div key={child.path} onClick={child.onClick}>
-                                    <div
-                                      className={clsx(
-                                        "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
-                                        {
-                                          "bg-[#2D9AA5] text-white": childActive,
-                                          "text-[#374151] hover:bg-gray-100": !childActive,
-                                        },
-                                      )}
-                                    >
-                                      <span className={clsx("flex-shrink-0 mt-0.5", childActive ? "text-white" : "text-[#6B7280]")}>
-                                        {renderIcon(child.icon, childActive)}
-                                      </span>
-                                      <span className={clsx("inter-font font-medium text-sm leading-tight", { "text-white": childActive })}>
-                                        {child.label}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <Link key={child.path} href={child.path!}>
-                                  <div
+
+                              const content = (
+                                <div
+                                  className={clsx(
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-pointer flex items-start gap-2.5 inter-font min-w-0",
+                                    {
+                                      "bg-[#2D9AA5] text-white": childActive,
+                                      "text-[#374151] hover:bg-gray-100":
+                                        !childActive,
+                                    },
+                                  )}
+                                  onClick={() => {
+                                    handleItemClick();
+                                    child.onClick?.();
+                                  }}
+                                >
+                                  <span
                                     className={clsx(
-                                      "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
-                                      {
-                                        "bg-[#2D9AA5] text-white": childActive,
-                                        "text-text-secondary hover:bg-bg-hover": !childActive,
-                                      },
+                                      "flex-shrink-0 mt-0.5",
+                                      childActive
+                                        ? "text-white"
+                                        : "text-[#6B7280]",
                                     )}
                                   >
-                                    <span className={clsx("flex-shrink-0 mt-0.5", childActive ? "text-white" : "text-text-muted group-hover:text-text-primary")}>
-                                      {renderIcon(child.icon, childActive)}
-                                    </span>
-                                    <span className={clsx("inter-font font-medium text-sm leading-tight", { "text-white": childActive })}>
-                                      {child.label}
-                                    </span>
-                                  </div>
+                                    {renderIcon(child.icon, childActive)}
+                                  </span>
+                                  <span
+                                    className={clsx(
+                                      "inter-font font-medium text-sm leading-tight",
+                                      { "text-white": childActive },
+                                    )}
+                                  >
+                                    {child.label}
+                                  </span>
+                                </div>
+                              );
+
+                              if (child.onClick || !child.path) {
+                                return <div key={child.label}>{content}</div>;
+                              }
+                              return (
+                                <Link key={child.label} href={child.path}>
+                                  {content}
                                 </Link>
                               );
                             })}
@@ -1069,22 +1704,34 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                             {
                               "bg-[#2D9AA5] text-white": isActive,
-                              "hover:bg-bg-hover text-text-secondary": !isActive,
+                              "hover:bg-bg-hover text-text-secondary":
+                                !isActive,
                             },
                           )}
                         >
                           <div className="flex items-center gap-1">
-                            <div className={clsx("p-1.5 rounded-md transition-all duration-200 flex-shrink-0", {
-                              "text-white": isActive,
-                              "text-text-muted group-hover:text-text-primary": !isActive,
-                            })}>
+                            <div
+                              className={clsx(
+                                "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                                {
+                                  "text-white": isActive,
+                                  "text-text-muted group-hover:text-text-primary":
+                                    !isActive,
+                                },
+                              )}
+                            >
                               {renderIcon(item.icon, isActive)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className={clsx("inter-font font-medium text-sm transition-colors duration-200", {
-                                "text-white": isActive,
-                                "text-text-secondary": !isActive,
-                              })}>
+                              <div
+                                className={clsx(
+                                  "inter-font font-medium text-sm transition-colors duration-200",
+                                  {
+                                    "text-white": isActive,
+                                    "text-text-secondary": !isActive,
+                                  },
+                                )}
+                              >
                                 {item.label}
                               </div>
                             </div>
@@ -1095,7 +1742,10 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   }
 
                   return (
-                    <div key={item.label} className="px-3 py-2 font-semibold text-text-secondary flex items-center gap-2">
+                    <div
+                      key={item.label}
+                      className="px-3 py-2 font-semibold text-text-secondary flex items-center gap-2"
+                    >
                       {renderIcon(item.icon, false)}
                       <span className="text-sm">{item.label}</span>
                     </div>
@@ -1117,7 +1767,10 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           },
         )}
       >
-        <aside className="w-full max-w-xs h-full bg-bg-sidebar shadow-xl border-r border-border-default flex flex-col pointer-events-auto" style={{ height: "100vh" }}>
+        <aside
+          className="w-full max-w-xs h-full bg-bg-sidebar shadow-xl border-r border-border-default flex flex-col pointer-events-auto"
+          style={{ height: "100vh" }}
+        >
           <div className="flex flex-col h-full">
             {/* Mobile Header */}
             <div className="p-4 border-b border-border-default flex-shrink-0 relative">
@@ -1126,19 +1779,35 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 className="absolute right-4 top-4 text-[#374151] p-1.5 transition-all duration-200 z-10"
                 aria-label="Close sidebar"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
 
               <div className="pr-16">
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-bg-sidebar transition-all duration-200 border border-border-default">
                   <div className="w-10 h-10 bg-[#2D9AA5] rounded-lg flex items-center justify-center">
-                    <span className="text-white font-medium inter-font text-lg">Z</span>
+                    <span className="text-white font-medium inter-font text-lg">
+                      Z
+                    </span>
                   </div>
                   <div>
-                    <span className="font-medium text-base text-text-primary block inter-font">ZEVA</span>
-                    <span className="text-xs text-text-secondary font-medium inter-font">Staff Panel</span>
+                    <span className="font-medium text-base text-text-primary block inter-font">
+                      ZEVA
+                    </span>
+                    <span className="text-xs text-text-secondary font-medium inter-font">
+                      Staff Panel
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1148,10 +1817,15 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
               <div className="space-y-1">
                 {isLoading ? (
-                  <div className="text-xs text-[#374151] px-2 inter-font">Loading menu…</div>
+                  <div className="text-xs text-[#374151] px-2 inter-font">
+                    Loading menu…
+                  </div>
                 ) : (
                   items.map((item) => {
-                    const isActive = (item.path || item.headerPath) ? router.pathname === (item.path || item.headerPath) : false;
+                    const isActive =
+                      item.path || item.headerPath
+                        ? router.pathname === (item.path || item.headerPath)
+                        : false;
                     const isDropdownOpen = openDropdown === item.label;
 
                     if (item.children && item.children.length > 0) {
@@ -1159,21 +1833,30 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                         <div key={item.label}>
                           <button
                             onClick={() => {
-                              setOpenDropdown(isDropdownOpen ? null : item.label);
+                              setOpenDropdown(
+                                isDropdownOpen ? null : item.label,
+                              );
                             }}
                             className={clsx(
                               "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
                               {
                                 "bg-[#2D9AA5] text-white": isDropdownOpen,
-                                "text-[#374151] hover:bg-gray-100": !isDropdownOpen,
+                                "text-[#374151] hover:bg-gray-100":
+                                  !isDropdownOpen,
                               },
                             )}
                           >
                             <div className="flex items-center gap-2">
-                              <div className={clsx("p-1.5 rounded-md transition-all duration-200 flex-shrink-0", {
-                                "bg-[#2D9AA5] text-white": isDropdownOpen,
-                                "text-[#6B7280] group-hover:text-[#374151]": !isDropdownOpen,
-                              })}>
+                              <div
+                                className={clsx(
+                                  "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                                  {
+                                    "bg-[#2D9AA5] text-white": isDropdownOpen,
+                                    "text-[#6B7280] group-hover:text-[#374151]":
+                                      !isDropdownOpen,
+                                  },
+                                )}
+                              >
                                 {renderIcon(item.icon, isDropdownOpen)}
                               </div>
                               <span className="inter-font text-sm font-medium text-[#374151]">
@@ -1191,44 +1874,66 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               </span>
                             </div>
                             <ChevronDown
-                              className={clsx("w-4 h-4 transition-transform duration-200", {
-                                "rotate-180": isDropdownOpen,
-                                "text-white": isDropdownOpen,
-                                "text-[#374151]": !isDropdownOpen,
-                              })}
+                              className={clsx(
+                                "w-4 h-4 transition-transform duration-200",
+                                {
+                                  "rotate-180": isDropdownOpen,
+                                  "text-white": isDropdownOpen,
+                                  "text-[#374151]": !isDropdownOpen,
+                                },
+                              )}
                             />
                           </button>
 
                           {isDropdownOpen && (
                             <div className="ml-9 space-y-0.5">
                               {item.children.map((child) => {
-                                const childActive = child.path ? router.pathname === child.path : false;
-                                return (
-                                  <Link key={child.path} href={child.path!}>
-                                    <div
+                                const childActive = child.path
+                                  ? router.pathname === child.path
+                                  : false;
+
+                                const content = (
+                                  <div
+                                    className={clsx(
+                                      "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-pointer flex items-start gap-2.5 inter-font min-w-0",
+                                      {
+                                        "bg-[#2D9AA5] text-white": childActive,
+                                        "text-[#374151] hover:bg-gray-100":
+                                          !childActive,
+                                      },
+                                    )}
+                                    onClick={() => {
+                                      handleItemClick();
+                                      child.onClick?.();
+                                    }}
+                                  >
+                                    <span
                                       className={clsx(
-                                        "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
-                                        {
-                                          "bg-[#2D9AA5] text-white": childActive,
-                                          "text-[#374151] hover:bg-gray-100": !childActive,
-                                        },
+                                        "flex-shrink-0 mt-0.5",
+                                        childActive
+                                          ? "text-white"
+                                          : "text-[#6B7280]",
                                       )}
-                                      onClick={() => {
-                                        handleItemClick();
-                                        // @ts-ignore
-                                        if (child?.onClick) {
-                                          // @ts-ignore
-                                          child.onClick();
-                                        }
-                                      }}
                                     >
-                                      <span className={clsx("flex-shrink-0 mt-0.5", childActive ? "text-white" : "text-[#6B7280]")}>
-                                        {renderIcon(child.icon, childActive)}
-                                      </span>
-                                      <span className={clsx("inter-font font-medium text-sm leading-tight", { "text-white": childActive })}>
-                                        {child.label}
-                                      </span>
-                                    </div>
+                                      {renderIcon(child.icon, childActive)}
+                                    </span>
+                                    <span
+                                      className={clsx(
+                                        "inter-font font-medium text-sm leading-tight",
+                                        { "text-white": childActive },
+                                      )}
+                                    >
+                                      {child.label}
+                                    </span>
+                                  </div>
+                                );
+
+                                if (child.onClick || !child.path) {
+                                  return <div key={child.label}>{content}</div>;
+                                }
+                                return (
+                                  <Link key={child.label} href={child.path}>
+                                    {content}
                                   </Link>
                                 );
                               })}
@@ -1246,7 +1951,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                               {
                                 "bg-[#2D9AA5] text-white": isActive,
-                                "hover:bg-bg-hover text-text-secondary": !isActive,
+                                "hover:bg-bg-hover text-text-secondary":
+                                  !isActive,
                               },
                             )}
                             onClick={() => {
@@ -1254,17 +1960,28 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             }}
                           >
                             <div className="flex items-center gap-1">
-                              <div className={clsx("p-1.5 rounded-md transition-all duration-200 flex-shrink-0", {
-                                "text-white": isActive,
-                                "text-text-muted group-hover:text-text-primary": !isActive,
-                              })}>
+                              <div
+                                className={clsx(
+                                  "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                                  {
+                                    "text-white": isActive,
+                                    "text-text-muted group-hover:text-text-primary":
+                                      !isActive,
+                                  },
+                                )}
+                              >
                                 {renderIcon(item.icon, isActive)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className={clsx("inter-font font-medium text-sm transition-colors duration-200", {
-                                  "text-white": isActive,
-                                  "text-text-secondary": !isActive,
-                                })}>
+                                <div
+                                  className={clsx(
+                                    "inter-font font-medium text-sm transition-colors duration-200",
+                                    {
+                                      "text-white": isActive,
+                                      "text-text-secondary": !isActive,
+                                    },
+                                  )}
+                                >
                                   {item.label}
                                 </div>
                               </div>
@@ -1275,7 +1992,10 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                     }
 
                     return (
-                      <div key={item.label} className="px-3 py-2 font-semibold text-text-secondary flex items-center gap-2 touch-manipulation">
+                      <div
+                        key={item.label}
+                        className="px-3 py-2 font-semibold text-text-secondary flex items-center gap-2 touch-manipulation"
+                      >
                         {renderIcon(item.icon, false)}
                         <span>{item.label}</span>
                       </div>
