@@ -426,7 +426,7 @@ function ModernBlogForm() {
     let isMounted = true;
 
     const token = getStoredToken();
-    const agentToken = localStorage.getItem("agentToken");
+    // const agentToken = localStorage.getItem("agentToken");
     const userRole = getUserRole();
 
     // ✅ For admin role, grant full access (bypass permission checks)

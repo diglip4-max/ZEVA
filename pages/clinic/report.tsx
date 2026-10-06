@@ -87,7 +87,7 @@ function ReportPage() {
 
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(
-    isAgentRoute ? "clinic_Report" : null,
+    isAgentRoute ? "clinic_report" : null,
   );
   const agentPermissions = agentPermissionsHook?.permissions || {
     canRead: false,
@@ -237,12 +237,12 @@ function ReportPage() {
                 canDelete: true,
               });
             } else {
-              // Admin has set permissions - check the clinic_Report module
+              // Admin has set permissions - check the clinic_report module
               const modulePermission = res.data.permissions.find((p: any) => {
                 if (!p?.module) return false;
-                // Check for clinic_Report module variations
-                if (p.module === "clinic_Report") return true;
+                // Check for clinic_report module variations
                 if (p.module === "clinic_report") return true;
+                if (p.module === "clinic_Report") return true;
                 if (p.module === "report") return true;
                 return false;
               });
@@ -337,12 +337,12 @@ function ReportPage() {
       const fetchPermissions = async () => {
         try {
           console.log(
-            "Fetching Agent/Staff Permissions for clinic_Report...",
+            "Fetching Agent/Staff Permissions for clinic_report...",
           );
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: "clinic_Report" },
+            params: { moduleKey: "clinic_report" },
             headers: { Authorization: `Bearer ${agentStaffToken}` },
             timeout: 6000,
           });

@@ -286,11 +286,11 @@ function ClaimManagementPage() {
 
   // ===== Release verification state (ported from release-requested-claims) =====
   const [releaseModal, setReleaseModal] = useState<any>(null);
-  const [releaseVerificationLoading, setReleaseVerificationLoading] = useState(false);
+  const [releaseVerificationLoading, _setReleaseVerificationLoading] = useState(false);
   const [releaseActionLoading, setReleaseActionLoading] = useState(false);
-  const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
-  const [progressStatus, setProgressStatus] = useState<any>(null);
-  const [consentStatus, setConsentStatus] = useState<any>(null);
+  const [existingAppointments, _setExistingAppointments] = useState<any[]>([]);
+  const [progressStatus, _setProgressStatus] = useState<any>(null);
+  const [consentStatus, _setConsentStatus] = useState<any>(null);
   const [releaseSuccessMsg, setReleaseSuccessMsg] = useState("");
 
   // Reject state
@@ -648,81 +648,81 @@ function ClaimManagementPage() {
   };
 
   // ===== Release verification & handlers (ported from release-requested-claims) =====
-  const fetchReleaseVerificationData = async (claim: any) => {
-    setReleaseVerificationLoading(true);
-    setReleaseModal(claim);
-    setExistingAppointments([]);
-    setProgressStatus(null);
-    setConsentStatus(null);
-    try {
-      const headers = getAuthHeaders();
-      if (claim.patientId) {
-        const aptRes = await axios.get(`/api/clinic/patient-appointment-history/${claim.patientId}`, { headers });
-        if (aptRes.data.success && aptRes.data.appointments) {
-          const claimCreatedAt = new Date(claim.createdAt);
-          const postClaimAppointments = aptRes.data.appointments
-            .filter((apt: any) => new Date(apt.createdAt) > claimCreatedAt)
-            .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-          setExistingAppointments(postClaimAppointments);
+  // const fetchReleaseVerificationData = async (claim: any) => {
+  //   setReleaseVerificationLoading(true);
+  //   setReleaseModal(claim);
+  //   setExistingAppointments([]);
+  //   setProgressStatus(null);
+  //   setConsentStatus(null);
+  //   try {
+  //     const headers = getAuthHeaders();
+  //     if (claim.patientId) {
+  //       const aptRes = await axios.get(`/api/clinic/patient-appointment-history/${claim.patientId}`, { headers });
+  //       if (aptRes.data.success && aptRes.data.appointments) {
+  //         const claimCreatedAt = new Date(claim.createdAt);
+  //         const postClaimAppointments = aptRes.data.appointments
+  //           .filter((apt: any) => new Date(apt.createdAt) > claimCreatedAt)
+  //           .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  //         setExistingAppointments(postClaimAppointments);
 
-          if (postClaimAppointments.length > 0) {
-            const notesRes = await axios.get(`/api/clinic/progress-notes?patientId=${claim.patientId}`, { headers });
-            if (notesRes.data.success) {
-              const allNotes = notesRes.data.notes || [];
-              const postClaimAptIds = postClaimAppointments.map((a: any) => a._id);
-              const relevantNotes = allNotes.filter((n: any) => postClaimAptIds.includes(n.appointmentId?.toString() || n.appointmentId));
-              setProgressStatus({
-                hasProgress: relevantNotes.length > 0,
-                count: relevantNotes.length,
-                notes: relevantNotes,
-                appointments: postClaimAppointments,
-              });
-            }
+  //         if (postClaimAppointments.length > 0) {
+  //           const notesRes = await axios.get(`/api/clinic/progress-notes?patientId=${claim.patientId}`, { headers });
+  //           if (notesRes.data.success) {
+  //             const allNotes = notesRes.data.notes || [];
+  //             const postClaimAptIds = postClaimAppointments.map((a: any) => a._id);
+  //             const relevantNotes = allNotes.filter((n: any) => postClaimAptIds.includes(n.appointmentId?.toString() || n.appointmentId));
+  //             setProgressStatus({
+  //               hasProgress: relevantNotes.length > 0,
+  //               count: relevantNotes.length,
+  //               notes: relevantNotes,
+  //               appointments: postClaimAppointments,
+  //             });
+  //           }
 
-            const [logRes, statusRes] = await Promise.all([
-              axios.get(`/api/clinic/consent-log?patientId=${claim.patientId}`, { headers }),
-              axios.get(`/api/clinic/consent-status?patientId=${claim.patientId}`, { headers }),
-            ]);
-            const consentLogs = logRes.data.success ? (logRes.data.consentLogs || []) : [];
-            const consentStatuses = statusRes.data.success ? (statusRes.data.consentStatuses || []) : [];
+  //           const [logRes, statusRes] = await Promise.all([
+  //             axios.get(`/api/clinic/consent-log?patientId=${claim.patientId}`, { headers }),
+  //             axios.get(`/api/clinic/consent-status?patientId=${claim.patientId}`, { headers }),
+  //           ]);
+  //           const consentLogs = logRes.data.success ? (logRes.data.consentLogs || []) : [];
+  //           const consentStatuses = statusRes.data.success ? (statusRes.data.consentStatuses || []) : [];
 
-            const consentByAppointment = postClaimAppointments.map((apt: any) => {
-              const aptId = apt._id;
-              const aptLogs = consentLogs.filter((l: any) => l.appointmentId === aptId);
-              const aptConsentFormIds = aptLogs.map((l: any) => l.consentFormId?.toString() || l.consentFormId);
-              const aptSignatures = consentStatuses.filter((s: any) => aptConsentFormIds.includes(s.consentFormId?.toString() || s.consentFormId));
-              const hasSigned = aptSignatures.some((s: any) => s.status === "signed" || s.hasSignature);
-              const hasSent = aptLogs.length > 0;
-              return {
-                appointmentId: aptId,
-                appointmentDate: apt.startDate,
-                appointmentStatus: apt.status,
-                hasConsent: hasSent || aptSignatures.length > 0,
-                isSigned: hasSigned,
-                logs: aptLogs,
-                signatures: aptSignatures,
-                consentFormName: aptLogs[0]?.consentFormName || aptSignatures[0]?.consentFormName || null,
-              };
-            });
+  //           const consentByAppointment = postClaimAppointments.map((apt: any) => {
+  //             const aptId = apt._id;
+  //             const aptLogs = consentLogs.filter((l: any) => l.appointmentId === aptId);
+  //             const aptConsentFormIds = aptLogs.map((l: any) => l.consentFormId?.toString() || l.consentFormId);
+  //             const aptSignatures = consentStatuses.filter((s: any) => aptConsentFormIds.includes(s.consentFormId?.toString() || s.consentFormId));
+  //             const hasSigned = aptSignatures.some((s: any) => s.status === "signed" || s.hasSignature);
+  //             const hasSent = aptLogs.length > 0;
+  //             return {
+  //               appointmentId: aptId,
+  //               appointmentDate: apt.startDate,
+  //               appointmentStatus: apt.status,
+  //               hasConsent: hasSent || aptSignatures.length > 0,
+  //               isSigned: hasSigned,
+  //               logs: aptLogs,
+  //               signatures: aptSignatures,
+  //               consentFormName: aptLogs[0]?.consentFormName || aptSignatures[0]?.consentFormName || null,
+  //             };
+  //           });
 
-            const allSigned = consentByAppointment.every((c: any) => c.isSigned);
-            const allHaveConsent = consentByAppointment.every((c: any) => c.hasConsent);
-            setConsentStatus({
-              status: allSigned ? "signed" : allHaveConsent ? "sent" : "not_sent",
-              consentByAppointment,
-              allSigned,
-              allHaveConsent,
-              count: consentByAppointment.filter((c: any) => c.hasConsent).length,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching release verification data:", err);
-    } finally {
-      setReleaseVerificationLoading(false);
-    }
-  };
+  //           const allSigned = consentByAppointment.every((c: any) => c.isSigned);
+  //           const allHaveConsent = consentByAppointment.every((c: any) => c.hasConsent);
+  //           setConsentStatus({
+  //             status: allSigned ? "signed" : allHaveConsent ? "sent" : "not_sent",
+  //             consentByAppointment,
+  //             allSigned,
+  //             allHaveConsent,
+  //             count: consentByAppointment.filter((c: any) => c.hasConsent).length,
+  //           });
+  //         }
+  //       }
+  //     }
+  //   } catch (err) {
+  //     console.error("Error fetching release verification data:", err);
+  //   } finally {
+  //     setReleaseVerificationLoading(false);
+  //   }
+  // };
 
   const handleReleaseClaim = async () => {
     if (!permissions.canUpdate) return;
@@ -1756,23 +1756,6 @@ function ClaimManagementPage() {
                                         className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-lg transition-all shadow-sm uppercase tracking-tight bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
                                       >
                                         <><CheckCircle className="w-3.5 h-3.5" /> Approve</>
-                                      </button>
-                                    )}
-                                    {activeStat === 'advance' && permissions.canUpdate && row.status !== 'Under Review' && row.status !== 'Released' && row.status !== 'Approved' && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); if (row.status !== 'Released') fetchReleaseVerificationData(row); }}
-                                        disabled={row.status === 'Released' || releaseVerificationLoading}
-                                        className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-lg transition-all shadow-sm uppercase tracking-tight ${
-                                          row.status === 'Released'
-                                            ? 'bg-green-600 text-white cursor-default opacity-80'
-                                            : 'bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50'
-                                        }`}
-                                      >
-                                        {row.status === 'Released' ? (
-                                          <><CheckCircle className="w-3.5 h-3.5" /> Released</>
-                                        ) : (
-                                          <><Send className="w-3.5 h-3.5" /> Release</>
-                                        )}
                                       </button>
                                     )}
                                     {activeStat === 'advance' && permissions.canDelete && row.status !== 'Released' && row.status !== 'Approved' && (
