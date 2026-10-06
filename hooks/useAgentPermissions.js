@@ -49,10 +49,12 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
       }
 
       try {
-        // Check for multiple token types (priority: agentToken > userToken > clinicToken > doctorToken > adminToken)
+        // Check for multiple token types (priority: agentToken > staffToken > userToken > clinicToken > doctorToken > adminToken)
         const token = 
           localStorage.getItem('agentToken') || 
           sessionStorage.getItem('agentToken') ||
+          localStorage.getItem('staffToken') || 
+          sessionStorage.getItem('staffToken') ||
           localStorage.getItem('userToken') || 
           sessionStorage.getItem('userToken') ||
           localStorage.getItem('clinicToken') || 
@@ -82,7 +84,8 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
 
         const { data } = await axios.get('/api/agent/get-module-permissions', {
           params: { moduleKey },
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 6000,
         });
 
         if (data.success && data.permissions) {

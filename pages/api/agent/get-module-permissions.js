@@ -30,16 +30,7 @@ export default async function handler(req, res) {
     // });
 
     const { moduleKey } = req.query;
-
-    if (!moduleKey) {
-      // console.log('[API DEBUG] ERROR: moduleKey is required');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'moduleKey is required' 
-      });
-    }
-
-    // console.log('[API DEBUG] Requested moduleKey:', moduleKey);
+    console.log('[API DEBUG] Requested moduleKey:', moduleKey);
 
     // If user is clinic/doctor/admin, return full permissions (they own the modules)
     if (['clinic', 'doctor', 'admin'].includes(me.role)) {
@@ -78,9 +69,9 @@ export default async function handler(req, res) {
       moduleKey
     );
 
-    // console.log('[API DEBUG] getAgentModulePermissions returned:');
-    // console.log('[API DEBUG]   - permissions:', permissions ? 'FOUND' : 'NULL');
-    // console.log('[API DEBUG]   - error:', error);
+    console.log('[API DEBUG] getAgentModulePermissions returned:');
+    console.log('[API DEBUG]   - permissions:', permissions ? JSON.stringify(permissions, null, 2) : 'NULL');
+    console.log('[API DEBUG]   - error:', error);
 
     if (error) {
       // console.log('[API DEBUG] Returning error response');

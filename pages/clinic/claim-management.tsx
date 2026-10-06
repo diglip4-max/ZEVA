@@ -1696,11 +1696,12 @@ function ClaimManagementPage() {
                                           <p className="text-[9px] text-gray-400 uppercase tracking-wider">Status</p>
                                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                             (row.rejectionReason || row.rejectedFromReleaseRequested) ? 'bg-red-100 text-red-800' :
-                                            row.status === 'Released' ? 'bg-green-100 text-green-800' :
+                                            row.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                                            row.status === 'Released' ? 'bg-blue-100 text-blue-800' :
                                             row.status === 'Completed' ? 'bg-teal-100 text-teal-800' :
                                             row.status === 'Under Review' ? 'bg-amber-100 text-amber-800' :
                                             row.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                                            row.status === 'Ready' ? 'bg-blue-100 text-blue-800' :
+                                            row.status === 'Ready' ? 'bg-indigo-100 text-indigo-800' :
                                             'bg-gray-100 text-gray-700'
                                           }`}>
                                             {(row.rejectionReason || row.rejectedFromReleaseRequested) ? 'Rejected' : row.status}
@@ -2770,7 +2771,7 @@ function ClaimManagementPage() {
                       </button>
                     ) : (
                       <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-gray-700">Extra Amount to Add to Pending Claim</label>
+                        <label className="block text-xs font-semibold text-gray-700">New Pending Claim Amount</label>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">{getCurrencySymbol(currency)}</span>
@@ -2795,7 +2796,7 @@ function ClaimManagementPage() {
                         {advancePendingAmountAdded && Number(advancePendingAmountAdded) > 0 && (
                           <p className="text-[11px] text-teal-600 flex items-center gap-1">
                             <CheckCircle className="w-3 h-3" />
-                            {getCurrencySymbol(currency)}{Number(advancePendingAmountAdded).toLocaleString()} will be added to pending claim (new total: {getCurrencySymbol(currency)}{(Number(approveClaimModal.pendingClaim || 0) + Number(advancePendingAmountAdded)).toLocaleString()})
+                            {getCurrencySymbol(currency)}{Number(advancePendingAmountAdded).toLocaleString()} will be set as the new pending claim amount
                           </p>
                         )}
                       </div>

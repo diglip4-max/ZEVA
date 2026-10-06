@@ -95,11 +95,11 @@ export default async function handler(req, res) {
       claim.rejectedByRole = "";
       claim.rejectedAt = null;
       claim.rejectionReason = "";
-      // Handle advancePendingAmountAdded: if provided, add it to pendingClaim
+      // Handle advancePendingAmountAdded: if provided, it becomes the new pendingClaim
       const extraAmount = Number(advancePendingAmountAdded || 0);
       if (extraAmount > 0) {
         claim.advancePendingAmountAdded = extraAmount;
-        claim.pendingClaim = Number(claim.pendingClaim || 0) + extraAmount;
+        claim.pendingClaim = extraAmount;
       }
     } else {
       claim.status = "Rejected";
