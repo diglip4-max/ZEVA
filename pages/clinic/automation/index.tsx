@@ -50,20 +50,23 @@ const getStoredToken = () => {
 const isTruthy = (val: unknown) =>
   val === true || val === "true" || String(val || "").toLowerCase() === "true";
 
-// URL-based role detection — no cross-role token scanning
+// Multi-token role detection — checks all stored token types
 const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
-  // This file is inside /clinic/ — always clinic context
-  try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-    if (token) {
+  const tokenKeys = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of tokenKeys) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (!token) continue;
       const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
+      if (!base64Url) continue;
       const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
       const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
-    }
-  } catch (e) { /* ignore */ }
+      if (decoded.role) {
+        return { role: decoded.role, id: decoded.userId || decoded.id || null };
+      }
+    } catch (e) { /* ignore */ }
+  }
   return { role: 'clinic', id: null };
 };
 
@@ -203,18 +206,14 @@ const AutomationPage: NextPageWithLayout = () => {
           const clinicAuthToken = clinicToken || doctorToken || authToken;
           if (!clinicAuthToken) {
             if (!isMounted) return;
-            setPermissions({
-              canRead: false,
-              canCreate: false,
-              canUpdate: false,
-              canDelete: false,
-            });
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
             setPermissionsLoaded(true);
             return;
           }
 
           const res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${clinicAuthToken}` },
+            timeout: 6000,
           });
 
           if (!isMounted) return;
@@ -225,44 +224,23 @@ const AutomationPage: NextPageWithLayout = () => {
               !Array.isArray(res.data.permissions) ||
               res.data.permissions.length === 0
             ) {
-              setPermissions({
-                canRead: true,
-                canCreate: true,
-                canUpdate: true,
-                canDelete: true,
-              });
+              // No permissions configured — deny all
+              setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
             } else {
               const modulePermission = findAutomationModule(res.data.permissions);
               if (modulePermission) {
-                setPermissions(
-                  parsePermissionActions(modulePermission.actions || {}),
-                );
+                setPermissions(parsePermissionActions(modulePermission.actions || {}));
               } else {
-                setPermissions({
-                  canRead: true,
-                  canCreate: false,
-                  canUpdate: false,
-                  canDelete: false,
-                });
+                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
               }
             }
           } else {
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
           }
         } catch (err) {
           console.error("Error fetching clinic sidebar permissions:", err);
           if (isMounted) {
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
           }
         } finally {
           if (isMounted) setPermissionsLoaded(true);
@@ -310,6 +288,7 @@ const AutomationPage: NextPageWithLayout = () => {
           const res = await axios.get("/api/agent/get-module-permissions", {
             params: { moduleKey: AUTOMATION_MODULE_KEY },
             headers: { Authorization: `Bearer ${permissionToken}` },
+            timeout: 6000,
           });
 
           if (!isMounted) return;
@@ -318,26 +297,25 @@ const AutomationPage: NextPageWithLayout = () => {
             !res.data?.permissions &&
             res.data?.error?.includes("not found in agent permissions")
           ) {
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
+            // Module not found — deny all
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
             return;
           }
 
           if (res.data?.success && res.data?.permissions) {
-            setPermissions(
-              parsePermissionActions(res.data.permissions.actions || {}),
+            const parentModule = res.data.permissions;
+            // Resolve submodule actions (same pattern as clinic branch)
+            const subModules = parentModule.subModules || [];
+            const subModule = subModules.find(
+              (sm: any) => String(sm.moduleKey || "").toLowerCase() === AUTOMATION_MODULE_KEY.toLowerCase()
             );
+            if (subModule) {
+              setPermissions(parsePermissionActions(subModule.actions || {}));
+            } else {
+              setPermissions(parsePermissionActions(parentModule.actions || {}));
+            }
           } else {
-            setPermissions({
-              canRead: false,
-              canCreate: false,
-              canUpdate: false,
-              canDelete: false,
-            });
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
           }
         } catch (err) {
           console.error("Error fetching agent permissions:", err);
@@ -356,12 +334,8 @@ const AutomationPage: NextPageWithLayout = () => {
 
       fetchAgentPermissions();
     } else {
-      setPermissions({
-        canRead: true,
-        canCreate: true,
-        canUpdate: true,
-        canDelete: true,
-      });
+      // Unrecognized role — deny all
+      setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
       setPermissionsLoaded(true);
     }
 

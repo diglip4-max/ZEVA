@@ -338,9 +338,11 @@ function ModernBlogForm() {
     if (typeof window === "undefined") return;
 
     const syncTokens = () => {
-
-      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
-
+      setHasAgentToken(Boolean(
+        localStorage.getItem("agentToken") ||
+        localStorage.getItem("staffToken") ||
+        localStorage.getItem("userToken")
+      ));
     };
 
     syncTokens();
@@ -424,7 +426,7 @@ function ModernBlogForm() {
     let isMounted = true;
 
     const token = getStoredToken();
-    const agentToken = localStorage.getItem("agentToken");
+    // const agentToken = localStorage.getItem("agentToken");
     const userRole = getUserRole();
 
     // ✅ For admin role, grant full access (bypass permission checks)
@@ -459,6 +461,7 @@ function ModernBlogForm() {
 
           const res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${token}` },
+            timeout: 6000,
           });
 
           if (!isMounted) return;
@@ -548,14 +551,16 @@ function ModernBlogForm() {
     }
 
     // For agent/doctorStaff on clinic routes, use agent permissions API
-    if (agentToken) {
+    const agentOrStaffToken = localStorage.getItem("agentToken") || localStorage.getItem("staffToken") || localStorage.getItem("userToken");
+    if (agentOrStaffToken) {
       const fetchAgentPermissions = async () => {
         try {
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
             params: { moduleKey: "clinic_write_blog" },
-            headers: { Authorization: `Bearer ${agentToken}` }
+            headers: { Authorization: `Bearer ${agentOrStaffToken}` },
+            timeout: 6000,
           });
           const data = res.data;
 

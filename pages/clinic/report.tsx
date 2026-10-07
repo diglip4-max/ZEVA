@@ -62,8 +62,12 @@ function ReportPage() {
     typeof window !== "undefined"
       ? localStorage.getItem("clinicToken") ||
         sessionStorage.getItem("clinicToken") ||
+        localStorage.getItem("doctorToken") ||
+        sessionStorage.getItem("doctorToken") ||
         localStorage.getItem("agentToken") ||
         sessionStorage.getItem("agentToken") ||
+        localStorage.getItem("staffToken") ||
+        sessionStorage.getItem("staffToken") ||
         localStorage.getItem("userToken") ||
         sessionStorage.getItem("userToken")
       : "";
@@ -83,7 +87,7 @@ function ReportPage() {
 
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(
-    isAgentRoute ? "clinic_Report" : null,
+    isAgentRoute ? "clinic_report" : null,
   );
   const agentPermissions = agentPermissionsHook?.permissions || {
     canRead: false,
@@ -94,19 +98,23 @@ function ReportPage() {
   };
   const agentPermissionsLoading = agentPermissionsHook?.loading || false;
 
-  // URL-based role detection — no cross-role token scanning
+  // Multi-token role detection — checks all stored token types
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
-    // This file is inside /clinic/ — always clinic context
-    try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-      if (token) {
+    const tokenKeys = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+    for (const key of tokenKeys) {
+      try {
+        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (!token) continue;
         const base64Url = token.split(".")[1];
+        if (!base64Url) continue;
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
         const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
-      }
-    } catch (e) { /* ignore */ }
+        if (decoded.role) {
+          return { role: decoded.role, id: decoded.userId || decoded.id || null };
+        }
+      } catch (e) { /* ignore */ }
+    }
     return { role: 'clinic', id: null };
   };
 
@@ -208,6 +216,7 @@ function ReportPage() {
 
           const res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${authToken}` },
+            timeout: 6000,
           });
 
           if (!isMounted) return;
@@ -228,12 +237,12 @@ function ReportPage() {
                 canDelete: true,
               });
             } else {
-              // Admin has set permissions - check the clinic_Report module
+              // Admin has set permissions - check the clinic_report module
               const modulePermission = res.data.permissions.find((p: any) => {
                 if (!p?.module) return false;
-                // Check for clinic_Report module variations
-                if (p.module === "clinic_Report") return true;
+                // Check for clinic_report module variations
                 if (p.module === "clinic_report") return true;
+                if (p.module === "clinic_Report") return true;
                 if (p.module === "report") return true;
                 return false;
               });
@@ -328,13 +337,14 @@ function ReportPage() {
       const fetchPermissions = async () => {
         try {
           console.log(
-            "Fetching Agent/Staff Permissions for clinic_Report...",
+            "Fetching Agent/Staff Permissions for clinic_report...",
           );
           setPermissionsLoaded(false);
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: "clinic_Report" },
+            params: { moduleKey: "clinic_report" },
             headers: { Authorization: `Bearer ${agentStaffToken}` },
+            timeout: 6000,
           });
           const data = res.data;
           console.log("Agent Permissions API Response:", data);
@@ -347,13 +357,13 @@ function ReportPage() {
             data?.error?.includes("not found in agent permissions")
           ) {
             console.log(
-              "Module not found in permissions, granting full access by default",
+              "Module not found in permissions, denying access by default",
             );
             setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
             });
             return;
           }

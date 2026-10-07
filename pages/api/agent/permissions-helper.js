@@ -292,6 +292,15 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
       isActive: true,
     });
 
+    console.log('[HELPER DEBUG] agentPermission found:', !!agentPermission);
+    if (agentPermission) {
+      console.log('[HELPER DEBUG] Total modules in DB:', agentPermission.permissions?.length || 0);
+      // Log all modules to see what's stored
+      agentPermission.permissions?.forEach((p, i) => {
+        console.log(`[HELPER DEBUG] Module ${i}:`, p.module, 'actions:', JSON.stringify(p.actions), 'subModules:', p.subModules?.length || 0);
+      });
+    }
+
     if (
       !agentPermission ||
       !agentPermission.permissions ||
@@ -440,6 +449,11 @@ export async function getAgentModulePermissions(agentId, moduleKey) {
     }
 
     // Step 9: Final result
+
+    console.log('[HELPER DEBUG] Final modulePermission found:', !!modulePermission);
+    if (modulePermission) {
+      console.log('[HELPER DEBUG] Matched module:', modulePermission.module, 'actions:', JSON.stringify(modulePermission.actions));
+    }
 
     if (!modulePermission) {
       return {
