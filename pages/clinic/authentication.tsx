@@ -1,535 +1,3 @@
-// // pages/clinic/authentication.tsx
-// import React, { useEffect, useState } from "react";
-// import withClinicAuth from "../../components/withClinicAuth";
-// import ClinicLayout from "../../components/ClinicLayout";
-// import type { NextPageWithLayout } from "../_app";
-// import { 
-//   Shield, 
-//   Mail, 
-//   Phone, 
-//   Users, 
-//   Save, 
-//   CheckCircle, 
-//   AlertCircle,
-//   Smartphone,
-//   Globe,
-//   Settings,
-//   UserCheck,
-//   UserX,
-//   RefreshCw
-// } from "lucide-react";
-
-// function AuthSettingsPage() {
-//   const [_loading, setLoading] = useState(true);
-//   const [error, setError] = useState("");
-//   const [otpWhatsAppNumber, setOtpWhatsAppNumber] = useState("");
-//   const [otpEmail, setOtpEmail] = useState("");
-//   const [staff, setStaff] = useState<any[]>([]);
-//   const [saving, setSaving] = useState(false);
-//   const [saved, setSaved] = useState(false);
-//   const [phoneError, setPhoneError] = useState("");
-//   const [emailError, setEmailError] = useState("");
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [roleFilter, setRoleFilter] = useState<"all" | "agent" | "doctorStaff">("all");
-
-//   // Token retrieval
-//   const getAuthToken = () => {
-//     if (typeof window === "undefined") return null;
-//     return (
-//       localStorage.getItem("clinicToken") ||
-//       sessionStorage.getItem("clinicToken") ||
-//       localStorage.getItem("agentToken") ||
-//       sessionStorage.getItem("agentToken") ||
-//       localStorage.getItem("userToken") ||
-//       sessionStorage.getItem("userToken") ||
-//       localStorage.getItem("adminToken") ||
-//       sessionStorage.getItem("adminToken")
-//     );
-//   };
-
-//   const getAuthHeaders = (): HeadersInit => {
-//     const t = getAuthToken();
-//     return t ? { Authorization: `Bearer ${t}` } : {};
-//   };
-
-//   const headersWithJson = (): HeadersInit => {
-//     const base: Record<string, string> = { "Content-Type": "application/json" };
-//     const auth = getAuthHeaders() as Record<string, string>;
-//     return { ...base, ...auth };
-//   };
-//   const updateStaffOtp = async (email: string, enabled: boolean) => {
-//     try {
-//       const res = await fetch("/api/clinic/auth-settings", { 
-//         method: "POST", 
-//         headers: headersWithJson(), 
-//         body: JSON.stringify({ staffOtp: [{ email, enabled }] }),
-//         credentials: "include"
-//       });
-//       const json = await res.json();
-//       if (!json.success) {
-//         throw new Error(json.message || "Failed to update staff OTP");
-//       }
-//     } catch (e: any) {
-//       setError(e.message || "Failed to update staff OTP");
-//     }
-//   };
-
-//   const loadData = async () => {
-//     setLoading(true);
-//     setError("");
-//     try {
-//       const res = await fetch("/api/clinic/auth-settings", { 
-//         headers: getAuthHeaders(),
-//         credentials: "include"
-//       });
-
-//       const json = await res.json();
-
-//       if (!json.success) {
-//         throw new Error(json.message || "Failed to load settings");
-//       }
-
-//       setOtpWhatsAppNumber(json.settings?.otpWhatsAppNumber || "");
-//       setOtpEmail(json.settings?.otpEmail || "");
-//       setStaff(json.staff || []);
-//       setSaved(false);
-//       setPhoneError("");
-//       setEmailError("");
-//     } catch (e: any) {
-//       setError(e.message || "Failed to load settings");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   useEffect(() => { 
-//     loadData(); 
-//   }, []);
-
-//   const validatePhone = (phone: string): boolean => {
-//     if (!phone) return true;
-//     const digitsOnly = phone.replace(/\D/g, "");
-//     return /^\+[1-9] \d{1,14}$/.test(phone) || /^\d{10}$/.test(digitsOnly);
-//   };
-
-//   const validateEmail = (email: string): boolean => {
-//     if (!email) return true;
-//     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-//   };
-
-//   const save = async () => {
-//     // Validate
-//     const phoneValid = validatePhone(otpWhatsAppNumber);
-//     const emailValid = validateEmail(otpEmail);
-
-//     setPhoneError(phoneValid ? "" : "Enter valid WhatsApp number format (e.g., +91 XXXXXXXXXX)");
-//     setEmailError(emailValid ? "" : "Enter valid email address");
-
-//     if (!phoneValid || !emailValid) return;
-
-//     setSaving(true);
-//     setError("");
-
-//     try {
-//       const digitsOnly = (otpWhatsAppNumber || "").replace(/\D/g, "");
-//       const normalizedPhone = /^\d{10}$/.test(digitsOnly) ? `+91${digitsOnly}` : otpWhatsAppNumber.trim();
-//       const payload = {
-//         otpWhatsAppNumber: normalizedPhone,
-//         otpEmail: otpEmail.trim(),
-//         staffOtp: staff.map(s => ({ email: s.email, enabled: !!s.otpEnabled }))
-//       };
-
-//       const res = await fetch("/api/clinic/auth-settings", { 
-//         method: "POST", 
-//         headers: headersWithJson(), 
-//         body: JSON.stringify(payload),
-//         credentials: "include"
-//       });
-
-//       const json = await res.json();
-
-//       if (!json.success) {
-//         throw new Error(json.message || "Failed to save settings");
-//       }
-
-//       setSaved(true);
-//       setTimeout(() => setSaved(false), 3000);
-//     } catch (e: any) {
-//       setError(e.message || "Failed to save settings");
-//     } finally {
-//       setSaving(false);
-//     }
-//   };
-
-//   const filteredStaff = staff.filter(s => {
-//     const matchesSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-//                          s.email?.toLowerCase().includes(searchTerm.toLowerCase());
-//     const matchesRole = roleFilter === "all" || s.role === roleFilter;
-//     return matchesSearch && matchesRole;
-//   });
-
-//   const stats = {
-//     total: staff.length,
-//     enabled: staff.filter(s => s.otpEnabled).length,
-//     agents: staff.filter(s => s.role === "agent").length,
-//     doctors: staff.filter(s => s.role === "doctorStaff").length
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
-//       <div className="max-w-7xl mx-auto">
-//         {/* Header */}
-//         <div className="mb-8">
-//           <div className="flex items-center gap-3 mb-2">
-//             <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-//               <Shield className="h-6 w-6 text-white" />
-//             </div>
-//             <div>
-//               <h1 className="text-2xl font-bold text-gray-900">Authentication Settings</h1>
-//               <p className="text-sm text-gray-500">Configure OTP delivery channels and staff permissions</p>
-//             </div>
-//           </div>
-
-//           {/* Stats Cards */}
-//           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-//             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <p className="text-xs text-gray-500 uppercase tracking-wider">Total Staff</p>
-//                   <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
-//                 </div>
-//                 <div className="p-2 bg-blue-50 rounded-lg">
-//                   <Users className="h-5 w-5 text-blue-600" />
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <p className="text-xs text-gray-500 uppercase tracking-wider">OTP Enabled</p>
-//                   <p className="text-2xl font-bold text-gray-900 mt-1">{stats.enabled}</p>
-//                 </div>
-//                 <div className="p-2 bg-green-50 rounded-lg">
-//                   <UserCheck className="h-5 w-5 text-green-600" />
-//                 </div>
-//               </div>
-//               <p className="text-xs text-gray-500 mt-2">
-//                 {Math.round((stats.enabled / stats.total) * 100 || 0)}% of staff
-//               </p>
-//             </div>
-
-//             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <p className="text-xs text-gray-500 uppercase tracking-wider">Agents</p>
-//                   <p className="text-2xl font-bold text-gray-900 mt-1">{stats.agents}</p>
-//                 </div>
-//                 <div className="p-2 bg-purple-50 rounded-lg">
-//                   <Users className="h-5 w-5 text-purple-600" />
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <p className="text-xs text-gray-500 uppercase tracking-wider">Doctor Staff</p>
-//                   <p className="text-2xl font-bold text-gray-900 mt-1">{stats.doctors}</p>
-//                 </div>
-//                 <div className="p-2 bg-amber-50 rounded-lg">
-//                   <Users className="h-5 w-5 text-amber-600" />
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-//           {/* Left Column - OTP Settings */}
-//           <div className="lg:col-span-1 space-y-6">
-//             {/* Delivery Channels Card */}
-//             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//               <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-//                 <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-//                   <Settings className="h-4 w-4 text-gray-500" />
-//                   OTP Delivery Channels
-//                 </h2>
-//                 <p className="text-xs text-gray-500 mt-1">Configure where OTPs will be sent</p>
-//               </div>
-
-//               <div className="p-5 space-y-5">
-//                 {/* WhatsApp Number */}
-//                 <div>
-//                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-//                     <div className="flex items-center gap-1.5">
-//                       <Phone className="h-3.5 w-3.5" />
-//                       WhatsApp Number
-//                     </div>
-//                   </label>
-//                   <div className="relative">
-//                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//                       <Smartphone className="h-4 w-4 text-gray-400" />
-//                     </div>
-//                     <input
-//                       type="text"
-//                       value={otpWhatsAppNumber}
-//                       onChange={(e) => {
-//                         setOtpWhatsAppNumber(e.target.value);
-//                         setPhoneError("");
-//                         setSaved(false);
-//                       }}
-//                       placeholder="+15551234567"
-//                       className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
-//                         phoneError 
-//                           ? "border-red-300 focus:ring-red-200 focus:border-red-400" 
-//                           : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"
-//                       }`}
-//                     />
-//                   </div>
-//                   {phoneError && (
-//                     <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
-//                       <AlertCircle className="h-3 w-3" />
-//                       {phoneError}
-//                     </p>
-//                   )}
-//                   <p className="mt-1.5 text-xs text-gray-400">
-//                     Enter 10-digit WhatsApp number (e.g., +91XXXXXXXXXX)
-//                   </p>
-//                 </div>
-
-//                 {/* Email Address */}
-//                 <div>
-//                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-//                     <div className="flex items-center gap-1.5">
-//                       <Mail className="h-3.5 w-3.5" />
-//                       Email Address
-//                     </div>
-//                   </label>
-//                   <div className="relative">
-//                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//                       <Mail className="h-4 w-4 text-gray-400" />
-//                     </div>
-//                     <input
-//                       type="email"
-//                       value={otpEmail}
-//                       onChange={(e) => {
-//                         setOtpEmail(e.target.value);
-//                         setEmailError("");
-//                         setSaved(false);
-//                       }}
-//                       placeholder="clinic@example.com"
-//                       className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
-//                         emailError 
-//                           ? "border-red-300 focus:ring-red-200 focus:border-red-400" 
-//                           : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"
-//                       }`}
-//                     />
-//                   </div>
-//                   {emailError && (
-//                     <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
-//                       <AlertCircle className="h-3 w-3" />
-//                       {emailError}
-//                     </p>
-//                   )}
-//                 </div>
-
-//                 {/* Save Button */}
-//                 <div className="pt-3">
-//                   <button
-//                     onClick={save}
-//                     disabled={saving}
-//                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 px-4 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-//                   >
-//                     {saving ? (
-//                       <>
-//                         <RefreshCw className="h-4 w-4 animate-spin" />
-//                         Saving...
-//                       </>
-//                     ) : saved ? (
-//                       <>
-//                         <CheckCircle className="h-4 w-4" />
-//                         Saved!
-//                       </>
-//                     ) : (
-//                       <>
-//                         <Save className="h-4 w-4" />
-//                         Save Changes
-//                       </>
-//                     )}
-//                   </button>
-//                 </div>
-
-//                 {/* Status Messages */}
-//                 {error && (
-//                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-//                     <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-//                     <p className="text-xs text-red-700">{error}</p>
-//                   </div>
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Right Column - Staff Management */}
-//           <div className="lg:col-span-2">
-//             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//               <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-//                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-//                   <div>
-//                     <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-//                       <Users className="h-4 w-4 text-gray-500" />
-//                       Staff OTP Permissions
-//                     </h2>
-//                     <p className="text-xs text-gray-500 mt-1">Enable or disable OTP for individual staff members</p>
-//                   </div>
-
-//                   {/* Search and Filter */}
-//                   <div className="flex gap-2">
-//                     <div className="relative">
-//                       <input
-//                         type="text"
-//                         placeholder="Search staff..."
-//                         value={searchTerm}
-//                         onChange={(e) => setSearchTerm(e.target.value)}
-//                         className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
-//                       />
-//                       <Users className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
-//                     </div>
-//                     <select
-//                       value={roleFilter}
-//                       onChange={(e) => setRoleFilter(e.target.value as any)}
-//                       className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
-//                     >
-//                       <option value="all">All Roles</option>
-//                       <option value="agent">Agents</option>
-//                       <option value="doctorStaff">Doctor Staff</option>
-//                     </select>
-//                   </div>
-//                 </div>
-//               </div>
-
-//               {/* Staff Table */}
-//               <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
-//                 <table className="w-full">
-//                   <thead className="bg-gray-50 sticky top-0 z-10">
-//                     <tr>
-//                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff Member</th>
-//                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-//                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-//                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OTP Status</th>
-//                       <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody className="divide-y divide-gray-100">
-//                     {filteredStaff.map((s, idx) => (
-//                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
-//                         <td className="px-5 py-4">
-//                           <div className="flex items-center gap-3">
-//                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-//                               s.role === 'agent' 
-//                                 ? 'bg-purple-100 text-purple-700' 
-//                                 : 'bg-amber-100 text-amber-700'
-//                             }`}>
-//                               {s.name?.charAt(0) || '?'}
-//                             </div>
-//                             <div>
-//                               <p className="text-sm font-medium text-gray-900">{s.name}</p>
-//                             </div>
-//                           </div>
-//                         </td>
-//                         <td className="px-5 py-4">
-//                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-//                             s.role === 'agent' 
-//                               ? 'bg-purple-100 text-purple-800' 
-//                               : 'bg-amber-100 text-amber-800'
-//                           }`}>
-//                             {s.role === 'agent' ? 'Agent' : 'Doctor Staff'}
-//                           </span>
-//                         </td>
-//                         <td className="px-5 py-4">
-//                           <p className="text-sm text-gray-600">{s.email}</p>
-//                         </td>
-//                         <td className="px-5 py-4">
-//                           <span className={`inline-flex items-center gap-1.5 ${
-//                             s.otpEnabled ? 'text-green-600' : 'text-gray-400'
-//                           }`}>
-//                             {s.otpEnabled ? (
-//                               <>
-//                                 <CheckCircle className="h-4 w-4" />
-//                                 <span className="text-sm">Enabled</span>
-//                               </>
-//                             ) : (
-//                               <>
-//                                 <UserX className="h-4 w-4" />
-//                                 <span className="text-sm">Disabled</span>
-//                               </>
-//                             )}
-//                           </span>
-//                         </td>
-//                         <td className="px-5 py-4 text-right">
-//                           <label className="inline-flex items-center cursor-pointer">
-//                             <span className="mr-3 text-sm text-gray-600">
-//                               {s.otpEnabled ? 'Disable' : 'Enable'}
-//                             </span>
-//                             <div className="relative">
-//                               <input
-//                                 type="checkbox"
-//                                 className="sr-only peer"
-//                                 checked={!!s.otpEnabled}
-//                                 onChange={(e) => {
-//                                   const v = e.target.checked;
-//                                   setStaff(prev => prev.map((x) =>
-//                                     x.email === s.email ? { ...x, otpEnabled: v } : x
-//                                   ));
-//                                   setSaved(false);
-//                                   updateStaffOtp(s.email, v);
-//                                 }}
-//                               />
-//                               <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-//                             </div>
-//                           </label>
-//                         </td>
-//                       </tr>
-//                     ))}
-
-//                     {filteredStaff.length === 0 && (
-//                       <tr>
-//                         <td colSpan={5} className="px-5 py-8 text-center text-gray-500">
-//                           <Users className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-//                           <p className="text-sm">No staff members found</p>
-//                         </td>
-//                       </tr>
-//                     )}
-//                   </tbody>
-//                 </table>
-//               </div>
-
-//               {/* Footer */}
-//               <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-//                 <p className="text-xs text-gray-500">
-//                   Showing {filteredStaff.length} of {staff.length} staff members
-//                   {filteredStaff.length !== staff.length && ` (filtered)`}
-//                 </p>
-//               </div>
-//             </div>           
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// // Layout
-// AuthSettingsPage.getLayout = function PageLayout(page: React.ReactNode) {
-//   return <ClinicLayout>{page}</ClinicLayout>;
-// };
-
-// // Export with authentication wrapper
-// const ProtectedAuthSettingsPage: NextPageWithLayout = withClinicAuth(AuthSettingsPage);
-// ProtectedAuthSettingsPage.getLayout = AuthSettingsPage.getLayout;
-
-// export default ProtectedAuthSettingsPage;
 // pages/clinic/authentication.tsx
 import React, { useEffect, useState } from "react";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -547,7 +15,8 @@ import {
   Key,
   Lock,
   UserCheck,
-  XCircle
+  ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
@@ -593,7 +62,9 @@ function AuthSettingsPage() {
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "agent" | "doctorStaff">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "agent" | "doctorStaff">(
+    "all",
+  );
   const [showPhoneFormatHint, setShowPhoneFormatHint] = useState(false);
   const [_copied, setCopied] = useState(false);
   const WhatsAppIcon = FaWhatsapp;
@@ -640,7 +111,7 @@ function AuthSettingsPage() {
         method: "POST",
         headers: headersWithJson(),
         body: JSON.stringify({ staffOtp: [{ email, enabled }] }),
-        credentials: "include"
+        credentials: "include",
       });
       const json = await res.json();
       if (!json.success) {
@@ -657,7 +128,7 @@ function AuthSettingsPage() {
     try {
       const res = await fetch("/api/clinic/auth-settings", {
         headers: getAuthHeaders(),
-        credentials: "include"
+        credentials: "include",
       });
 
       const json = await res.json();
@@ -687,7 +158,10 @@ function AuthSettingsPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
+    if (
+      currentPath.startsWith("/agent/") ||
+      currentPath.startsWith("/staff/")
+    ) {
       setIsAgentRoute(true);
     } else {
       setIsAgentRoute(false);
@@ -706,7 +180,8 @@ function AuthSettingsPage() {
       ["adminToken", "admin"],
     ];
     for (const [tokenKey, defaultRole] of tokenEntries) {
-      const token = localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
+      const token =
+        localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
       if (!token) continue;
       try {
         const base64Url = token.split(".")[1];
@@ -720,14 +195,16 @@ function AuthSettingsPage() {
               .join(""),
           ),
         );
-        return { role: decoded.role || defaultRole, id: decoded.userId || decoded.id || null };
+        return {
+          role: decoded.role || defaultRole,
+          id: decoded.userId || decoded.id || null,
+        };
       } catch (e) {
         // Token decode failed — try next token
       }
     }
     return { role: null, id: null };
   };
-
 
   // Helper function to get user role from token
   const getUserRole = (): string | null => {
@@ -746,7 +223,6 @@ function AuthSettingsPage() {
     canAll: false,
   };
   const agentPermissionsLoading = agentPermissionsHook?.loading || false;
-
 
   // Handle agent permissions
   useEffect(() => {
@@ -769,38 +245,36 @@ function AuthSettingsPage() {
     if (isAgentRoute) return;
     let isMounted = true;
 
-
     // Check which token type is being used
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken")
+          sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken")
+          sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken")
+          sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-        sessionStorage.getItem("staffToken")
+          sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken")
+          sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
     const authToken =
       clinicToken || doctorToken || agentToken || staffToken || userToken;
-
 
     // For admin role, grant full access (bypass permission checks)
     if (userRole === "admin") {
@@ -866,7 +340,6 @@ function AuthSettingsPage() {
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
 
-
                 // Check if "all" is true, which grants all permissions
                 const moduleAll =
                   actions.all === true ||
@@ -931,7 +404,6 @@ function AuthSettingsPage() {
           }
         }
       };
-
 
       fetchClinicPermissions();
       return;
@@ -1019,7 +491,6 @@ function AuthSettingsPage() {
         }
       };
 
-
       fetchPermissions();
     } else {
       // Unknown token type - default to full access (likely clinic/doctor)
@@ -1078,18 +549,23 @@ function AuthSettingsPage() {
 
     try {
       const digitsOnly = (otpWhatsAppNumber || "").replace(/\D/g, "");
-      const normalizedPhone = /^\d{10}$/.test(digitsOnly) ? `+91${digitsOnly}` : otpWhatsAppNumber.trim();
+      const normalizedPhone = /^\d{10}$/.test(digitsOnly)
+        ? `+91${digitsOnly}`
+        : otpWhatsAppNumber.trim();
       const payload = {
         otpWhatsAppNumber: normalizedPhone,
         otpEmail: otpEmail.trim(),
-        staffOtp: staff.map(s => ({ email: s.email, enabled: !!s.otpEnabled }))
+        staffOtp: staff.map((s) => ({
+          email: s.email,
+          enabled: !!s.otpEnabled,
+        })),
       };
 
       const res = await fetch("/api/clinic/auth-settings", {
         method: "POST",
         headers: headersWithJson(),
         body: JSON.stringify(payload),
-        credentials: "include"
+        credentials: "include",
       });
 
       const json = await res.json();
@@ -1107,8 +583,9 @@ function AuthSettingsPage() {
     }
   };
 
-  const filteredStaff = staff.filter(s => {
-    const matchesSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredStaff = staff.filter((s) => {
+    const matchesSearch =
+      s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === "all" || s.role === roleFilter;
     return matchesSearch && matchesRole;
@@ -1116,9 +593,9 @@ function AuthSettingsPage() {
 
   const stats = {
     total: staff.length,
-    enabled: staff.filter(s => s.otpEnabled).length,
-    agents: staff.filter(s => s.role === "agent").length,
-    doctors: staff.filter(s => s.role === "doctorStaff").length
+    enabled: staff.filter((s) => s.otpEnabled).length,
+    agents: staff.filter((s) => s.role === "agent").length,
+    doctors: staff.filter((s) => s.role === "doctorStaff").length,
   };
 
   return (
@@ -1141,24 +618,31 @@ function AuthSettingsPage() {
 
       {/* Access Denied Screen - Show when canRead is false */}
       {!permissionsLoaded ? (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center">
-            <div className="p-4 bg-red-100 rounded-full mb-4">
-              <XCircle className="h-12 w-12 text-red-500" />
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Permissions...</h2>
-            <p className="text-gray-500">Please wait while we verify your access.</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Loading Permissions...
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Please wait while we verify your access.
+            </p>
           </div>
         </div>
       ) : !permissions.canRead ? (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-lg">
-            <div className="p-4 bg-red-100 rounded-full mb-4">
-              <XCircle className="h-12 w-12 text-red-500" />
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-gray-600 max-w-md">
-              You do not have permission to view authentication settings. Please contact your administrator if you believe this is an error.
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              You do not have permission to view this page. Please contact your
+              administrator if you believe this is an error.
             </p>
           </div>
         </div>
@@ -1179,15 +663,21 @@ function AuthSettingsPage() {
                     <Shield className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Authentication Settings</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure OTP delivery channels and staff permissions</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                      Authentication Settings
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Configure OTP delivery channels and staff permissions
+                    </p>
                   </div>
                 </div>
 
                 {/* Last Updated Badge */}
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 px-3 py-2 rounded-lg shadow-sm">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>Last updated: {new Date().toLocaleDateString('en-GB')}</span>
+                  <span>
+                    Last updated: {new Date().toLocaleDateString("en-GB")}
+                  </span>
                 </div>
               </div>
 
@@ -1196,8 +686,12 @@ function AuthSettingsPage() {
                 <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Staff</p>
-                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Total Staff
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {stats.total}
+                      </p>
                     </div>
                     <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
@@ -1208,8 +702,12 @@ function AuthSettingsPage() {
                 <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">OTP Enabled</p>
-                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.enabled}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        OTP Enabled
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {stats.enabled}
+                      </p>
                     </div>
                     <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
@@ -1219,7 +717,9 @@ function AuthSettingsPage() {
                     <div className="h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full"
-                        style={{ width: `${(stats.enabled / stats.total) * 100 || 0}%` }}
+                        style={{
+                          width: `${(stats.enabled / stats.total) * 100 || 0}%`,
+                        }}
                       ></div>
                     </div>
                   </div>
@@ -1228,8 +728,12 @@ function AuthSettingsPage() {
                 <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Agents</p>
-                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.agents}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Agents
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {stats.agents}
+                      </p>
                     </div>
                     <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
@@ -1240,8 +744,12 @@ function AuthSettingsPage() {
                 <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Doctor Staff</p>
-                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.doctors}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Doctor Staff
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {stats.doctors}
+                      </p>
                     </div>
                     <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400" />
@@ -1262,8 +770,12 @@ function AuthSettingsPage() {
                         <Key className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">OTP Delivery Channels</h2>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Configure where OTPs will be sent</p>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          OTP Delivery Channels
+                        </h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Configure where OTPs will be sent
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1296,20 +808,20 @@ function AuthSettingsPage() {
                           placeholder="+91 98765 43210"
                           disabled={!permissions.canUpdate}
                           readOnly={!permissions.canUpdate}
-                          className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${!permissions.canUpdate
+                          className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
+                            !permissions.canUpdate
                               ? "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-slate-800"
                               : phoneError
                                 ? "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-red-300 focus:ring-red-200 focus:border-red-400"
                                 : "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-200 dark:border-slate-700 focus:ring-green-200 dark:focus:ring-green-900/20 focus:border-green-400"
-                            }`}
+                          }`}
                         />
                         {otpWhatsAppNumber && (
                           <button
                             type="button"
                             onClick={() => copyToClipboard(otpWhatsAppNumber)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                          </button>
+                          ></button>
                         )}
                       </div>
 
@@ -1364,20 +876,20 @@ function AuthSettingsPage() {
                           placeholder="clinic@example.com"
                           disabled={!permissions.canUpdate}
                           readOnly={!permissions.canUpdate}
-                          className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${!permissions.canUpdate
+                          className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
+                            !permissions.canUpdate
                               ? "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-slate-800"
                               : emailError
                                 ? "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-red-300 focus:ring-red-200 focus:border-red-400"
                                 : "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-200 dark:border-slate-700 focus:ring-blue-200 dark:focus:ring-blue-900/20 focus:border-blue-400"
-                            }`}
+                          }`}
                         />
                         {otpEmail && (
                           <button
                             type="button"
                             onClick={() => copyToClipboard(otpEmail)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                          </button>
+                          ></button>
                         )}
                       </div>
 
@@ -1421,7 +933,9 @@ function AuthSettingsPage() {
                     {error && (
                       <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl flex items-start gap-2 animate-shake">
                         <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-red-700 dark:text-red-400">{error}</p>
+                        <p className="text-xs text-red-700 dark:text-red-400">
+                          {error}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1438,8 +952,12 @@ function AuthSettingsPage() {
                           <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                         </div>
                         <div>
-                          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Staff OTP Permissions</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Enable or disable OTP for individual staff members</p>
+                          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Staff OTP Permissions
+                          </h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Enable or disable OTP for individual staff members
+                          </p>
                         </div>
                       </div>
 
@@ -1475,55 +993,107 @@ function AuthSettingsPage() {
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                           <thead className="bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
                             <tr>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Staff Member</th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                              <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">OTP Status</th>
-                              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                              >
+                                Staff Member
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                              >
+                                Role
+                              </th>
+                              <th
+                                scope="col"
+                                className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                              >
+                                Email
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                              >
+                                OTP Status
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                              >
+                                Actions
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                             {filteredStaff.map((s, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                              <tr
+                                key={idx}
+                                className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                              >
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
-                                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-sm font-bold ${s.role === 'agent'
-                                        ? 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 dark:from-purple-900/30 dark:to-purple-800/40 dark:text-purple-300'
-                                        : 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 dark:from-amber-900/30 dark:to-amber-800/40 dark:text-amber-300'
-                                      }`}>
-                                      {s.name?.charAt(0) || '?'}
+                                    <div
+                                      className={`h-8 w-8 rounded-xl flex items-center justify-center text-sm font-bold ${
+                                        s.role === "agent"
+                                          ? "bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 dark:from-purple-900/30 dark:to-purple-800/40 dark:text-purple-300"
+                                          : "bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 dark:from-amber-900/30 dark:to-amber-800/40 dark:text-amber-300"
+                                      }`}
+                                    >
+                                      {s.name?.charAt(0) || "?"}
                                     </div>
                                     <div className="ml-3">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">{s.name}</p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400 md:hidden">{s.email}</p>
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {s.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 md:hidden">
+                                        {s.email}
+                                      </p>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${s.role === 'agent'
-                                      ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300'
-                                      : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
-                                    }`}>
-                                    {s.role === 'agent' ? 'Agent' : 'Doctor Staff'}
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                      s.role === "agent"
+                                        ? "bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300"
+                                        : "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
+                                    }`}
+                                  >
+                                    {s.role === "agent"
+                                      ? "Agent"
+                                      : "Doctor Staff"}
                                   </span>
                                 </td>
                                 <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
-                                  <p className="text-sm text-gray-600 dark:text-gray-300">{s.email}</p>
+                                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                                    {s.email}
+                                  </p>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
-                                    <div className={`h-2 w-2 rounded-full mr-2 ${s.otpEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-slate-600'
-                                      }`}></div>
-                                    <span className={`text-xs font-medium ${s.otpEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
-                                      }`}>
-                                      {s.otpEnabled ? 'Enabled' : 'Disabled'}
+                                    <div
+                                      className={`h-2 w-2 rounded-full mr-2 ${
+                                        s.otpEnabled
+                                          ? "bg-green-500 animate-pulse"
+                                          : "bg-gray-300 dark:bg-slate-600"
+                                      }`}
+                                    ></div>
+                                    <span
+                                      className={`text-xs font-medium ${
+                                        s.otpEnabled
+                                          ? "text-green-600 dark:text-green-400"
+                                          : "text-gray-500 dark:text-gray-400"
+                                      }`}
+                                    >
+                                      {s.otpEnabled ? "Enabled" : "Disabled"}
                                     </span>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                   <label className="inline-flex items-center cursor-pointer">
                                     <span className="mr-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:inline">
-                                      {s.otpEnabled ? 'Disable' : 'Enable'}
+                                      {s.otpEnabled ? "Disable" : "Enable"}
                                     </span>
                                     <div className="relative">
                                       <input
@@ -1533,14 +1103,20 @@ function AuthSettingsPage() {
                                         disabled={!permissions.canUpdate}
                                         onChange={(e) => {
                                           const v = e.target.checked;
-                                          setStaff(prev => prev.map((x) =>
-                                            x.email === s.email ? { ...x, otpEnabled: v } : x
-                                          ));
+                                          setStaff((prev) =>
+                                            prev.map((x) =>
+                                              x.email === s.email
+                                                ? { ...x, otpEnabled: v }
+                                                : x,
+                                            ),
+                                          );
                                           setSaved(false);
                                           updateStaffOtp(s.email, v);
                                         }}
                                       />
-                                      <div className={`w-11 h-6 bg-gray-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 ${!permissions.canUpdate ? 'cursor-not-allowed opacity-50' : ''}`}></div>
+                                      <div
+                                        className={`w-11 h-6 bg-gray-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 ${!permissions.canUpdate ? "cursor-not-allowed opacity-50" : ""}`}
+                                      ></div>
                                     </div>
                                   </label>
                                 </td>
@@ -1549,13 +1125,20 @@ function AuthSettingsPage() {
 
                             {filteredStaff.length === 0 && (
                               <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center">
+                                <td
+                                  colSpan={5}
+                                  className="px-6 py-12 text-center"
+                                >
                                   <div className="flex flex-col items-center">
                                     <div className="p-3 bg-gray-100 rounded-full mb-3">
                                       <Users className="h-6 w-6 text-gray-400" />
                                     </div>
-                                    <p className="text-sm text-gray-500 font-medium">No staff members found</p>
-                                    <p className="text-xs text-gray-400 mt-1">Try adjusting your search or filter</p>
+                                    <p className="text-sm text-gray-500 font-medium">
+                                      No staff members found
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      Try adjusting your search or filter
+                                    </p>
                                   </div>
                                 </td>
                               </tr>
@@ -1570,12 +1153,22 @@ function AuthSettingsPage() {
                   <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Showing <span className="font-medium text-gray-900 dark:text-white">{filteredStaff.length}</span> of{' '}
-                        <span className="font-medium text-gray-900 dark:text-white">{staff.length}</span> staff members
+                        Showing{" "}
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {filteredStaff.length}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {staff.length}
+                        </span>{" "}
+                        staff members
                       </p>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {Math.round((filteredStaff.length / staff.length) * 100) || 0}% of total
+                          {Math.round(
+                            (filteredStaff.length / staff.length) * 100,
+                          ) || 0}
+                          % of total
                         </span>
                       </div>
                     </div>
@@ -1596,7 +1189,8 @@ AuthSettingsPage.getLayout = function PageLayout(page: React.ReactNode) {
 };
 
 // Export with authentication wrapper
-const ProtectedAuthSettingsPage: NextPageWithLayout = withClinicAuth(AuthSettingsPage);
+const ProtectedAuthSettingsPage: NextPageWithLayout =
+  withClinicAuth(AuthSettingsPage);
 ProtectedAuthSettingsPage.getLayout = AuthSettingsPage.getLayout;
 
 export default ProtectedAuthSettingsPage;
