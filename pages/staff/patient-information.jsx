@@ -1170,7 +1170,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true, isDoc
   </div>
 );
 
-function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic" }) {
+function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic", exportPermission }) {
   const router = useRouter();
   const { currency } = useCurrency();
   const isDoctorStaff = useMemo(() => getUserRole() === 'doctorStaff', []);
@@ -2022,7 +2022,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                 </select>
               </div>
 
-              {exportPermissions.canExport && (
+              {(exportPermission !== undefined ? exportPermission : exportPermissions.canExport) && (
                 <ExportButtons
                   filename={`patients_export_${new Date().toISOString().split("T")[0]}`}
                   title="Patients Export"

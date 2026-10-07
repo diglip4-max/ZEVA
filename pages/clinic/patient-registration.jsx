@@ -108,6 +108,7 @@ function ClinicPatientRegistration({
     canCreate: false,
     canUpdate: false,
     canDelete: false,
+    canExport: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
@@ -171,6 +172,7 @@ function ClinicPatientRegistration({
     canCreate: false,
     canUpdate: false,
     canDelete: false,
+    canExport: false,
     canAll: false,
   };
   const agentPermissionsLoading = agentPermissionsHook?.loading || false;
@@ -184,6 +186,7 @@ function ClinicPatientRegistration({
       canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
       canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
       canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canExport: Boolean(agentPermissions.canAll || agentPermissions.canExport),
     };
 
     setPermissions(newPermissions);
@@ -231,6 +234,7 @@ function ClinicPatientRegistration({
         canCreate: true,
         canUpdate: true,
         canDelete: true,
+        canExport: true,
       });
       setPermissionsLoaded(true);
       return;
@@ -246,6 +250,7 @@ function ClinicPatientRegistration({
               canCreate: false,
               canUpdate: false,
               canDelete: false,
+              canExport: false,
             });
             setPermissionsLoaded(true);
             return;
@@ -268,6 +273,7 @@ function ClinicPatientRegistration({
                 canCreate: true,
                 canUpdate: true,
                 canDelete: true,
+                canExport: true,
               });
             } else {
               const modulePermission = res.data.permissions.find((p) => {
@@ -300,12 +306,17 @@ function ClinicPatientRegistration({
                   actions.delete === true ||
                   actions.delete === "true" ||
                   String(actions.delete).toLowerCase() === "true";
+                const moduleExport =
+                  actions.export === true ||
+                  actions.export === "true" ||
+                  String(actions.export).toLowerCase() === "true";
 
                 setPermissions({
                   canRead: moduleAll || moduleRead,
                   canCreate: moduleAll || moduleCreate,
                   canUpdate: moduleAll || moduleUpdate,
                   canDelete: moduleAll || moduleDelete,
+                  canExport: moduleAll || moduleExport,
                 });
               } else {
                 setPermissions({
@@ -313,6 +324,7 @@ function ClinicPatientRegistration({
                   canCreate: false,
                   canUpdate: false,
                   canDelete: false,
+                  canExport: false,
                 });
               }
             }
@@ -322,6 +334,7 @@ function ClinicPatientRegistration({
               canUpdate: true,
               canDelete: true,
               canCreate: true,
+              canExport: true,
             });
           }
         } catch (err) {
@@ -332,6 +345,7 @@ function ClinicPatientRegistration({
               canCreate: true,
               canUpdate: true,
               canDelete: true,
+              canExport: true,
             });
           }
         } finally {
@@ -353,6 +367,7 @@ function ClinicPatientRegistration({
         canCreate: false,
         canUpdate: false,
         canDelete: false,
+        canExport: false,
       });
       setPermissionsLoaded(true);
       return;
@@ -387,6 +402,7 @@ function ClinicPatientRegistration({
             canCreate: true,
             canUpdate: true,
             canDelete: true,
+            canExport: true,
           });
           setPermissionsLoaded(true);
           return;
@@ -406,6 +422,7 @@ function ClinicPatientRegistration({
           canCreate: canAll || isTrue(actions.create),
           canUpdate: canAll || isTrue(actions.update),
           canDelete: canAll || isTrue(actions.delete),
+          canExport: canAll || isTrue(actions.export),
         };
 
         console.log("Final Agent/Staff Permissions:", newPerms);
@@ -419,6 +436,7 @@ function ClinicPatientRegistration({
             canCreate: false,
             canUpdate: false,
             canDelete: false,
+            canExport: false,
           });
         }
       } finally {
@@ -551,7 +569,7 @@ function ClinicPatientRegistration({
             </div>
           </div>
         ) : (
-          <PatientInformation key={refreshKey} hideHeader={true} onEditPatient={handleOpenEditModal} permissions={permissions} routeContext={routeContext} />
+          <PatientInformation key={refreshKey} hideHeader={true} onEditPatient={handleOpenEditModal} permissions={permissions} routeContext={routeContext} exportPermission={permissions.canExport} />
         )}
       </div>
 

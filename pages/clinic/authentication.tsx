@@ -631,7 +631,7 @@ function AuthSettingsPage() {
             </p>
           </div>
         </div>
-      ) : !permissions.canRead ? (
+      ) : !permissions.canRead && !permissions.canCreate ? (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
             <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -655,7 +655,8 @@ function AuthSettingsPage() {
           </div>
 
           <div className="max-w-7xl mx-auto relative z-10">
-            {/* Header with Gradient */}
+            {/* Header with Gradient - visible only with read permission */}
+            {permissions.canRead && (
             <div className="mb-8 animate-slideIn">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -758,9 +759,11 @@ function AuthSettingsPage() {
                 </div>
               </div>
             </div>
+            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - OTP Settings - Enhanced to match OTP modal */}
+            <div className={permissions.canRead ? "grid grid-cols-1 lg:grid-cols-3 gap-6" : "max-w-2xl mx-auto"}>
+              {/* Left Column - OTP Settings - visible only with create permission */}
+              {permissions.canCreate && (
               <div className="lg:col-span-1 space-y-6">
                 {/* Delivery Channels Card - Now matches OTP modal styling */}
                 <div className="bg-white/80 dark:bg-slate-800/80 mt-10 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-slideIn ">
@@ -941,9 +944,11 @@ function AuthSettingsPage() {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Right Column - Staff Management - Enhanced */}
-              <div className="lg:col-span-2">
+              {/* Right Column - Staff Management - visible only with read permission */}
+              {permissions.canRead && (
+              <div className={permissions.canCreate ? "lg:col-span-2" : "lg:col-span-3"}>
                 <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-slideIn">
                   <div className="p-6 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-800 dark:to-slate-800/50">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1017,12 +1022,14 @@ function AuthSettingsPage() {
                               >
                                 OTP Status
                               </th>
+                              {permissions.canUpdate && (
                               <th
                                 scope="col"
                                 className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                               >
                                 Actions
                               </th>
+                              )}
                             </tr>
                           </thead>
                           <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -1090,6 +1097,7 @@ function AuthSettingsPage() {
                                     </span>
                                   </div>
                                 </td>
+                                {permissions.canUpdate && (
                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                   <label className="inline-flex items-center cursor-pointer">
                                     <span className="mr-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:inline">
@@ -1120,13 +1128,14 @@ function AuthSettingsPage() {
                                     </div>
                                   </label>
                                 </td>
+                                )}
                               </tr>
                             ))}
 
                             {filteredStaff.length === 0 && (
                               <tr>
                                 <td
-                                  colSpan={5}
+                                  colSpan={permissions.canUpdate ? 5 : 4}
                                   className="px-6 py-12 text-center"
                                 >
                                   <div className="flex flex-col items-center">
@@ -1175,6 +1184,7 @@ function AuthSettingsPage() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
