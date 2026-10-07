@@ -1370,8 +1370,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             return group.children && group.children.length > 0;
           });
 
-          console.log({ groupedModules });
-
           // Dedup: remove API items already covered by static groups
           const usedLabels = new Set<string>([
             ...groupedModules.flatMap((g) =>
