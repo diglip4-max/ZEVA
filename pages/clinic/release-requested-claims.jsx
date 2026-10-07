@@ -43,20 +43,23 @@ const resolveUploadUrl = (url) => {
   return url;
 };
 
-// URL-based role detection — no cross-role token scanning
+// Multi-token role detection — checks all stored token types
 const getUserInfo = () => {
   if (typeof window === "undefined") return { role: null, id: null };
-  // This file is inside /clinic/ — always clinic context
-  try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-    if (token) {
+  const tokenKeys = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of tokenKeys) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (!token) continue;
       const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
+      if (!base64Url) continue;
       const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
       const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
-    }
-  } catch (e) { /* ignore */ }
+      if (decoded.role) {
+        return { role: decoded.role, id: decoded.userId || decoded.id || null };
+      }
+    } catch (e) { /* ignore */ }
+  }
   return { role: 'clinic', id: null };
 };
 
@@ -198,7 +201,13 @@ function ReleaseRequestedClaimsPage() {
   // Send Claim Modal
   const handleSendClaim = (data) => {
     setSendClaimLoading(true);
-    router.push(`/clinic/inbox/?patientId=${selectedClaim?.patientId}`)
+    const userRole = getUserRole();
+    // Navigate to the correct inbox route based on user role
+    if (userRole === 'agent' || userRole === 'doctorStaff' || userRole === 'staff') {
+      router.push(`/staff/clinic-inbox/?patientId=${selectedClaim?.patientId}`);
+    } else {
+      router.push(`/clinic/inbox/?patientId=${selectedClaim?.patientId}`);
+    }
   };
 
   // Set user role on mount
