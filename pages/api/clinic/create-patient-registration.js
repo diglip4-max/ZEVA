@@ -731,12 +731,23 @@ export default async function handler(req, res) {
           Object.fromEntries(maxSessionsMap),
         );
 
-        // For transferred packages, scale down max sessions proportionally to the transferred amount.
-        const transferredInRecord = (
-          patientRegistration.packageTransfers || []
-        ).find((t) => t.type === "in" && t.packageName === packageName);
+        // For transferred packages, aggregate ALL matching transfer-in records
+        // (same approach as package-usage endpoint). A single .find() only returns
+        // the first record, missing additional transfers for the same package.
+        const allTransfersIn = (patientRegistration.packageTransfers || []).filter(
+          (t) => t.type === "in" && t.packageName === packageName,
+        );
+        const transferredInRecord = allTransfersIn.length > 0
+          ? {
+              ...allTransfersIn[0],
+              transferredSessions: allTransfersIn.reduce(
+                (sum, t) => sum + (t.transferredSessions || 0),
+                0,
+              ),
+            }
+          : null;
         console.log(
-          `[BILLING_DEBUG] Step 2 - transferredInRecord:`,
+          `[BILLING_DEBUG] Step 2 - transferredInRecord (${allTransfersIn.length} record(s) aggregated):`,
           transferredInRecord
             ? {
                 packageName: transferredInRecord.packageName,
