@@ -844,6 +844,14 @@ export default async function handler(req, res) {
               message: `Treatment not part of package: ${t.treatmentName || slug}`,
             });
           }
+          // For transferred packages, skip per-treatment session validation.
+          // Transferred sessions form a shared global pool (not per-treatment allocated),
+          // and proportional scaling can round per-treatment maxSessions to 0,
+          // causing false "all sessions used" rejections. The total-sessions cap
+          // check below (Step 6) correctly enforces the global transferred limit.
+          if (transferredInRecord) {
+            continue;
+          }
           const previouslyUsed = previouslyUsedMap.get(slug) || 0;
           const remaining = Math.max(0, (maxSessions || 0) - previouslyUsed);
           if (remaining <= 0) {
