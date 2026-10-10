@@ -207,27 +207,30 @@ export default async function handler(req, res) {
         claim.planNotes = String(planNotes).trim();
       }
 
-      // Handle advance-specific fields
-      if (claim.claimType === "Advance" || claim.claimType === "Paid") {
-        if (advanceStatus !== undefined) {
-          claim.advanceStatus = advanceStatus;
-        }
-        // Use manually entered advanceAmount from req.body
-        if (req.body.advanceAmount !== undefined) {
-          claim.advanceAmount = parseFloat(req.body.advanceAmount) || 0;
-        }
-        // Calculate pendingClaim for Partial Pay
-        // Use finalClaimAmount as the base (accounts for co-pay adjustments)
-        const baseAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
-        if (claim.advanceStatus === "Partial Pay") {
-          claim.pendingClaim = Math.max(0, baseAmount - claim.advanceAmount);
+      // Handle advance-specific fields — only recalculate pendingClaim when advance fields are explicitly provided
+      // Skip this block when only doctorAddedClaimAmount/doctorAddedClaimNotes are being updated
+      if (advanceStatus !== undefined || req.body.advanceAmount !== undefined) {
+        if (claim.claimType === "Advance" || claim.claimType === "Paid") {
+          if (advanceStatus !== undefined) {
+            claim.advanceStatus = advanceStatus;
+          }
+          // Use manually entered advanceAmount from req.body
+          if (req.body.advanceAmount !== undefined) {
+            claim.advanceAmount = parseFloat(req.body.advanceAmount) || 0;
+          }
+          // Calculate pendingClaim for Partial Pay
+          // Use finalClaimAmount as the base (accounts for co-pay adjustments)
+          const baseAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
+          if (claim.advanceStatus === "Partial Pay") {
+            claim.pendingClaim = Math.max(0, baseAmount - claim.advanceAmount);
+          } else {
+            claim.pendingClaim = 0;
+          }
         } else {
+          claim.advanceStatus = null;
+          claim.advanceAmount = 0;
           claim.pendingClaim = 0;
         }
-      } else {
-        claim.advanceStatus = null;
-        claim.advanceAmount = 0;
-        claim.pendingClaim = 0;
       }
 
       // Reset status to Under Review when edited from Rejected

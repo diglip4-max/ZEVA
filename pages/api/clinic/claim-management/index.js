@@ -132,17 +132,17 @@ export default async function handler(req, res) {
 
       // 5. Released
       if (claim.status === "Released") {
-        buckets.released.claims.push(toRow(claim, paidAmount));
+        buckets.released.claims.push(toRow(claim, claimTotal));
       }
 
       // 6. Ready to release — finance completed, not released yet
       if (claim.status === "Completed") {
-        buckets.readyToRelease.claims.push(toRow(claim, paidAmount));
+        buckets.readyToRelease.claims.push(toRow(claim, claimTotal));
       }
 
       // 7. Waiting approval — under doctor review
       if (claim.status === "Under Review") {
-        buckets.waitingApproval.claims.push(toRow(claim, paidAmount));
+        buckets.waitingApproval.claims.push(toRow(claim, claimTotal));
       }
     }
 
