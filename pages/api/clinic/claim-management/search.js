@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 
     // Dropdown filters (validated ObjectIds; insurance provider is an exact match).
     // IDs are passed as strings and cast by Mongoose per the schema path type.
-    const { doctorId, patientId, departmentId, insuranceProvider } = req.query;
+    const { doctorId, patientId, departmentId, insuranceProvider, claimType } = req.query;
     if (doctorId && mongoose.isValidObjectId(doctorId)) {
       andClauses.push({ doctorId: String(doctorId) });
     }
@@ -91,6 +91,27 @@ export default async function handler(req, res) {
     }
     if (insuranceProvider && String(insuranceProvider).trim()) {
       andClauses.push({ insuranceProvider: String(insuranceProvider).trim() });
+    }
+    if (claimType && ["Advance", "Paid"].includes(String(claimType))) {
+      andClauses.push({ claimType: String(claimType) });
+    }
+
+    // Date range filter — createdAt must fall within [fromDate 00:00, toDate 23:59:59.999].
+    // Either side is optional; providing only one side gives an open-ended range.
+    const { fromDate, toDate } = req.query;
+    if (fromDate || toDate) {
+      const createdAtFilter = {};
+      if (fromDate) {
+        const d = new Date(fromDate);
+        if (!isNaN(d.getTime())) createdAtFilter.$gte = new Date(d.setHours(0, 0, 0, 0));
+      }
+      if (toDate) {
+        const d = new Date(toDate);
+        if (!isNaN(d.getTime())) createdAtFilter.$lte = new Date(d.setHours(23, 59, 59, 999));
+      }
+      if (Object.keys(createdAtFilter).length > 0) {
+        andClauses.push({ createdAt: createdAtFilter });
+      }
     }
 
     if (andClauses.length > 0) query.$and = andClauses;

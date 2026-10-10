@@ -47,7 +47,7 @@ export default function SearchableSelect({
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
-        updateSearch("");
+        setSearch("");
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -56,7 +56,8 @@ export default function SearchableSelect({
 
   const selected = options.find((o) => o.value === value);
 
-  const filtered = options.filter(
+  // When onSearchChange is provided, parent controls options via API — skip local filtering
+  const displayOptions = onSearchChange ? options : options.filter(
     (o) =>
       o.label.toLowerCase().includes(search.toLowerCase()) ||
       (o.sublabel || "").toLowerCase().includes(search.toLowerCase()),
@@ -111,19 +112,18 @@ export default function SearchableSelect({
               <div className="p-6 text-center text-stone-400 dark:text-stone-500 text-sm">
                 Loading…
               </div>
-            ) : filtered.length === 0 ? (
+            ) : displayOptions.length === 0 ? (
               <div className="p-6 text-center text-stone-400 dark:text-stone-500 text-sm italic">
                 {emptyText}
               </div>
             ) : (
               <ul className="py-1.5">
-                {filtered.map((o) => (
+                {displayOptions.map((o) => (
                   <li
                     key={o.value}
                     onClick={() => {
                       onChange(o.value);
                       setOpen(false);
-                      updateSearch("");
                     }}
                     className={`px-4 py-2.5 cursor-pointer transition-colors group ${
                       value === o.value

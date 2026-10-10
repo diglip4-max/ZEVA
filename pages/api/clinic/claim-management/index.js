@@ -112,20 +112,17 @@ export default async function handler(req, res) {
       const paidAmount = paidAmountOf(claim);
       const claimTotal = claimTotalOf(claim);
 
-      // 1. All claims — original claim amounts
-      buckets.total.claims.push(toRow(claim, claim.claimAmount));
+      // 1. All claims — final claim amounts (falls back to claimAmount when not set)
+      buckets.total.claims.push(toRow(claim, claimTotal));
 
-      // 2. Fully paid — settled amount matches the final claim amount
-      if (
-        claim.finalClaimAmount != null &&
-        Math.abs(paidAmount - Number(claim.finalClaimAmount)) < EPSILON
-      ) {
-        buckets.paid.claims.push(toRow(claim, paidAmount));
+      // 2. Paid claims — all statuses (Under Review, Approved, Ready, Completed, Released)
+      if (claim.claimType === "Paid") {
+        buckets.paid.claims.push(toRow(claim, claimTotal));
       }
 
       // 3. Advance claims
       if (claim.claimType === "Advance") {
-        buckets.advance.claims.push(toRow(claim, claim.advanceAmount));
+        buckets.advance.claims.push(toRow(claim, claimTotal));
       }
 
       // 4. Ongoing — in the pipeline (Ready / Completed / Under Review), not released
@@ -169,6 +166,14 @@ export default async function handler(req, res) {
       const bucket = buckets[key];
       bucket.count = bucket.claims.length;
       bucket.amount = round2(bucket.claims.reduce((acc, row) => acc + row.amount, 0));
+    }
+
+    // Add finalAmount (sum of finalClaimAmount) for paid and advance buckets
+    for (const key of ["paid", "advance"]) {
+      const bucket = buckets[key];
+      bucket.finalAmount = round2(
+        bucket.claims.reduce((acc, row) => acc + (row.finalClaimAmount != null ? row.finalClaimAmount : 0), 0)
+      );
     }
 
     res.setHeader("Cache-Control", "private, max-age=10");

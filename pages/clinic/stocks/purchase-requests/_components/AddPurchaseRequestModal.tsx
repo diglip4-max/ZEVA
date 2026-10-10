@@ -73,6 +73,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
   const { clinicBranches } = useClinicBranches();
   const { stockItems, fetchStockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState<{ _id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -460,7 +461,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                     >
                       {suppliers?.find(
                         (supplier) => supplier._id === formData.supplier
-                      )?.name || "Select a supplier"}
+                      )?.name || selectedSupplier?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
                       className={`w-4 h-4 text-gray-500 transition-transform ${
@@ -531,12 +532,12 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                                   key={supplier._id}
                                   className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
                                   onClick={() => {
+                                    setSelectedSupplier({ _id: supplier._id, name: supplier.name });
                                     setFormData({
                                       ...formData,
                                       supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
-                                    setSupplierSearch("");
                                   }}
                                 >
                                   <div>

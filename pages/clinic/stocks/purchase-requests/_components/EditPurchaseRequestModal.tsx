@@ -24,6 +24,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
   const { stockItems } = useStockItems();
   const { clinicBranches } = useClinicBranches();
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState<{ _id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -168,6 +169,14 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
           email: purchaseRequestData.contactInfoOfBuyer?.email || "",
         },
       });
+
+      // Prefill selected supplier so display works even if API list doesn't include it
+      if (typeof purchaseRequestData.supplier === "object" && purchaseRequestData.supplier) {
+        const s = purchaseRequestData.supplier as any;
+        setSelectedSupplier({ _id: s._id, name: s.name || "" });
+      } else {
+        setSelectedSupplier(null);
+      }
 
       setItems(
         purchaseRequestData.items.map((item) => ({
@@ -484,7 +493,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                     >
                       {suppliers?.find(
                         (supplier) => supplier._id === formData.supplier,
-                      )?.name || "Select a supplier"}
+                      )?.name || selectedSupplier?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
                       className={`w-4 h-4 text-gray-500 transition-transform ${
@@ -552,12 +561,12 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                                   key={supplier._id}
                                   className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
                                   onClick={() => {
+                                    setSelectedSupplier({ _id: supplier._id, name: supplier.name });
                                     setFormData({
                                       ...formData,
                                       supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
-                                    setSupplierSearch("");
                                   }}
                                 >
                                   <div>

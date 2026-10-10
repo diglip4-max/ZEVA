@@ -532,6 +532,9 @@ function NewBillModal({
     search: supplierSearch,
   }) as { suppliers: Supplier[]; loading: boolean };
 
+  // Store selected supplier details so display works even if API refetch loses it
+  const [selectedSupplier, setSelectedSupplier] = useState<{ _id: string; name: string; code?: string; mobile?: string; telephone?: string; totalBalance?: number } | null>(null);
+
   const [form, setForm] = useState({
     supplierId: "",
     category: categories.find((c) => c !== "All") || "Rent",
@@ -548,19 +551,42 @@ function NewBillModal({
     Array<{ id: string; name: string; progress: number; size: number }>
   >([]);
 
-  const supplierOptions = suppliers.map((s) => ({
-    value: s._id,
-    label: s.name,
-    sublabel: [
-      s.code,
-      s.mobile || s.telephone,
-      s.totalBalance
-        ? `Balance ${formatMoney(s.totalBalance, currency)}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  }));
+  const supplierOptions = useMemo(() => {
+    const mapped = suppliers.map((s) => ({
+      value: s._id,
+      label: s.name,
+      sublabel: [
+        s.code,
+        s.mobile || s.telephone,
+        s.totalBalance
+          ? `Balance ${formatMoney(s.totalBalance, currency)}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    }));
+    // Always include the selected supplier so display works even if API refetch loses it
+    if (
+      selectedSupplier &&
+      form.supplierId === selectedSupplier._id &&
+      !mapped.some((o) => o.value === selectedSupplier._id)
+    ) {
+      mapped.unshift({
+        value: selectedSupplier._id,
+        label: selectedSupplier.name,
+        sublabel: [
+          selectedSupplier.code,
+          selectedSupplier.mobile || selectedSupplier.telephone,
+          selectedSupplier.totalBalance
+            ? `Balance ${formatMoney(selectedSupplier.totalBalance, currency)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+    return mapped;
+  }, [suppliers, selectedSupplier, form.supplierId, currency]);
 
   const categoryOptions = categories
     .filter((c) => c !== "All")
@@ -712,7 +738,11 @@ function NewBillModal({
                 icon={<Receipt className="w-3.5 h-3.5 text-stone-400" />}
                 options={supplierOptions}
                 value={form.supplierId}
-                onChange={(v) => setForm((f) => ({ ...f, supplierId: v }))}
+                onChange={(v) => {
+                  const s = suppliers.find((x) => x._id === v);
+                  if (s) setSelectedSupplier(s);
+                  setForm((f) => ({ ...f, supplierId: v }));
+                }}
                 onSearchChange={setSupplierSearch}
                 loading={suppliersLoading}
                 placeholder="Choose a supplier"

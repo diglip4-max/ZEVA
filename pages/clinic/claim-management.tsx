@@ -143,6 +143,7 @@ interface StatBucket {
   count: number;
   amount: number;
   claims: ClaimRow[];
+  finalAmount?: number;
 }
 
 type DashboardData = Record<StatKey, StatBucket>;
@@ -172,8 +173,8 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "paid",
     label: "Paid Claims",
-    description: "Fully settled — paid amount matches final amount",
-    amountLabel: "Paid amount",
+    description: "All paid-type claims — insurer settlement amount",
+    amountLabel: "Claim amount",
     icon: CheckCircle,
     chip: "bg-green-50 text-green-600",
     bar: "bg-green-500",
@@ -182,8 +183,8 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "advance",
     label: "Advance Claims",
-    description: "Claims raised with advance payment",
-    amountLabel: "Advance amount",
+    description: "All advance-type claims — upfront payment amount",
+    amountLabel: "Claim amount",
     icon: Wallet,
     chip: "bg-amber-50 text-amber-600",
     bar: "bg-amber-500",
@@ -192,7 +193,7 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "ongoing",
     label: "Ongoing Claims",
-    description: "Under review, finance checked or completed — not released",
+    description: "Approved or ready — not yet completed or released",
     amountLabel: "Claim amount",
     icon: Activity,
     chip: "bg-blue-50 text-blue-600",
@@ -202,8 +203,8 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "released",
     label: "Released Claims",
-    description: "Claims released to the insurer",
-    amountLabel: "Paid amount",
+    description: "Claims released to the insurer (any type)",
+    amountLabel: "Claim amount",
     icon: BadgeCheck,
     chip: "bg-violet-50 text-violet-600",
     bar: "bg-violet-500",
@@ -212,8 +213,8 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "readyToRelease",
     label: "Ready to Release",
-    description: "Finance completed, awaiting release",
-    amountLabel: "Paid amount",
+    description: "Finance completed, awaiting release (any type)",
+    amountLabel: "Claim amount",
     icon: Hourglass,
     chip: "bg-cyan-50 text-cyan-600",
     bar: "bg-cyan-500",
@@ -222,8 +223,8 @@ const STAT_CARDS: StatCardDef[] = [
   {
     key: "waitingApproval",
     label: "Waiting Approval",
-    description: "Under review by the doctor",
-    amountLabel: "Paid amount",
+    description: "Under doctor review (any type)",
+    amountLabel: "Claim amount",
     icon: ShieldAlert,
     chip: "bg-orange-50 text-orange-600",
     bar: "bg-orange-500",
@@ -248,17 +249,18 @@ function ClaimManagementPage() {
   const [filterQ, setFilterQ] = useState("");
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterInsurance, setFilterInsurance] = useState("");
-  const [filterPatient, setFilterPatient] = useState("");
+  const [filterClaimType, setFilterClaimType] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("");
-  const [openFilter, setOpenFilter] = useState<null | "doctor" | "insurance" | "patient" | "department">(null);
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
+  const [openFilter, setOpenFilter] = useState<null | "doctor" | "insurance" | "claimType" | "department">(null);
   const [filterOptions, setFilterOptions] = useState<{ doctors: any[]; departments: any[]; patients: any[] }>({
     doctors: [],
     departments: [],
     patients: [],
   });
   const [providers, setProviders] = useState<string[]>([]);
-  const [patientQuery, setPatientQuery] = useState("");
-  const [patientSearchLoading, setPatientSearchLoading] = useState(false);
+  // const [patientSearchLoading, setPatientSearchLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [resultsLoading, setResultsLoading] = useState(false);
@@ -366,8 +368,10 @@ function ClaimManagementPage() {
     if (text) params.q = text;
     if (filterDoctor) params.doctorId = filterDoctor;
     if (filterInsurance) params.insuranceProvider = filterInsurance;
-    if (filterPatient) params.patientId = filterPatient;
+    if (filterClaimType) params.claimType = filterClaimType;
     if (filterDepartment) params.departmentId = filterDepartment;
+    if (filterFromDate) params.fromDate = filterFromDate;
+    if (filterToDate) params.toDate = filterToDate;
     setResultsLoading(true);
     setPage(1);
     try {
@@ -397,7 +401,7 @@ function ClaimManagementPage() {
     } finally {
       setResultsLoading(false);
     }
-  }, [filterQ, filterDoctor, filterInsurance, filterPatient, filterDepartment]);
+  }, [filterQ, filterDoctor, filterInsurance, filterClaimType, filterDepartment, filterFromDate, filterToDate]);
 
   // ===== Permission fetching — same two-tier resolution as create-claim:
   // clinic/doctor use sidebar-permissions; agent/doctorStaff/staff use
@@ -593,23 +597,6 @@ function ClaimManagementPage() {
     load();
   }, []);
 
-  // Server-side patient search inside the patient dropdown
-  useEffect(() => {
-    if (openFilter !== "patient") return;
-    const t = setTimeout(async () => {
-      setPatientSearchLoading(true);
-      try {
-        const res = await axios.get(`/api/clinic/patient-registration?name=${encodeURIComponent(patientQuery)}`, { headers: getAuthHeaders() });
-        setFilterOptions((o) => ({ ...o, patients: res.data?.data || [] }));
-      } catch {
-        // keep current list
-      } finally {
-        setPatientSearchLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [patientQuery, openFilter]);
-
   // Distinct insurance providers come from the dashboard's total bucket
   useEffect(() => {
     if (!data?.total?.claims) return;
@@ -619,7 +606,7 @@ function ClaimManagementPage() {
   }, [data]);
 
   const hasActiveFilters = Boolean(
-    filterQ.trim() || filterDoctor || filterInsurance || filterPatient || filterDepartment
+    filterQ.trim() || filterDoctor || filterInsurance || filterClaimType || filterDepartment || filterFromDate || filterToDate
   );
 
   // Pagination over the filtered result set (10 per page)
@@ -631,8 +618,10 @@ function ClaimManagementPage() {
     setFilterQ("");
     setFilterDoctor("");
     setFilterInsurance("");
-    setFilterPatient("");
+    setFilterClaimType("");
     setFilterDepartment("");
+    setFilterFromDate("");
+    setFilterToDate("");
     setOpenFilter(null);
   };
 
@@ -1159,10 +1148,21 @@ function ClaimManagementPage() {
                     <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{card.description}</p>
                     <div className="flex items-end justify-between mt-4 pt-3 border-t border-gray-50">
                       <div>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{card.amountLabel}</p>
-                        <p className="text-lg font-extrabold text-gray-900 tracking-tight">
-                          {getCurrencySymbol(currency)} {fmt(bucket?.amount ?? 0)}
-                        </p>
+                        {(card.key === "paid" || card.key === "advance") ? (
+                          <>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider"> Claim amount</p>
+                            <p className="text-lg font-extrabold text-gray-900 tracking-tight">
+                              {getCurrencySymbol(currency)} {fmt(bucket?.finalAmount ?? 0)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{card.amountLabel}</p>
+                            <p className="text-lg font-extrabold text-gray-900 tracking-tight">
+                              {getCurrencySymbol(currency)} {fmt(bucket?.amount ?? 0)}
+                            </p>
+                          </>
+                        )}
                       </div>
                       <span className="text-[10px] font-semibold text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity">
                         View details →
@@ -1206,10 +1206,46 @@ function ClaimManagementPage() {
             <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-teal-600" /></div>
             <h3 className="text-sm font-semibold text-gray-900">All Claims</h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{results.length} total</span>
+            {/* Date range filter — right side of header */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="relative">
+                <Calendar className="w-3 h-3 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="date"
+                  value={filterFromDate}
+                  onChange={(e) => { setFilterFromDate(e.target.value); setPage(1); }}
+                  max={filterToDate || undefined}
+                  className="pl-7 pr-1.5 py-1 border border-gray-300 rounded-lg text-[11px] text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="From"
+                />
+              </div>
+              <span className="text-[10px] text-gray-400 font-medium">to</span>
+              <div className="relative">
+                <Calendar className="w-3 h-3 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="date"
+                  value={filterToDate}
+                  onChange={(e) => { setFilterToDate(e.target.value); setPage(1); }}
+                  min={filterFromDate || undefined}
+                  className="pl-7 pr-1.5 py-1 border border-gray-300 rounded-lg text-[11px] text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="To"
+                />
+              </div>
+              {(filterFromDate || filterToDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setFilterFromDate(""); setFilterToDate(""); setPage(1); }}
+                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Clear dates"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors"
               >
                 <X className="w-3 h-3" /> Clear filters
               </button>
@@ -1289,50 +1325,29 @@ function ClaimManagementPage() {
                 )}
               </div>
 
-              {/* Patient (clinic-scoped, server-side name search) */}
+              {/* Claim Type */}
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setOpenFilter(openFilter === "patient" ? null : "patient")}
-                  className={`w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-xs font-medium transition-colors ${filterPatient ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
+                  onClick={() => setOpenFilter(openFilter === "claimType" ? null : "claimType")}
+                  className={`w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-xs font-medium transition-colors ${filterClaimType ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
                 >
-                  <Users className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">
-                    {filterPatient
-                      ? (() => { const p = filterOptions.patients.find((x: any) => String(x._id) === filterPatient); return p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient" : "Patient"; })()
-                      : "All patients"}
-                  </span>
+                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{filterClaimType || "All types"}</span>
                   <ChevronDown className="w-3.5 h-3.5 shrink-0 ml-auto text-gray-400" />
                 </button>
-                {openFilter === "patient" && (
-                  <div className="absolute z-30 mt-1 w-full min-w-56 bg-white border border-gray-200 rounded-xl shadow-lg">
-                    <div className="p-2 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
-                      <div className="relative">
-                        <Search className="w-3 h-3 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          value={patientQuery}
-                          onChange={(e) => setPatientQuery(e.target.value)}
-                          placeholder="Search patient…"
-                          className="w-full pl-7 pr-6 py-1.5 border border-gray-200 rounded-lg text-[11px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                        />
-                        {patientSearchLoading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 absolute right-2 top-1/2 -translate-y-1/2" />}
-                      </div>
-                    </div>
-                    <div className="max-h-56 overflow-y-auto">
-                      <button onClick={() => { setFilterPatient(""); setOpenFilter(null); }} className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">All patients</button>
-                      {filterOptions.patients.map((p: any) => (
-                        <button
-                          key={p._id}
-                          onClick={() => { setFilterPatient(String(p._id)); setOpenFilter(null); }}
-                          className={`w-full text-left px-3 py-2 text-xs hover:bg-teal-50 ${filterPatient === String(p._id) ? "font-bold text-teal-700 bg-teal-50" : "text-gray-700"}`}
-                        >
-                          {p.firstName} {p.lastName}
-                          <span className="block text-[10px] text-gray-400 font-mono">EMR {p.emrNumber || "—"}</span>
-                        </button>
-                      ))}
-                      {filterOptions.patients.length === 0 && !patientSearchLoading && <p className="px-3 py-2 text-[11px] text-gray-400">No patients found</p>}
-                    </div>
+                {openFilter === "claimType" && (
+                  <div className="absolute z-30 mt-1 w-full min-w-44 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                    <button onClick={() => { setFilterClaimType(""); setOpenFilter(null); }} className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">All types</button>
+                    {["Advance", "Paid"].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => { setFilterClaimType(type); setOpenFilter(null); }}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-teal-50 ${filterClaimType === type ? "font-bold text-teal-700 bg-teal-50" : "text-gray-700"}`}
+                      >
+                        {type}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1372,8 +1387,10 @@ function ClaimManagementPage() {
               const chips: { key: string; label: string; clear: () => void }[] = [];
               if (filterDoctor) chips.push({ key: "doctor", label: `Doctor: ${filterOptions.doctors.find((d) => String(d._id) === filterDoctor)?.name || "selected"}`, clear: () => setFilterDoctor("") });
               if (filterInsurance) chips.push({ key: "insurance", label: `Insurance: ${filterInsurance}`, clear: () => setFilterInsurance("") });
-              if (filterPatient) chips.push({ key: "patient", label: `Patient: ${(() => { const p = filterOptions.patients.find((x: any) => String(x._id) === filterPatient); return p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() : "selected"; })()}`, clear: () => setFilterPatient("") });
+              if (filterClaimType) chips.push({ key: "claimType", label: `Type: ${filterClaimType}`, clear: () => setFilterClaimType("") });
               if (filterDepartment) chips.push({ key: "department", label: `Department: ${filterOptions.departments.find((d) => String(d._id) === filterDepartment)?.name || "selected"}`, clear: () => setFilterDepartment("") });
+              if (filterFromDate) chips.push({ key: "fromDate", label: `From: ${new Date(filterFromDate + "T00:00:00").toLocaleDateString()}`, clear: () => setFilterFromDate("") });
+              if (filterToDate) chips.push({ key: "toDate", label: `To: ${new Date(filterToDate + "T00:00:00").toLocaleDateString()}`, clear: () => setFilterToDate("") });
               if (filterQ.trim()) chips.push({ key: "q", label: `Search: "${filterQ.trim()}"`, clear: () => setFilterQ("") });
               if (chips.length === 0) return null;
               const paidTotal = results.reduce((acc, c) => acc + (c.claimType === "Advance" ? Number(c.claimAmount || 0) : Number(c.advanceAmount || 0)), 0);
@@ -1743,13 +1760,13 @@ function ClaimManagementPage() {
                                         <p className="text-sm font-bold text-orange-900">{getCurrencySymbol(currency)} {fmt(row.pendingClaim)}</p>
                                       </div>
                                     )}
-                                    {activeStat === 'advance' && availableByPatient[row.patientId] != null && (
+                                    {(activeStat === 'advance' || activeStat === 'paid') && availableByPatient[row.patientId] != null && (
                                       <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
                                         <p className="text-[9px] text-emerald-600 uppercase font-bold tracking-wider">Available Amount</p>
                                         <p className="text-sm font-bold text-emerald-900">{getCurrencySymbol(currency)} {fmt(availableByPatient[row.patientId])}</p>
                                       </div>
                                     )}
-                                    {activeStat === 'advance' && permissions.canUpdate && row.status === 'Under Review' && (
+                                    {(activeStat === 'advance' || activeStat === 'paid') && permissions.canUpdate && row.status === 'Under Review' && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); openApproveClaimModal(row); }}
                                         disabled={approveActionLoading}
@@ -1758,7 +1775,7 @@ function ClaimManagementPage() {
                                         <><CheckCircle className="w-3.5 h-3.5" /> Approve</>
                                       </button>
                                     )}
-                                    {activeStat === 'advance' && permissions.canDelete && row.status !== 'Released' && row.status !== 'Approved' && (
+                                    {(activeStat === 'advance' || activeStat === 'paid') && permissions.canDelete && row.status !== 'Released' && row.status !== 'Approved' && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); if (!(row.rejectionReason || row.rejectedFromReleaseRequested)) setRejectModal(row); }}
                                         disabled={!!(row.rejectionReason || row.rejectedFromReleaseRequested)}
