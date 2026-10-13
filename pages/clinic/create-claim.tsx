@@ -1195,21 +1195,30 @@ function CreateClaimPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
       {/* Header with Create Claim Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Insurance Claims</h1>
-          <p className="text-sm text-gray-500 mt-1">Create and manage insurance claims</p>
-        </div>
-        {permissions.canCreate && (
-          <div className="flex items-center gap-3">
-            <button onClick={openCreditModal} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-teal-600 text-teal-700 hover:bg-teal-50 rounded-lg font-semibold text-sm transition-colors shadow-sm">
-              <ArrowLeftRight className="w-4 h-4" /> Claim Credit
-            </button>
-            <button onClick={openModal} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-sm">
-              <Plus className="w-4 h-4" /> Create Claim
-            </button>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Insurance Claims</h1>
+            <p className="text-sm text-gray-500 mt-1">Create and manage insurance claims</p>
           </div>
-        )}
+          {permissions.canCreate && (
+            <div className="flex items-center gap-3">
+              <button onClick={openCreditModal} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-teal-600 text-teal-700 hover:bg-teal-50 rounded-lg font-semibold text-sm transition-colors shadow-sm">
+                <ArrowLeftRight className="w-4 h-4" /> Claim Credit
+              </button>
+              <button onClick={openModal} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-sm">
+                <Plus className="w-4 h-4" /> Create Claim
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-4 overflow-x-auto pb-1">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block flex-shrink-0" /> Under Review = Claim created</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block flex-shrink-0" /> Approved = Approved by doctor</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block flex-shrink-0" /> Ready = Checked by finance</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block flex-shrink-0" /> Completed = Treatment plan ready to release</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-green-500 inline-block flex-shrink-0" /> Released = Claim is released</span>
+        </div>
       </div>
 
       {/* Claims Table — hidden when read permission is denied */}

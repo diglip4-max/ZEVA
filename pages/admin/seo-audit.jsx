@@ -529,7 +529,7 @@ const SEOAudit = () => {
         ? `${entity.subcategories.length} sub-treatment(s)` 
         : 'No sub-treatments';
     }
-    return entity.displayLocation || entity.address || entity.location || '';
+    return formatLocation(entity.displayLocation) || formatLocation(entity.address) || formatLocation(entity.location) || '';
   };
 
   const filteredEntities = entities.filter((entity) => {
@@ -1717,7 +1717,7 @@ const SEOAudit = () => {
                   {detailedAudit && (() => {
                     const entityData = detailedAudit[entityType] || {};
                     const displayName = entityData.name || entityData.title || entityData.jobTitle || 'Unknown';
-                    const displayLocation = entityData.address || entityData.location || '';
+                    const displayLocation = entityData.address || formatLocation(entityData.location) || '';
                     return displayLocation ? (
                       <p className="text-sm text-blue-600 mt-1">
                         {displayName} • {displayLocation}

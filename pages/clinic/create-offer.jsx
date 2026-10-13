@@ -78,6 +78,7 @@ function SmartOffersDashboard() {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   const getUserInfo = useCallback(() => {
     if (typeof window === "undefined") return { role: null, id: null };
@@ -144,7 +145,9 @@ function SmartOffersDashboard() {
     if (typeof window === "undefined") return;
     const agentPath = window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
-  }, [hasAgentToken]);
+    // Detect user role on mount
+    setUserRole(getUserRole());
+  }, [hasAgentToken, getUserRole]);
 
   const agentPermissionsHook = useAgentPermissions(
     isAgentRoute ? MODULE_KEY : null,
@@ -384,10 +387,21 @@ function SmartOffersDashboard() {
     };
   }, [isAgentRoute, getUserRole]);
 
-  const tabs = permissions.canRead ? allTabs : (permissions.canCreate ? ['Create Offer'] : []);
+  // For agent/doctorStaff: only show Offers tab (clinic-only tabs: Overview, Create Offer, Usage & Performance, Liabilities, Rules & Controls, Audit Log)
+  const isRestrictedRole = userRole === "agent" || userRole === "doctorStaff" || userRole === "staff";
+  const tabs = isRestrictedRole
+    ? (permissions.canRead || permissions.canCreate ? ['Offers'] : [])
+    : (permissions.canRead ? allTabs : (permissions.canCreate ? ['Create Offer'] : []));
 
   useEffect(() => {
     if (!permissionsLoaded) return;
+    // For restricted roles, always default to Offers tab
+    if (isRestrictedRole) {
+      if (activeTab !== 'Offers' && tabs.includes('Offers')) {
+        setActiveTab('Offers');
+      }
+      return;
+    }
     if (!permissions.canRead && permissions.canCreate) {
       if (activeTab !== 'Create Offer') {
         setActiveTab('Create Offer');
@@ -396,7 +410,7 @@ function SmartOffersDashboard() {
     } else if (!allTabs.includes(activeTab) || (!permissions.canRead && activeTab !== 'Create Offer')) {
       setActiveTab(tabs[0] || 'Overview');
     }
-  }, [permissionsLoaded, permissions.canRead, permissions.canCreate]);
+  }, [permissionsLoaded, permissions.canRead, permissions.canCreate, isRestrictedRole]);
 
   if (!permissionsLoaded) {
     return (
