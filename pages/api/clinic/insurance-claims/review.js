@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       claim.rejectionReason = "";
       // Handle advancePendingAmountAdded: if provided, it becomes the new pendingClaim
       const extraAmount = Number(advancePendingAmountAdded || 0);
-      if (extraAmount > 0) {
+      if (advancePendingAmountAdded !== undefined && advancePendingAmountAdded !== null) {
         claim.advancePendingAmountAdded = extraAmount;
         claim.pendingClaim = extraAmount;
       }

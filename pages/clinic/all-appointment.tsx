@@ -99,6 +99,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     canUpdate: true,
     canCreate: true,
     canDelete: true,
+    canCreateBilling: true,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
@@ -438,7 +439,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
       // ✅ For admin role, grant full access (bypass permission checks)
       if (role === "admin") {
         if (!isMounted) return;
-        setPermissions({ canRead: true, canUpdate: true, canCreate: true, canDelete: true });
+        setPermissions({ canRead: true, canUpdate: true, canCreate: true, canDelete: true, canCreateBilling: true });
         setPermissionsLoaded(true);
         return;
       }
@@ -454,6 +455,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                 canCreate: false,
                 canUpdate: false,
                 canDelete: false,
+                canCreateBilling: false,
               });
               setPermissionsLoaded(true);
               return;
@@ -475,6 +477,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                   canCreate: true,
                   canUpdate: true,
                   canDelete: true,
+                  canCreateBilling: true,
                 });
               } else {
                 // Admin has set permissions - check the clinic_ScheduledAppointment module
@@ -498,11 +501,20 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                   const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
                   const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
 
+                  // Extract customActions for the "Create Billing" action (module level, not inside actions)
+                  // The Billing button is shown ONLY when the admin explicitly enables "Create Billing"
+                  const customActions = modulePermission.customActions || {};
+                  const moduleCreateBilling =
+                    customActions["create-billing"] === true ||
+                    customActions["create-billing"] === "true" ||
+                    String(customActions["create-billing"]).toLowerCase() === "true";
+
                   setPermissions({
                     canRead: moduleAll || moduleRead,
                     canCreate: moduleAll || moduleCreate,
                     canUpdate: moduleAll || moduleUpdate,
                     canDelete: moduleAll || moduleDelete,
+                    canCreateBilling: moduleCreateBilling,
                   });
                 } else {
                   // Module permission not found in the permissions array - default to read-only
@@ -511,6 +523,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                     canCreate: false,
                     canUpdate: false,
                     canDelete: false,
+                    canCreateBilling: false,
                   });
                 }
               }
@@ -521,6 +534,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                 canCreate: true,
                 canUpdate: true,
                 canDelete: true,
+                canCreateBilling: true,
               });
             }
           } catch (err: any) {
@@ -532,6 +546,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                 canCreate: true,
                 canUpdate: true,
                 canDelete: true,
+                canCreateBilling: true,
               });
             }
           } finally {
@@ -548,7 +563,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
       // For agent/doctorStaff roles, use agent permissions API
       if (!["agent", "doctorStaff"].includes(role || "")) {
         if (!isMounted) return;
-        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false, canCreateBilling: false });
         setPermissionsLoaded(true);
         return;
       }
@@ -564,21 +579,31 @@ const AllAppointmentsPage: NextPageWithLayout = ({
             actions.all === true ||
             actions.all === "true" ||
             String(actions.all).toLowerCase() === "true";
+
+          // Extract customActions for the "Create Billing" action (module level, not inside actions)
+          // The Billing button is shown ONLY when the admin explicitly enables "Create Billing"
+          const customActions = res.data.permissions.customActions || {};
+          const canCreateBilling =
+            customActions["create-billing"] === true ||
+            customActions["create-billing"] === "true" ||
+            String(customActions["create-billing"]).toLowerCase() === "true";
+
           if (!isMounted) return;
           setPermissions({
             canRead: canAll || actions.read === true,
             canUpdate: canAll || actions.update === true,
             canCreate: canAll || actions.create === true,
             canDelete: canAll || actions.delete === true,
+            canCreateBilling,
           });
         } else {
           if (!isMounted) return;
-          setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+          setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false, canCreateBilling: false });
         }
       } catch (err) {
         console.error("Error fetching permissions:", err);
         if (!isMounted) return;
-        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false, canCreateBilling: false });
       } finally {
         if (isMounted) {
           setPermissionsLoaded(true);
@@ -1529,7 +1554,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                           Report
                                         </button>
                                       )}
-                                      {permissions.canCreate && (apt.status?.toLowerCase() === "arrived" || apt.status?.toLowerCase() === "invoiced") && (
+                                      {permissions.canCreateBilling && (apt.status?.toLowerCase() === "arrived" || apt.status?.toLowerCase() === "invoiced") && (
                                         <button
                                           type="button"
                                           onMouseDown={(e) => {

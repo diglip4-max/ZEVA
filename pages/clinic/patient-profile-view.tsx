@@ -9,7 +9,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check, Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift, Hash,
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift, Hash, Upload,
   ArrowLeftRight, Download, MoveRight
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -1040,6 +1040,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
   const [payingPendingClaim, setPayingPendingClaim] = useState(false);
   const [pendingClaimPayAmount, setPendingClaimPayAmount] = useState("");
   const [pendingClaimPayMethod, setPendingClaimPayMethod] = useState("Cash");
+  const [pendingClaimTransactionId, setPendingClaimTransactionId] = useState("");
+  const [pendingClaimPayFile, setPendingClaimPayFile] = useState<File | null>(null);
+  const [pendingClaimPayPreview, setPendingClaimPayPreview] = useState<string | null>(null);
+  const [pendingClaimPayUploading, setPendingClaimPayUploading] = useState(false);
   // Invoice-specific payment modal states
   const [showInvoicePayModal, setShowInvoicePayModal] = useState(false);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
@@ -3888,6 +3892,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       expiryDate: claim.expiryDate ? new Date(claim.expiryDate).toISOString().split('T')[0] : "",
       insuranceCardFile: claim.insuranceCardFile || "",
       tableOfBenefitsFile: claim.tableOfBenefitsFile || "",
+      emriFrontPhoto: claim.emriFrontPhoto || "",
+      emriBackPhoto: claim.emriBackPhoto || "",
       departmentId: claim.departmentId || "",
       departmentName: claim.departmentName || "",
       serviceId: claim.serviceId || "",
@@ -4148,6 +4154,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
           setClaimEditData((prev: any) => ({ ...prev, tableOfBenefitsFile: data.data.tableOfBenefitsFile }));
         } else if (field === "documents") {
           setClaimEditData((prev: any) => ({ ...prev, documentFiles: [...(prev.documentFiles || []), ...data.data.documentFiles] }));
+        } else if (field === "emriFront") {
+          setClaimEditData((prev: any) => ({ ...prev, emriFrontPhoto: data.data.emriFrontPhoto }));
+        } else if (field === "emriBack") {
+          setClaimEditData((prev: any) => ({ ...prev, emriBackPhoto: data.data.emriBackPhoto }));
         }
       }
     } catch (err) {
@@ -9553,6 +9563,74 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             </div>
                           </div>
                         </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">EMRI Front Photo</label>
+                          <div className="relative group">
+                            <input
+                              id="edit-emri-front-upload"
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => handleClaimEditFileUpload(e, 'emriFront')}
+                              className="hidden"
+                              disabled={claimEditUploadingFiles}
+                            />
+                            <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.emriFrontPhoto ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                              <label
+                                htmlFor="edit-emri-front-upload"
+                                className="flex-1 flex items-center gap-2 cursor-pointer truncate"
+                              >
+                                <FileImage className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.emriFrontPhoto ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <span className={`truncate ${claimEditData.emriFrontPhoto ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>
+                                  {claimEditData.emriFrontPhoto ? (claimEditData.emriFrontPhoto.split('/').pop()?.split('-').pop() || 'EMRI Front Attached') : 'No file chosen'}
+                                </span>
+                              </label>
+                              {claimEditData.emriFrontPhoto && (
+                                <button
+                                  onClick={() => setDocViewerUrl(claimEditData.emriFrontPhoto)}
+                                  className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                  title="View EMRI Front"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">EMRI Back Photo</label>
+                          <div className="relative group">
+                            <input
+                              id="edit-emri-back-upload"
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => handleClaimEditFileUpload(e, 'emriBack')}
+                              className="hidden"
+                              disabled={claimEditUploadingFiles}
+                            />
+                            <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.emriBackPhoto ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                              <label
+                                htmlFor="edit-emri-back-upload"
+                                className="flex-1 flex items-center gap-2 cursor-pointer truncate"
+                              >
+                                <FileImage className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.emriBackPhoto ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <span className={`truncate ${claimEditData.emriBackPhoto ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>
+                                  {claimEditData.emriBackPhoto ? (claimEditData.emriBackPhoto.split('/').pop()?.split('-').pop() || 'EMRI Back Attached') : 'No file chosen'}
+                                </span>
+                              </label>
+                              {claimEditData.emriBackPhoto && (
+                                <button
+                                  onClick={() => setDocViewerUrl(claimEditData.emriBackPhoto)}
+                                  className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                  title="View EMRI Back"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -12332,7 +12410,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       {/* Pay Pending Claim Modal */}
       {showPayPendingClaimModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { if (!payingPendingClaim) { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); } }} />
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { if (!payingPendingClaim) { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); setPendingClaimTransactionId(""); setPendingClaimPayFile(null); setPendingClaimPayPreview(null); } }} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full">
             {/* Header */}
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
@@ -12340,7 +12418,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 <h3 className="text-lg font-bold text-white">Pay Pending Claim</h3>
                 <p className="text-orange-100 text-xs mt-0.5">Total pending: {formatAED(balance.pendingClaim)}</p>
               </div>
-              <button onClick={() => { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); }} className="text-white/80 hover:text-white">
+              <button onClick={() => { setShowPayPendingClaimModal(false); setPendingClaimPayAmount(""); setPendingClaimPayMethod("Cash"); setPendingClaimTransactionId(""); setPendingClaimPayFile(null); setPendingClaimPayPreview(null); }} className="text-white/80 hover:text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -12372,15 +12450,94 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   ))}
                 </div>
               </div>
+              {/* Transaction ID */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={pendingClaimTransactionId}
+                  onChange={(e) => setPendingClaimTransactionId(e.target.value)}
+                  placeholder="Enter transaction ID"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${!pendingClaimTransactionId.trim() ? "border-red-400 bg-red-50" : "border-gray-300"}`}
+                />
+              </div>
+              {/* Payment Attachment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Attachment <span className="text-red-500">*</span></label>
+                {pendingClaimPayPreview ? (
+                  <div className="relative rounded-lg border border-orange-300 bg-orange-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                        <span className="text-xs text-gray-700 truncate">{pendingClaimPayFile?.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setPendingClaimPayFile(null); setPendingClaimPayPreview(null); }}
+                        className="text-red-500 hover:text-red-700 text-xs font-semibold flex-shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {pendingClaimPayPreview.startsWith("data:image") && (
+                      <img src={pendingClaimPayPreview} alt="Preview" className="mt-2 w-full h-32 object-contain rounded" />
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${!pendingClaimPayFile ? "border-red-300 bg-red-50" : "border-gray-300 hover:border-orange-400"}`}
+                    onClick={() => document.getElementById("pending-claim-pay-file-input")?.click()}
+                  >
+                    <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                    <p className="text-xs text-gray-600 font-medium">Click to upload payment proof</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Images or PDF, max 5MB</p>
+                  </div>
+                )}
+                <input
+                  id="pending-claim-pay-file-input"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { alert("File size should be less than 5MB"); return; }
+                    setPendingClaimPayFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => setPendingClaimPayPreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
               {/* Submit */}
               <button
-                disabled={payingPendingClaim || !pendingClaimPayAmount || Number(pendingClaimPayAmount) <= 0 || Number(pendingClaimPayAmount) > balance.pendingClaim}
+                disabled={payingPendingClaim || !pendingClaimPayAmount || Number(pendingClaimPayAmount) <= 0 || Number(pendingClaimPayAmount) > balance.pendingClaim || !pendingClaimTransactionId.trim() || !pendingClaimPayFile}
                 onClick={async () => {
                   const payAmt = Number(pendingClaimPayAmount);
                   if (!payAmt || payAmt <= 0 || payAmt > balance.pendingClaim) return;
+                  if (!pendingClaimTransactionId.trim()) { alert("Transaction ID is required"); return; }
+                  if (!pendingClaimPayFile) { alert("Payment attachment is required"); return; }
                   setPayingPendingClaim(true);
                   try {
                     const headers = getAuthHeaders();
+                    // Upload the payment proof file first
+                    setPendingClaimPayUploading(true);
+                    const uploadFormData = new FormData();
+                    uploadFormData.append("file", pendingClaimPayFile);
+                    const uploadRes = await axios.post("/api/upload", uploadFormData, {
+                      headers: {
+                        ...getAuthHeaders(),
+                        "Content-Type": "multipart/form-data",
+                      },
+                    });
+                    setPendingClaimPayUploading(false);
+                    const attachmentUrl = uploadRes.data?.url || uploadRes.data?.filePath || "";
+                    if (!uploadRes.data?.success && !attachmentUrl) {
+                      alert("Failed to upload payment attachment");
+                      setPayingPendingClaim(false);
+                      return;
+                    }
                     // Fetch insurance claims fresh (may not be loaded if not on insurance tab)
                     let claimsToSearch = insuranceClaims;
                     if (!claimsToSearch || claimsToSearch.length === 0) {
@@ -12396,11 +12553,16 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       claimId: claimToPay._id,
                       amount: payAmt,
                       paymentMethod: pendingClaimPayMethod,
+                      transactionId: pendingClaimTransactionId.trim(),
+                      attachment: attachmentUrl,
                     }, { headers });
                     if (res.data.success) {
                       setShowPayPendingClaimModal(false);
                       setPendingClaimPayAmount("");
                       setPendingClaimPayMethod("Cash");
+                      setPendingClaimTransactionId("");
+                      setPendingClaimPayFile(null);
+                      setPendingClaimPayPreview(null);
                       // Refresh balance and insurance claims
                       const updatedBalance = await fetchPatientBalance(patientData._id);
                       if (updatedBalance) setBalance(updatedBalance as typeof balance);
@@ -12409,6 +12571,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       alert(res.data.message || "Payment failed");
                     }
                   } catch (err: any) {
+                    setPendingClaimPayUploading(false);
                     alert(err.response?.data?.message || "Payment failed");
                   } finally {
                     setPayingPendingClaim(false);
@@ -12416,7 +12579,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 }}
                 className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
               >
-                {payingPendingClaim ? "Processing..." : "Confirm Payment"}
+                {payingPendingClaim ? (pendingClaimPayUploading ? "Uploading..." : "Processing...") : "Confirm Payment"}
               </button>
             </div>
           </div>

@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
   FileText, CheckCircle, Wallet, Activity, BadgeCheck, Hourglass,
-  ShieldAlert, X, RefreshCw, Search, Users, AlertCircle, Eye, Trash2,
+  ShieldAlert, X, RefreshCw, Search, Users, AlertCircle, Eye, Trash2, Edit2,
   ChevronDown, Loader2, FileImage, CalendarClock, User, Clock, Shield, Stethoscope,
-  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle, Send, Calendar, XCircle, Plus
+  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle, Send, Calendar, XCircle, Plus,
+  Calculator, Paperclip, Info
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -104,6 +105,26 @@ const parsePermissionActions = (actions: any = {}) => {
   };
 };
 
+// Status options for the All Claims status filter — mirrors the InsuranceClaim
+// status enum exactly.
+const CLAIM_STATUS_OPTIONS = ["Under Review", "Approved", "Rejected", "Released", "Ready", "Completed"];
+
+// Display status of a claim — the latest lifecycle event wins, falling back to
+// the stored status. Shared by the Status column badge and the status filter so
+// the filter always matches the badge rendered on the row.
+const getDisplayStatus = (claim: any): string => {
+  const events: { date: string; status: string }[] = [];
+  if (claim.rejectedFromReleaseRequestedAt) events.push({ date: claim.rejectedFromReleaseRequestedAt, status: "Rejected" });
+  if (claim.rejectedFromPassClaimsAt) events.push({ date: claim.rejectedFromPassClaimsAt, status: "Rejected" });
+  if (claim.approvedAt) events.push({ date: claim.approvedAt, status: "Approved" });
+  if (claim.rejectedAt) events.push({ date: claim.rejectedAt, status: "Rejected" });
+  if (claim.releasedAt) events.push({ date: claim.releasedAt, status: "Released" });
+  if (claim.completedAt) events.push({ date: claim.completedAt, status: "Completed" });
+  if (claim.readyAt) events.push({ date: claim.readyAt, status: "Ready" });
+  events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return events.length > 0 ? events[0].status : (claim.status || "Under Review");
+};
+
 type StatKey =
   | "total"
   | "paid"
@@ -129,6 +150,7 @@ interface ClaimRow {
   createdByName: string;
   createdByRole: string;
   coPayPercent: number;
+  coPayType: string;
   claimAmount: number;
   advanceAmount: number;
   finalClaimAmount: number | null;
@@ -250,6 +272,7 @@ function ClaimManagementPage() {
   const [filterDoctor, setFilterDoctor] = useState("");
   const [filterInsurance, setFilterInsurance] = useState("");
   const [filterClaimType, setFilterClaimType] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("");
   const [filterFromDate, setFilterFromDate] = useState("");
   const [filterToDate, setFilterToDate] = useState("");
@@ -307,6 +330,15 @@ function ClaimManagementPage() {
   // Payment terms state
   const [advancePendingAmountAdded, setAdvancePendingAmountAdded] = useState("");
   const [showExtraAmountInput, setShowExtraAmountInput] = useState(false);
+
+  // ===== Claim edit modal state (ported from patient-profile-view Insurance tab) =====
+  const [claimEditModal, setClaimEditModal] = useState<any>(null);
+  const [claimEditData, setClaimEditData] = useState<any>({});
+  const [claimEditLoading, setClaimEditLoading] = useState(false);
+  const [claimEditUploadingFiles, setClaimEditUploadingFiles] = useState(false);
+  const [claimDepartments, setClaimDepartments] = useState<any[]>([]);
+  const [claimServices, setClaimServices] = useState<any[]>([]);
+  const [claimDoctors, setClaimDoctors] = useState<any[]>([]);
 
   // Role from the stored token — used to gate the delete action
   const getTokenRole = () => {
@@ -606,19 +638,26 @@ function ClaimManagementPage() {
   }, [data]);
 
   const hasActiveFilters = Boolean(
-    filterQ.trim() || filterDoctor || filterInsurance || filterClaimType || filterDepartment || filterFromDate || filterToDate
+    filterQ.trim() || filterDoctor || filterInsurance || filterClaimType || filterStatus || filterDepartment || filterFromDate || filterToDate
   );
 
+  // Status filter — applied client-side against the same derived display status
+  // as the Status column badge, so the filter always matches the visible badge.
+  const statusFilteredResults = filterStatus
+    ? results.filter((c) => getDisplayStatus(c) === filterStatus)
+    : results;
+
   // Pagination over the filtered result set (10 per page)
-  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(statusFilteredResults.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageRows = results.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = statusFilteredResults.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const clearFilters = () => {
     setFilterQ("");
     setFilterDoctor("");
     setFilterInsurance("");
     setFilterClaimType("");
+    setFilterStatus("");
     setFilterDepartment("");
     setFilterFromDate("");
     setFilterToDate("");
@@ -633,6 +672,166 @@ function ClaimManagementPage() {
       fetchDashboard(true);
     } catch (err: any) {
       window.alert(err?.response?.data?.message || "Failed to delete claim");
+    }
+  };
+
+  // ===== Claim edit helpers (ported from patient-profile-view Insurance tab) =====
+  const getNormalizedEntityId = (value: any) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") return String(value._id || value.id || "");
+    return String(value);
+  };
+
+  const calculateCoPayAmounts = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidOrAdvanceAmount: number) => {
+    const coPayAmount = claimAmount * (coPayPercent / 100);
+    let totalClaimAmount = claimAmount;
+    let pendingClaimAmount = 0;
+    if (coPayType === 'Patient Pays') {
+      totalClaimAmount = claimAmount + coPayAmount;
+    }
+    if (advanceStatus === 'Partial Pay') {
+      pendingClaimAmount = totalClaimAmount - paidOrAdvanceAmount;
+    }
+    return {
+      coPayAmount: Math.round(coPayAmount * 100) / 100,
+      totalClaimAmount: Math.round(totalClaimAmount * 100) / 100,
+      pendingClaimAmount: Math.round(Math.max(0, pendingClaimAmount) * 100) / 100,
+    };
+  };
+
+  const fetchClaimDropdowns = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const [deptRes, svcRes, docRes] = await Promise.all([
+        axios.get("/api/clinic/departments", { headers }),
+        axios.get("/api/clinic/services", { headers }),
+        axios.get("/api/admin/get-all-doctor-staff", { headers }),
+      ]);
+      if (deptRes.data.success) setClaimDepartments(deptRes.data.departments || []);
+      if (svcRes.data.success) setClaimServices(svcRes.data.services || []);
+      if (docRes.data.success) setClaimDoctors(docRes.data.data || []);
+    } catch (err) {
+      console.error("Error fetching claim dropdowns:", err);
+    }
+  };
+
+  const openClaimEditModal = (claim: any) => {
+    setClaimEditData({
+      insuranceProvider: claim.insuranceProvider || "",
+      policyNumber: claim.policyNumber || "",
+      expiryDate: claim.expiryDate ? new Date(claim.expiryDate).toISOString().split('T')[0] : "",
+      insuranceCardFile: claim.insuranceCardFile || "",
+      tableOfBenefitsFile: claim.tableOfBenefitsFile || "",
+      emriFrontPhoto: claim.emriFrontPhoto || "",
+      emriBackPhoto: claim.emriBackPhoto || "",
+      departmentId: claim.departmentId || "",
+      departmentName: claim.departmentName || "",
+      serviceId: claim.serviceId || "",
+      serviceName: claim.serviceName || "",
+      services: claim.services || [],
+      doctorId: claim.doctorId || "",
+      doctorName: claim.doctorName || "",
+      claimAmount: claim.claimAmount || "",
+      claimType: claim.claimType || "Paid",
+      coPayPercent: claim.coPayPercent || "",
+      coPayType: claim.coPayType || "Patient Pays",
+      notes: claim.notes || "",
+      documentFiles: claim.documentFiles || [],
+      advanceStatus: claim.advanceStatus || "Full Pay",
+      advanceAmount: claim.advanceAmount || 0,
+    });
+    const claimAmt = parseFloat(claim.claimAmount) || 0;
+    const copPct = parseFloat(claim.coPayPercent) || 0;
+    const copType = claim.coPayType || 'Patient Pays';
+    const advStatus = claim.advanceStatus || 'Full Pay';
+    const advAmt = claim.advanceAmount || 0;
+    const calculated = calculateCoPayAmounts(claimAmt, copPct, copType, advStatus, advAmt);
+    setClaimEditData((prev: any) => ({
+      ...prev,
+      totalClaimAmount: calculated.totalClaimAmount,
+      pendingClaimAmount: calculated.pendingClaimAmount,
+      coPayAmount: calculated.coPayAmount,
+    }));
+    setClaimEditModal(claim);
+    fetchClaimDropdowns();
+  };
+
+  const handleClaimEditSave = async () => {
+    if (!claimEditModal?._id) return;
+    setClaimEditLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) { setClaimEditLoading(false); return; }
+      const res = await axios.patch(`/api/clinic/insurance-claims/${claimEditModal._id}`, claimEditData, { headers });
+      if (res.data.success) {
+        setClaimEditModal(null);
+        runSearch();
+        fetchDashboard(true);
+      } else {
+        window.alert(res.data.message || "Failed to update claim");
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || "Failed to update claim");
+    } finally {
+      setClaimEditLoading(false);
+    }
+  };
+
+  const handleClaimEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setClaimEditUploadingFiles(true);
+      const headers = getAuthHeaders();
+      const uploadFormData = new FormData();
+      uploadFormData.append(field, file);
+      const res = await fetch("/api/clinic/insurance-claims/upload", {
+        method: "POST",
+        headers: { Authorization: (headers as any)?.Authorization || "" },
+        body: uploadFormData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (field === "insuranceCard") {
+          setClaimEditData((prev: any) => ({ ...prev, insuranceCardFile: data.data.insuranceCardFile }));
+        } else if (field === "tableOfBenefits") {
+          setClaimEditData((prev: any) => ({ ...prev, tableOfBenefitsFile: data.data.tableOfBenefitsFile }));
+        } else if (field === "emriFront") {
+          setClaimEditData((prev: any) => ({ ...prev, emriFrontPhoto: data.data.emriFrontPhoto }));
+        } else if (field === "emriBack") {
+          setClaimEditData((prev: any) => ({ ...prev, emriBackPhoto: data.data.emriBackPhoto }));
+        }
+      }
+    } catch (err) {
+      console.error("File upload error:", err);
+    } finally {
+      setClaimEditUploadingFiles(false);
+    }
+  };
+
+  const handleClaimEditDocumentsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    try {
+      setClaimEditUploadingFiles(true);
+      const headers = getAuthHeaders();
+      const uploadFormData = new FormData();
+      files.forEach(f => uploadFormData.append("documents", f));
+      const res = await fetch("/api/clinic/insurance-claims/upload", {
+        method: "POST",
+        headers: { Authorization: (headers as any)?.Authorization || "" },
+        body: uploadFormData,
+      });
+      const data = await res.json();
+      if (data.success && data.data.documentFiles) {
+        setClaimEditData((prev: any) => ({ ...prev, documentFiles: [...(prev.documentFiles || []), ...data.data.documentFiles] }));
+      }
+    } catch (err) {
+      console.error("Document upload error:", err);
+    } finally {
+      setClaimEditUploadingFiles(false);
     }
   };
 
@@ -789,10 +988,9 @@ function ClaimManagementPage() {
         action: "approve",
         expectedReleaseDate,
       };
-      // Send advancePendingAmountAdded if any amount was entered
-      const extraAmount = Number(advancePendingAmountAdded || 0);
-      if (extraAmount > 0) {
-        payload.advancePendingAmountAdded = extraAmount;
+      // Send advancePendingAmountAdded if the extra amount input is visible (allows 0 as well)
+      if (showExtraAmountInput && advancePendingAmountAdded !== "") {
+        payload.advancePendingAmountAdded = Number(advancePendingAmountAdded || 0);
       }
       const res = await axios.patch(
         "/api/clinic/insurance-claims/review",
@@ -1205,7 +1403,7 @@ function ClaimManagementPage() {
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
             <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-teal-600" /></div>
             <h3 className="text-sm font-semibold text-gray-900">All Claims</h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{results.length} total</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{statusFilteredResults.length} total</span>
             {/* Date range filter — right side of header */}
             <div className="ml-auto flex items-center gap-1.5">
               <div className="relative">
@@ -1325,27 +1523,38 @@ function ClaimManagementPage() {
                 )}
               </div>
 
-              {/* Claim Type */}
+              {/* Claim Type + Status — one combined filter list */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setOpenFilter(openFilter === "claimType" ? null : "claimType")}
-                  className={`w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-xs font-medium transition-colors ${filterClaimType ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
+                  className={`w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-xs font-medium transition-colors ${filterClaimType || filterStatus ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
                 >
                   <FileText className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{filterClaimType || "All types"}</span>
+                  <span className="truncate">{filterClaimType || filterStatus || "All types"}</span>
                   <ChevronDown className="w-3.5 h-3.5 shrink-0 ml-auto text-gray-400" />
                 </button>
                 {openFilter === "claimType" && (
-                  <div className="absolute z-30 mt-1 w-full min-w-44 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                    <button onClick={() => { setFilterClaimType(""); setOpenFilter(null); }} className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">All types</button>
+                  <div className="absolute z-30 mt-1 w-full min-w-44 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
+                    <button onClick={() => { setFilterClaimType(""); setFilterStatus(""); setOpenFilter(null); setPage(1); }} className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">All types</button>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Claim Type</p>
                     {["Advance", "Paid"].map((type) => (
                       <button
                         key={type}
-                        onClick={() => { setFilterClaimType(type); setOpenFilter(null); }}
+                        onClick={() => { setFilterClaimType(type); setFilterStatus(""); setOpenFilter(null); setPage(1); }}
                         className={`w-full text-left px-3 py-2 text-xs hover:bg-teal-50 ${filterClaimType === type ? "font-bold text-teal-700 bg-teal-50" : "text-gray-700"}`}
                       >
                         {type}
+                      </button>
+                    ))}
+                    <p className="px-3 pt-2 pb-1 mt-1 border-t border-gray-100 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Status</p>
+                    {CLAIM_STATUS_OPTIONS.map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => { setFilterStatus(status); setFilterClaimType(""); setOpenFilter(null); setPage(1); }}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-teal-50 ${filterStatus === status ? "font-bold text-teal-700 bg-teal-50" : "text-gray-700"}`}
+                      >
+                        {status}
                       </button>
                     ))}
                   </div>
@@ -1388,12 +1597,13 @@ function ClaimManagementPage() {
               if (filterDoctor) chips.push({ key: "doctor", label: `Doctor: ${filterOptions.doctors.find((d) => String(d._id) === filterDoctor)?.name || "selected"}`, clear: () => setFilterDoctor("") });
               if (filterInsurance) chips.push({ key: "insurance", label: `Insurance: ${filterInsurance}`, clear: () => setFilterInsurance("") });
               if (filterClaimType) chips.push({ key: "claimType", label: `Type: ${filterClaimType}`, clear: () => setFilterClaimType("") });
+              if (filterStatus) chips.push({ key: "status", label: `Status: ${filterStatus}`, clear: () => setFilterStatus("") });
               if (filterDepartment) chips.push({ key: "department", label: `Department: ${filterOptions.departments.find((d) => String(d._id) === filterDepartment)?.name || "selected"}`, clear: () => setFilterDepartment("") });
               if (filterFromDate) chips.push({ key: "fromDate", label: `From: ${new Date(filterFromDate + "T00:00:00").toLocaleDateString()}`, clear: () => setFilterFromDate("") });
               if (filterToDate) chips.push({ key: "toDate", label: `To: ${new Date(filterToDate + "T00:00:00").toLocaleDateString()}`, clear: () => setFilterToDate("") });
               if (filterQ.trim()) chips.push({ key: "q", label: `Search: "${filterQ.trim()}"`, clear: () => setFilterQ("") });
               if (chips.length === 0) return null;
-              const paidTotal = results.reduce((acc, c) => acc + (c.claimType === "Advance" ? Number(c.claimAmount || 0) : Number(c.advanceAmount || 0)), 0);
+              const paidTotal = statusFilteredResults.reduce((acc, c) => acc + (c.claimType === "Advance" ? Number(c.claimAmount || 0) : Number(c.advanceAmount || 0)), 0);
               return (
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   {chips.map((c) => (
@@ -1403,7 +1613,7 @@ function ClaimManagementPage() {
                     </span>
                   ))}
                   <span className="ml-auto text-[10px] font-medium text-gray-400">
-                    {results.length} {results.length === 1 ? "claim" : "claims"} · Paid {getCurrencySymbol(currency)} {fmt(paidTotal)} under selected filters
+                    {statusFilteredResults.length} {statusFilteredResults.length === 1 ? "claim" : "claims"} · Paid {getCurrencySymbol(currency)} {fmt(paidTotal)} under selected filters
                   </span>
                 </div>
               );
@@ -1413,7 +1623,7 @@ function ClaimManagementPage() {
           <div className="px-4 pb-3 pt-2.5">
             {resultsLoading ? (
               <div className="flex justify-center py-6"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-teal-600"></div></div>
-            ) : results.length === 0 ? (
+            ) : statusFilteredResults.length === 0 ? (
               <div className="text-center py-6">
                 <Shield className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-gray-500 text-sm">{hasActiveFilters ? "No claims match the selected filters" : "No claims found"}</p>
@@ -1457,11 +1667,12 @@ function ClaimManagementPage() {
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-orange-700">{claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-purple-700">{claim.coPayPercent ? `${claim.coPayPercent}%` : '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-teal-700">{claim.patientId && availableByPatient[String(claim.patientId)] !== undefined ? `${getCurrencySymbol(currency)} ${Number(availableByPatient[String(claim.patientId)]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{(() => { const events: { date: string; status: string }[] = []; if (claim.rejectedFromReleaseRequestedAt) events.push({ date: claim.rejectedFromReleaseRequestedAt, status: 'Rejected' }); if (claim.rejectedFromPassClaimsAt) events.push({ date: claim.rejectedFromPassClaimsAt, status: 'Rejected' }); if (claim.approvedAt) events.push({ date: claim.approvedAt, status: 'Approved' }); if (claim.rejectedAt) events.push({ date: claim.rejectedAt, status: 'Rejected' }); if (claim.releasedAt) events.push({ date: claim.releasedAt, status: 'Released' }); if (claim.completedAt) events.push({ date: claim.completedAt, status: 'Completed' }); if (claim.readyAt) events.push({ date: claim.readyAt, status: 'Ready' }); events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); const s = events.length > 0 ? events[0].status : (claim.status || 'Under Review'); return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : s === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' : s === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' : s === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : s === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' : s === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-gray-100 text-gray-800 border-gray-300'}`}>{s}</span>; })()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{(() => { const s = getDisplayStatus(claim); return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : s === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' : s === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' : s === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : s === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' : s === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-gray-100 text-gray-800 border-gray-300'}`}>{s}</span>; })()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{new Date(claim.createdAt).toLocaleDateString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap"><div className="flex items-center gap-1">
                           <button onClick={() => handleViewClaim(claim)} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Review"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => setClaimTrackingModal(claim)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Track"><Activity className="w-4 h-4" /></button>
+                          {permissions.canUpdate && ['Under Review', 'Rejected'].includes(claim.status) && <button onClick={() => openClaimEditModal(claim)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>}
                           {permissions.canDelete && ["clinic", "admin"].includes(userRole) && ['Under Review', 'Rejected'].includes(claim.status) && <button onClick={() => deleteClaim(claim._id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>}
                         </div></td>
                       </tr>
@@ -1470,10 +1681,10 @@ function ClaimManagementPage() {
                 </table>
               </div>
             )}
-            {!resultsLoading && results.length > PAGE_SIZE && (
+            {!resultsLoading && statusFilteredResults.length > PAGE_SIZE && (
               <div className="flex items-center justify-between gap-3 pt-2.5 mt-1 border-t border-gray-100">
                 <p className="text-[10px] text-gray-400">
-                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, results.length)} of {results.length}
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, statusFilteredResults.length)} of {statusFilteredResults.length}
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -1681,6 +1892,18 @@ function ClaimManagementPage() {
                                           <p className="text-[9px] text-gray-400 uppercase tracking-wider">Co-Pay</p>
                                           <p className="text-xs font-medium text-gray-700">{row.coPayPercent}%</p>
                                         </div>
+                                        {row.coPayType && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Co-Pay Type</p>
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                              row.coPayType === 'Patient Pays' ? 'bg-orange-100 text-orange-800' :
+                                              row.coPayType === 'Insurer Pays' ? 'bg-blue-100 text-blue-800' :
+                                              'bg-gray-100 text-gray-800'
+                                            }`}>
+                                              {row.coPayType}
+                                            </span>
+                                          </div>
+                                        )}
                                         <div>
                                           <p className="text-[9px] text-gray-400 uppercase tracking-wider">Claim Type</p>
                                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${row.claimType === 'Advance' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'}`}>
@@ -2759,7 +2982,7 @@ function ClaimManagementPage() {
                     </div>
                   </div>
 
-                  {/* Add Extra Amount */}
+                  {/* Adjust the Pending Amount */}
                   <div className="border-t border-gray-100 pt-3">
                     {!showExtraAmountInput ? (
                       <button
@@ -2767,7 +2990,7 @@ function ClaimManagementPage() {
                         onClick={() => setShowExtraAmountInput(true)}
                         className="w-full px-3 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors flex items-center justify-center gap-1.5"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Add Extra Amount
+                        <Plus className="w-3.5 h-3.5" /> Adjust the Pending Amount
                       </button>
                     ) : (
                       <div className="space-y-2">
@@ -2793,7 +3016,7 @@ function ClaimManagementPage() {
                             Cancel
                           </button>
                         </div>
-                        {advancePendingAmountAdded && Number(advancePendingAmountAdded) > 0 && (
+                        {advancePendingAmountAdded !== "" && !isNaN(Number(advancePendingAmountAdded)) && (
                           <p className="text-[11px] text-teal-600 flex items-center gap-1">
                             <CheckCircle className="w-3 h-3" />
                             {getCurrencySymbol(currency)}{Number(advancePendingAmountAdded).toLocaleString()} will be set as the new pending claim amount
@@ -2839,6 +3062,215 @@ function ClaimManagementPage() {
                   <CheckCircle className="w-4 h-4" />
                   {approveActionLoading ? "Approving..." : "Approve Claim"}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* ===== CLAIM EDIT MODAL (ported from patient-profile-view Insurance tab) ===== */}
+      {claimEditModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" style={{ margin: '1rem' }}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900">Edit Claim</h2>
+              <button onClick={() => setClaimEditModal(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Insurance Details */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-800 mb-3">Insurance Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
+                    <input type="text" value={claimEditData.insuranceProvider || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, insuranceProvider: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
+                    <input type="text" value={claimEditData.policyNumber || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, policyNumber: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                    <input type="date" value={claimEditData.expiryDate || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, expiryDate: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Card</label>
+                    <div className="relative group">
+                      <input id="edit-insurance-card-upload" type="file" accept="image/*,.pdf" onChange={(e) => handleClaimEditFileUpload(e, 'insuranceCard')} className="hidden" disabled={claimEditUploadingFiles} />
+                      <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.insuranceCardFile ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                        <label htmlFor="edit-insurance-card-upload" className="flex-1 flex items-center gap-2 cursor-pointer truncate">
+                          <Shield className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.insuranceCardFile ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${claimEditData.insuranceCardFile ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>{claimEditData.insuranceCardFile ? (claimEditData.insuranceCardFile.split('/').pop()?.split('-').pop() || 'Card Attached') : 'No file chosen'}</span>
+                        </label>
+                        {claimEditData.insuranceCardFile && <button onClick={() => setDocViewerUrl(resolveUploadUrl(claimEditData.insuranceCardFile))} className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors" title="View Card"><Eye className="w-3.5 h-3.5" /></button>}
+                        {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Table of Benefits</label>
+                    <div className="relative group">
+                      <input id="edit-benefits-upload" type="file" accept="image/*,.pdf" onChange={(e) => handleClaimEditFileUpload(e, 'tableOfBenefits')} className="hidden" disabled={claimEditUploadingFiles} />
+                      <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.tableOfBenefitsFile ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                        <label htmlFor="edit-benefits-upload" className="flex-1 flex items-center gap-2 cursor-pointer truncate">
+                          <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.tableOfBenefitsFile ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${claimEditData.tableOfBenefitsFile ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>{claimEditData.tableOfBenefitsFile ? (claimEditData.tableOfBenefitsFile.split('/').pop()?.split('-').pop() || 'Benefits Attached') : 'No file chosen'}</span>
+                        </label>
+                        {claimEditData.tableOfBenefitsFile && <button onClick={() => setDocViewerUrl(resolveUploadUrl(claimEditData.tableOfBenefitsFile))} className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors" title="View Benefits"><Eye className="w-3.5 h-3.5" /></button>}
+                        {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">EMRI Front Photo</label>
+                    <div className="relative group">
+                      <input id="edit-emri-front-upload" type="file" accept="image/*,.pdf" onChange={(e) => handleClaimEditFileUpload(e, 'emriFront')} className="hidden" disabled={claimEditUploadingFiles} />
+                      <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.emriFrontPhoto ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                        <label htmlFor="edit-emri-front-upload" className="flex-1 flex items-center gap-2 cursor-pointer truncate">
+                          <FileImage className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.emriFrontPhoto ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${claimEditData.emriFrontPhoto ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>{claimEditData.emriFrontPhoto ? (claimEditData.emriFrontPhoto.split('/').pop()?.split('-').pop() || 'EMRI Front Attached') : 'No file chosen'}</span>
+                        </label>
+                        {claimEditData.emriFrontPhoto && <button onClick={() => setDocViewerUrl(resolveUploadUrl(claimEditData.emriFrontPhoto))} className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors" title="View EMRI Front"><Eye className="w-3.5 h-3.5" /></button>}
+                        {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">EMRI Back Photo</label>
+                    <div className="relative group">
+                      <input id="edit-emri-back-upload" type="file" accept="image/*,.pdf" onChange={(e) => handleClaimEditFileUpload(e, 'emriBack')} className="hidden" disabled={claimEditUploadingFiles} />
+                      <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.emriBackPhoto ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:border-blue-400'} min-h-[38px]`}>
+                        <label htmlFor="edit-emri-back-upload" className="flex-1 flex items-center gap-2 cursor-pointer truncate">
+                          <FileImage className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.emriBackPhoto ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${claimEditData.emriBackPhoto ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>{claimEditData.emriBackPhoto ? (claimEditData.emriBackPhoto.split('/').pop()?.split('-').pop() || 'EMRI Back Attached') : 'No file chosen'}</span>
+                        </label>
+                        {claimEditData.emriBackPhoto && <button onClick={() => setDocViewerUrl(resolveUploadUrl(claimEditData.emriBackPhoto))} className="flex-shrink-0 p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors" title="View EMRI Back"><Eye className="w-3.5 h-3.5" /></button>}
+                        {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 flex-shrink-0" />}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Claim Source & Type */}
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <h3 className="text-sm font-semibold text-green-800 mb-3">Claim Source & Type</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Department</label>
+                    <select value={claimEditData.departmentId || ''} onChange={(e) => { const dept = claimDepartments.find((d: any) => getNormalizedEntityId(d?._id) === e.target.value); setClaimEditData((prev: any) => ({ ...prev, departmentId: e.target.value, departmentName: dept?.name || '', serviceId: '', serviceName: '', services: [] })); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 h-[38px]">
+                      <option value="">Select Department</option>
+                      {claimDepartments.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Services {claimEditData.services && claimEditData.services.length > 0 && <span className="text-blue-600 font-semibold ml-1">({claimEditData.services.length})</span>}</label>
+                    <div className="relative w-full flex items-center p-0.5 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-green-500 transition-all min-h-[38px] box-border">
+                      <div className="flex flex-wrap items-center gap-1 flex-1 px-1 py-0.5">
+                        {(claimEditData.services || []).map((svc: any, idx: number) => (
+                          <span key={idx} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 text-[9px] font-bold whitespace-nowrap">
+                            {svc.serviceName}
+                            <button type="button" onClick={(e) => { e.stopPropagation(); const updated = claimEditData.services.filter((_: any, i: number) => i !== idx); setClaimEditData((prev: any) => ({ ...prev, services: updated, serviceId: updated.length > 0 ? updated[updated.length - 1].serviceId : "", serviceName: updated.length > 0 ? updated[updated.length - 1].serviceName : "" })); }} className="hover:text-red-500 transition-colors"><X className="w-2 h-2" /></button>
+                          </span>
+                        ))}
+                        <select value="" onChange={(e) => { const selId = e.target.value; if (!selId) return; const svc = claimServices.find((s: any) => s._id === selId); if (svc) { const already = (claimEditData.services || []).some((s: any) => s.serviceId === selId); if (!already) { const updated = [...(claimEditData.services || []), { serviceId: svc._id, serviceName: svc.name }]; setClaimEditData((prev: any) => ({ ...prev, services: updated, serviceId: svc._id, serviceName: svc.name })); } } }} className="min-w-[100px] bg-transparent border-none outline-none text-[10px] text-gray-900 cursor-pointer h-full py-0.5 flex-1 appearance-none">
+                          <option value="" disabled>{(claimEditData.services || []).length > 0 ? "Add More..." : "Select Services"}</option>
+                          {claimServices.filter((s: any) => !claimEditData.departmentId || getNormalizedEntityId(s.departmentId) === getNormalizedEntityId(claimEditData.departmentId)).map((s: any) => <option key={s._id} value={s._id} className="py-2 px-3">{s.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Doctor <span className="text-red-500">*</span></label>
+                    <select value={claimEditData.doctorId || ''} onChange={(e) => { const doc = claimDoctors.find((d: any) => d._id === e.target.value); setClaimEditData((prev: any) => ({ ...prev, doctorId: e.target.value, doctorName: doc?.name || '' })); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 h-[38px]">
+                      <option value="">Select Doctor</option>
+                      {claimDoctors.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Claim Amount <span className="text-red-500">*</span></label>
+                    <input type="number" value={claimEditData.claimAmount ?? ''} onChange={(e) => { const amt = parseFloat(e.target.value) || 0; setClaimEditData((prev: any) => ({ ...prev, claimAmount: amt, advanceAmount: prev.claimType === 'Advance' ? (prev.advanceStatus === 'Full Pay' ? amt : amt * 0.5) : 0 })); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" step="0.01" />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Claim Type <span className="text-red-500">*</span></label>
+                    <select value={claimEditData.claimType || 'Paid'} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, claimType: e.target.value, advanceStatus: e.target.value === 'Advance' ? 'Full Pay' : null, advanceAmount: 0 }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 h-[38px]">
+                      <option value="Paid">Paid</option>
+                      <option value="Advance">Advance</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Claim Details */}
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <h3 className="text-sm font-semibold text-purple-800 mb-3">Claim Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay %</label>
+                    <input type="number" value={claimEditData.coPayPercent ?? ''} onChange={(e) => { const v = e.target.value; setClaimEditData((prev: any) => { const c = calculateCoPayAmounts(parseFloat(prev.claimAmount) || 0, parseFloat(v) || 0, prev.coPayType || 'Patient Pays', prev.advanceStatus || 'Full Pay', prev.advanceAmount || 0); return { ...prev, coPayPercent: v, totalClaimAmount: c.totalClaimAmount, pendingClaimAmount: c.pendingClaimAmount, coPayAmount: c.coPayAmount }; }); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="0" max="100" />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Co-Pay Type</label>
+                    <select value={claimEditData.coPayType || 'Patient Pays'} onChange={(e) => { const v = e.target.value; setClaimEditData((prev: any) => { const c = calculateCoPayAmounts(parseFloat(prev.claimAmount) || 0, parseFloat(prev.coPayPercent) || 0, v, prev.advanceStatus || 'Full Pay', prev.advanceAmount || 0); return { ...prev, coPayType: v, totalClaimAmount: c.totalClaimAmount, pendingClaimAmount: c.pendingClaimAmount, coPayAmount: c.coPayAmount }; }); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                      <option value="Patient Pays">Patient Pays</option>
+                      <option value="Deduct from Claim">Deduct from Claim</option>
+                      <option value="Clinic Adjusts">Clinic Adjusts</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                    <input type="text" value={claimEditData.notes || ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, notes: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Support Documents</label>
+                    <div className="relative group">
+                      <input id="edit-support-docs-upload" type="file" multiple accept="image/*,.pdf" onChange={handleClaimEditDocumentsUpload} className="hidden" disabled={claimEditUploadingFiles} />
+                      <div className={`w-full flex items-center gap-2 px-3 py-2 text-[10px] border border-gray-300 rounded-lg transition-all ${claimEditData.documentFiles?.length > 0 ? 'bg-purple-50 border-purple-400 ring-1 ring-purple-400 shadow-sm' : 'bg-white hover:border-purple-400'} min-h-[38px]`}>
+                        <label htmlFor="edit-support-docs-upload" className="flex-1 flex items-center gap-2 cursor-pointer truncate">
+                          <Paperclip className={`w-3.5 h-3.5 flex-shrink-0 ${claimEditData.documentFiles?.length > 0 ? 'text-purple-600' : 'text-gray-400'}`} />
+                          <span className={`truncate ${claimEditData.documentFiles?.length > 0 ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>{claimEditData.documentFiles?.length > 0 ? `${claimEditData.documentFiles.length} files attached` : 'No files chosen'}</span>
+                        </label>
+                        {claimEditData.documentFiles?.length > 0 && <div className="flex items-center gap-1 flex-shrink-0">{claimEditData.documentFiles.map((f: string, i: number) => <button key={i} onClick={() => setDocViewerUrl(resolveUploadUrl(f))} className="p-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors" title={`View Doc ${i + 1}`}><Eye className="w-3 h-3" /></button>)}</div>}
+                        {claimEditUploadingFiles && <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600 flex-shrink-0" />}
+                      </div>
+                    </div>
+                  </div>
+                  {(claimEditData.claimType === 'Advance' || claimEditData.claimType === 'Paid') && (
+                    <>
+                      <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-700 mb-1 truncate">{claimEditData.claimType} Status</label>
+                        <select value={claimEditData.advanceStatus || 'Full Pay'} onChange={(e) => { const claimAmt = parseFloat(claimEditData.claimAmount) || 0; const copPct = parseFloat(claimEditData.coPayPercent) || 0; const copType = claimEditData.coPayType || 'Patient Pays'; let amtToPay = claimAmt; if (copType === 'Patient Pays') { amtToPay = claimAmt + (claimAmt * copPct / 100); } setClaimEditData((prev: any) => { const ns = e.target.value; let na = amtToPay; if (ns === 'Partial Pay') { na = amtToPay / 2; } const c = calculateCoPayAmounts(claimAmt, copPct, copType, ns, na); return { ...prev, advanceStatus: ns, advanceAmount: na, totalClaimAmount: c.totalClaimAmount, pendingClaimAmount: c.pendingClaimAmount, coPayAmount: c.coPayAmount }; }); }} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-[38px]">
+                          <option value="Full Pay">Full</option>
+                          <option value="Partial Pay">Partial</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-700 mb-1 truncate">Amount</label>
+                        <input type="number" value={claimEditData.advanceAmount ?? ''} onChange={(e) => setClaimEditData((prev: any) => ({ ...prev, advanceAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-semibold h-[38px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="0" min="0" step="0.01" />
+                      </div>
+                    </>
+                  )}
+                  {(claimEditData.claimAmount && parseFloat(claimEditData.claimAmount) > 0 && claimEditData.coPayPercent) && (
+                    <div className="mt-3 pt-3 border-t border-purple-200">
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
+                        <div className="text-[10px] font-bold text-indigo-800 mb-2 flex items-center gap-1"><Calculator className="w-3 h-3" /> Co-Pay Calculation Summary</div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+                          <div className="bg-white rounded p-2 shadow-sm"><span className="text-gray-500 block text-[10px]">Base Claim:</span><span className="font-semibold text-gray-800 text-xs">{formatAED(parseFloat(claimEditData.claimAmount) || 0)}</span></div>
+                          {claimEditData.coPayType === 'Patient Pays' && <div className="bg-white rounded p-2 shadow-sm"><span className="text-gray-500 block text-[10px]">Co-Pay ({claimEditData.coPayPercent}%):</span><span className="font-semibold text-orange-600 text-xs">+{formatAED(claimEditData.coPayAmount || 0)}</span></div>}
+                          <div className={`rounded p-2 shadow-sm ${claimEditData.coPayType === 'Patient Pays' ? 'bg-indigo-100' : 'bg-white'}`}><span className={`${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-700' : 'text-gray-500'} block text-[10px]`}>Total Claim:</span><span className={`font-bold ${claimEditData.coPayType === 'Patient Pays' ? 'text-indigo-800' : 'text-gray-800'} text-xs`}>{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span></div>
+                          {claimEditData.advanceStatus === 'Full Pay' && <div className="bg-green-100 rounded p-2 shadow-sm"><span className="text-green-700 block text-[10px]">Paid Amount:</span><span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.totalClaimAmount || parseFloat(claimEditData.claimAmount) || 0)}</span></div>}
+                          {claimEditData.advanceStatus === 'Partial Pay' && (<><div className="bg-green-100 rounded p-2 shadow-sm"><span className="text-green-700 block text-[10px]">Paid Amount:</span><span className="font-semibold text-green-800 text-xs">{formatAED(claimEditData.advanceAmount || 0)}</span></div><div className="bg-orange-100 rounded p-2 shadow-sm"><span className="text-orange-700 block text-[10px]">Pending Amount:</span><span className="font-semibold text-orange-800 text-xs">{formatAED(claimEditData.pendingClaimAmount || 0)}</span></div></>)}
+                        </div>
+                        {claimEditData.coPayType === 'Clinic Adjusts' && <div className="mt-1.5 text-[9px] text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200"><Info className="w-3 h-3 inline mr-1" /> Co-Pay will be adjusted by clinic. No amount added to claim.</div>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <button onClick={() => setClaimEditModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Cancel</button>
+                <button onClick={handleClaimEditSave} disabled={claimEditLoading} className="px-6 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50">{claimEditLoading ? 'Saving...' : 'Save Changes'}</button>
               </div>
             </div>
           </div>

@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   Receipt,
+  Upload,
+  Paperclip,
  
 } from "lucide-react";
 import axios from "axios";
@@ -89,6 +91,9 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
   const [useAdvanceBalance, setUseAdvanceBalance] = useState<boolean>(false);
   const [advanceBalance, setAdvanceBalance] = useState<number>(0);
   const [advanceUsed, setAdvanceUsed] = useState<number>(0);
+  const [transactionId, setTransactionId] = useState<string>("");
+  const [payFile, setPayFile] = useState<File | null>(null);
+  const [payPreview, setPayPreview] = useState<string | null>(null);
 
   // ============================================================
   // Enterprise Pending Ledger (additive UI state).
@@ -122,6 +127,9 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
       setEnteredAmount("");
       setUseAdvanceBalance(false);
       setAdvanceUsed(0);
+      setTransactionId("");
+      setPayFile(null);
+      setPayPreview(null);
       fetchClinicCurrency();
       fetchPatientBalance();
       fetchPendingLedger();
@@ -249,10 +257,39 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
       return;
     }
 
+    if (!transactionId.trim()) {
+      setError("Transaction ID is required.");
+      return;
+    }
+
+    if (!payFile) {
+      setError("Payment attachment is required.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      // Upload payment attachment first if provided
+      let attachmentUrl = "";
+      if (payFile) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", payFile);
+        const uploadRes = await axios.post("/api/upload", uploadFormData, {
+          headers: {
+            Authorization: `Bearer ${getTokenByPath()}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        attachmentUrl = uploadRes.data?.url || uploadRes.data?.filePath || "";
+        if (!uploadRes.data?.success && !attachmentUrl) {
+          setError("Failed to upload payment attachment");
+          setLoading(false);
+          return;
+        }
+      }
+
       const token = getTokenByPath();
       const { data } = await axios.post(
         `/api/clinic/patient-balance/add-pending-payment/${patientId}`,
@@ -261,6 +298,8 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
           paymentMethod,
           notes: notes || `Payment towards pending balance of ${pendingBalance}`,
           advanceUsed: advanceUsed,
+          transactionId: transactionId.trim() || null,
+          attachment: attachmentUrl || null,
         },
         {
           headers: {
@@ -291,6 +330,9 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
     setNotes("");
     setError(null);
     setPayType(null);
+    setTransactionId("");
+    setPayFile(null);
+    setPayPreview(null);
     onClose();
   };
 
@@ -608,6 +650,75 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
             </div>
           </div>
 
+          {/* Transaction ID */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              Transaction ID <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              placeholder="Enter transaction ID"
+              className={`w-full px-4 py-3 bg-gray-50 border rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-xs sm:text-sm text-gray-600 placeholder:text-gray-400 font-medium ${!transactionId.trim() ? "border-red-400 bg-red-50" : "border-gray-200"}`}
+            />
+          </div>
+
+          {/* Payment Attachment */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              Payment Attachment <span className="text-red-500">*</span>
+            </label>
+            {payPreview ? (
+              <div className="relative rounded-xl sm:rounded-2xl border border-emerald-300 bg-emerald-50 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Paperclip className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="text-xs text-gray-700 truncate">{payFile?.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setPayFile(null); setPayPreview(null); }}
+                    className="text-red-500 hover:text-red-700 text-xs font-semibold flex-shrink-0"
+                  >
+                    Remove
+                  </button>
+                </div>
+                {payPreview.startsWith("data:image") && (
+                  <img src={payPreview} alt="Preview" className="mt-2 w-full h-32 object-contain rounded" />
+                )}
+              </div>
+            ) : (
+              <div
+                className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center cursor-pointer transition-colors ${!payFile ? "border-red-300 bg-red-50" : "border-gray-300 hover:border-emerald-400"}`}
+                onClick={() => document.getElementById("pay-pending-balance-file-input")?.click()}
+              >
+                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                <p className="text-xs text-gray-600 font-medium">Click to upload payment proof</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Images or PDF, max 5MB</p>
+              </div>
+            )}
+            <input
+              id="pay-pending-balance-file-input"
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                  setError("File size should be less than 5MB");
+                  return;
+                }
+                setPayFile(file);
+                const reader = new FileReader();
+                reader.onloadend = () => setPayPreview(reader.result as string);
+                reader.readAsDataURL(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
               {/* <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" /> */}
@@ -638,7 +749,7 @@ const PayPendingBalanceModal: React.FC<PayPendingBalanceModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !transactionId.trim() || !payFile}
               className="flex-1 px-6 py-3 sm:py-4 bg-gradient-to-r from-teal-600 to-cyan-700 text-white text-sm font-bold rounded-xl sm:rounded-2xl hover:shadow-lg hover:shadow-teal-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

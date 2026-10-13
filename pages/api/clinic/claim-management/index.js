@@ -48,6 +48,7 @@ const toRow = (claim, amount) => ({
   createdByName: claim.createdByName || "—",
   createdByRole: claim.createdByRole || "",
   coPayPercent: claim.coPayPercent || 0,
+  coPayType: claim.coPayType || "",
   claimAmount: round2(claim.claimAmount || 0),
   advanceAmount: round2(claim.advanceAmount || 0),
   finalClaimAmount: claim.finalClaimAmount != null ? round2(claim.finalClaimAmount) : null,

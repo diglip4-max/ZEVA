@@ -37,7 +37,7 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Patient ID is required" });
     }
 
-    const { amount, paymentMethod, notes, invoicedBy, multiplePayments, advanceUsed } =
+    const { amount, paymentMethod, notes, invoicedBy, multiplePayments, advanceUsed, transactionId, attachment } =
       req.body;
     const amountNum = Number(amount);
     const advanceUsedNum = advanceUsed !== undefined ? Math.max(0, Number(advanceUsed) || 0) : 0;
@@ -263,6 +263,8 @@ export default async function handler(req, res) {
             advanceUsed: newAdvanceUsed,
             pending: newPending,
             pendingUsed: newPendingUsed,
+            ...(transactionId ? { transactionId } : {}),
+            ...(attachment ? { attachment } : {}),
           },
           $push: {
             multiplePayments: { $each: newMultiplePaymentEntries },

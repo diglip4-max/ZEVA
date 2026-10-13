@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { claimId, amount, paymentMethod, notes } = req.body;
+    const { claimId, amount, paymentMethod, notes, transactionId, attachment } = req.body;
 
     if (!claimId || !amount || Number(amount) <= 0) {
       return res.status(400).json({ success: false, message: "claimId and valid amount are required" });
@@ -94,6 +94,8 @@ export default async function handler(req, res) {
         pendingClaimUsed: payAmount, // Track pending claim amount paid
         paymentMethod: paymentMethod || "Cash",
         notes: notes || `Pending claim payment for insurance claim`,
+        transactionId: transactionId || null,
+        attachment: attachment || null,
         isAdvanceOnly: false,
       });
     } catch (billingErr) {

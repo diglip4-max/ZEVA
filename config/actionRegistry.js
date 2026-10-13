@@ -23,6 +23,11 @@ export const MODULE_CUSTOM_ACTIONS = {
     { key: 'copy', label: 'copy' },
   ],
 
+  // Scheduled Appointments - "Create Billing" action (Billing button on /clinic/all-appointment)
+  clinic_ScheduledAppointment: [
+    { key: 'create-billing', label: 'Create Billing' },
+  ],
+
   // Example entries for future modules (uncomment when needed):
   // clinic_billing: [
   //   { key: 'approve',  label: 'Approve' },

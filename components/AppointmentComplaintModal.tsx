@@ -108,6 +108,62 @@ const getUserRole = () => {
   return null;
 };
 
+// Helper function to get logged-in user's _id from token
+const getLoggedInUserId = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const isClinicPath = window.location.pathname.startsWith("/clinic/");
+    let tokenKeys;
+    if (isClinicPath) {
+      tokenKeys = [
+        "clinicToken",
+        "doctorToken",
+        "agentToken",
+        "staffToken",
+        "userToken",
+        "adminToken",
+      ];
+    } else {
+      tokenKeys = [
+        "agentToken",
+        "doctorToken",
+        "clinicToken",
+        "staffToken",
+        "userToken",
+        "adminToken",
+      ];
+    }
+
+    for (const key of tokenKeys) {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          const role = payload.role || null;
+          if (
+            role &&
+            [
+              "agent",
+              "doctorStaff",
+              "doctor",
+              "clinic",
+              "staff",
+              "admin",
+            ].includes(role)
+          ) {
+            return payload._id || payload.id || payload.userId || null;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error getting logged-in user ID:", error);
+  }
+  return null;
+};
+
 const maskMobileNumber = (mobile: string) => {
   if (!mobile || mobile.length < 4) return mobile;
   const firstTwo = mobile.slice(0, 2);
@@ -1759,7 +1815,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       );
 
       if (complaintsResponse.data?.success) {
-        setPreviousComplaints(complaintsResponse.data.complaints || []);
+        let complaintsList = complaintsResponse.data.complaints || [];
+        // For doctorStaff, only show their own previous complaints
+        const currentRole = getUserRole();
+        const currentUserId = getLoggedInUserId();
+        if (currentRole === "doctorStaff" && currentUserId) {
+          complaintsList = complaintsList.filter((c: any) => {
+            const docId =
+              typeof c.doctorId === "object"
+                ? c.doctorId?._id?.toString()
+                : c.doctorId?.toString();
+            return docId === currentUserId;
+          });
+        }
+        setPreviousComplaints(complaintsList);
       }
     } catch (err: any) {
       console.error("Failed to fetch previous complaints:", err);
@@ -2260,6 +2329,46 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       doc.setTextColor(0, 0, 0);
       y += 15;
 
+      // === DOCUMENT REFERENCE ===
+      doc.setFillColor(255, 248, 230);
+      doc.roundedRect(
+        margin - 5,
+        y - 5,
+        pageWidth - 2 * (margin - 5),
+        22,
+        3,
+        3,
+        "F",
+      );
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 120, 0);
+      doc.text("Document Reference", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(100, 80, 0);
+      doc.text(
+        `Appointment ID: ${details.appointmentId || "N/A"}`,
+        margin,
+        y,
+      );
+      y += 6;
+      const complaintDate = details.startDate
+        ? new Date(details.startDate).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+        : new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      doc.text(`Complaint Date: ${complaintDate}`, margin, y);
+      doc.setTextColor(0, 0, 0);
+      y += 15;
+
       // === DIVIDER ===
       doc.setLineWidth(0.5);
       doc.setDrawColor(222, 226, 230);
@@ -2610,6 +2719,81 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   };
 
+  // Save the current progress entry form to the API. Also used by
+  // handleSaveComplaints so a drafted-but-unsaved entry is not lost when the
+  // complaint is saved.
+  const saveNewProgressEntry = async (): Promise<boolean> => {
+    if (!newEntryText.trim() || !details) return false;
+    setSavingProgress(true);
+    setProgressError("");
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.post(
+        "/api/clinic/progress-notes",
+        {
+          appointmentId: details.appointmentId,
+          patientId: details.patientId,
+          note: newEntryText.trim(),
+          noteDate: newEntryDate,
+        },
+        { headers },
+      );
+      if (res.data?.success && res.data.note)
+        setProgressNotes((prev) => [res.data.note, ...prev]);
+      setNewEntryText("");
+      setNewEntryDate(new Date().toISOString().slice(0, 10));
+      setAddingNewEntry(false);
+      return true;
+    } catch (err: any) {
+      setProgressError(
+        err.response?.data?.message || "Failed to save progress note",
+      );
+      return false;
+    } finally {
+      setSavingProgress(false);
+    }
+  };
+
+  // Save the current prescription form to the API. Also used by
+  // handleSaveComplaints so a filled-but-unsaved prescription is not lost when
+  // the complaint is saved.
+  const saveNewPrescription = async (): Promise<boolean> => {
+    const validMeds = medicines.filter((m) => m.medicineName.trim());
+    if (!details) return false;
+    setSavingPrescription(true);
+    setPrescriptionError("");
+    setPrescriptionSaved(false);
+    try {
+      const headers = getAuthHeaders();
+      await axios.post(
+        "/api/clinic/prescriptions",
+        {
+          appointmentId: details.appointmentId,
+          patientId: details.patientId,
+          medicines: validMeds,
+          aftercareInstructions,
+          includeInPdf,
+        },
+        { headers },
+      );
+      setPrescriptionSaved(true);
+      const histRes = await axios.get("/api/clinic/prescriptions", {
+        headers,
+        params: { patientId: details.patientId },
+      });
+      if (histRes.data?.success)
+        setPrescriptionHistory(histRes.data.prescriptions || []);
+      return true;
+    } catch (err: any) {
+      setPrescriptionError(
+        err.response?.data?.message || "Failed to save prescription",
+      );
+      return false;
+    } finally {
+      setSavingPrescription(false);
+    }
+  };
+
   const handleSaveComplaints = async () => {
     if (!appointment || !details) return;
 
@@ -2686,7 +2870,84 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     try {
       const headers = getAuthHeaders();
 
-      // Step 1: Save the complaint FIRST
+      // Step 1: Save a drafted-but-unsaved progress entry (if any) BEFORE the
+      // complaint, so it is not lost when "Save Entry" was not pressed on the
+      // Progress Notes tab. The "Save Complaints" button stays in loading state
+      // while this runs.
+      if (addingNewEntry && newEntryText.trim()) {
+        const progressEntrySaved = await saveNewProgressEntry();
+        if (!progressEntrySaved) {
+          toast.error(
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold"> Warning</span>
+              <span className="text-xs opacity-80">
+                The unsaved progress note could not be saved. Please save it
+                again from the Progress Notes tab.
+              </span>
+            </div>,
+            {
+              duration: 4000,
+              position: "top-right",
+              style: {
+                background: "#f59e0b",
+                color: "#fff",
+                padding: "16px",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                zIndex: 9999,
+                maxWidth: "500px",
+              },
+              iconTheme: {
+                primary: "#fff",
+                secondary: "#f59e0b",
+              },
+            },
+          );
+        }
+      }
+
+      // Step 2: Save a filled-but-unsaved prescription (if any) BEFORE the
+      // complaint, so it is not lost when "Save Prescription" was not pressed
+      // on the Prescription tab. The "Save Complaints" button stays in loading
+      // state while this runs.
+      const hasUnsavedPrescriptionContent =
+        medicines.some((m) => m.medicineName.trim()) ||
+        Boolean(aftercareInstructions.trim());
+      if (!prescriptionSaved && hasUnsavedPrescriptionContent) {
+        const prescriptionSaveOk = await saveNewPrescription();
+        if (!prescriptionSaveOk) {
+          toast.error(
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold"> Warning</span>
+              <span className="text-xs opacity-80">
+                The unsaved prescription could not be saved. Please save it
+                again from the Prescription tab.
+              </span>
+            </div>,
+            {
+              duration: 4000,
+              position: "top-right",
+              style: {
+                background: "#f59e0b",
+                color: "#fff",
+                padding: "16px",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                zIndex: 9999,
+                maxWidth: "500px",
+              },
+              iconTheme: {
+                primary: "#fff",
+                secondary: "#f59e0b",
+              },
+            },
+          );
+        }
+      }
+
+      // Step 3: Then save the complaint (progress note and prescription above
+      // are saved first). The "Save Complaints" button stays in loading state
+      // until the whole flow finishes.
       await axios.post(
         "/api/clinic/patient-complaints",
         {
@@ -2710,7 +2971,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         { headers },
       );
 
-      // Step 2: Only if complaint saved successfully, then save services to appointment
+      // Step 4: Only if complaint saved successfully, then save services to appointment
       if (selectedServices.length > 0 && details.appointmentId) {
         try {
           const services = selectedServices.map((s) => ({
@@ -2764,7 +3025,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           },
         );
         if (complaintsResponse.data?.success) {
-          setPreviousComplaints(complaintsResponse.data.complaints || []);
+          let complaintsList = complaintsResponse.data.complaints || [];
+          // For doctorStaff, only show their own previous complaints
+          const currentRole = getUserRole();
+          const currentUserId = getLoggedInUserId();
+          if (currentRole === "doctorStaff" && currentUserId) {
+            complaintsList = complaintsList.filter((c: any) => {
+              const docId =
+                typeof c.doctorId === "object"
+                  ? c.doctorId?._id?.toString()
+                  : c.doctorId?.toString();
+              return docId === currentUserId;
+            });
+          }
+          setPreviousComplaints(complaintsList);
         }
       }
 
@@ -7044,41 +7318,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 disabled={
                                   savingProgress || !newEntryText.trim()
                                 }
-                                onClick={async () => {
-                                  if (!newEntryText.trim() || !details) return;
-                                  setSavingProgress(true);
-                                  setProgressError("");
-                                  try {
-                                    const headers = getAuthHeaders();
-                                    const res = await axios.post(
-                                      "/api/clinic/progress-notes",
-                                      {
-                                        appointmentId: details.appointmentId,
-                                        patientId: details.patientId,
-                                        note: newEntryText.trim(),
-                                        noteDate: newEntryDate,
-                                      },
-                                      { headers },
-                                    );
-                                    if (res.data?.success && res.data.note)
-                                      setProgressNotes((prev) => [
-                                        res.data.note,
-                                        ...prev,
-                                      ]);
-                                    setNewEntryText("");
-                                    setNewEntryDate(
-                                      new Date().toISOString().slice(0, 10),
-                                    );
-                                    setAddingNewEntry(false);
-                                  } catch (err: any) {
-                                    setProgressError(
-                                      err.response?.data?.message ||
-                                      "Failed to save progress note",
-                                    );
-                                  } finally {
-                                    setSavingProgress(false);
-                                  }
-                                }}
+                                onClick={saveNewProgressEntry}
                                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                               >
                                 {savingProgress ? (
@@ -8916,48 +9156,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <button
                           type="button"
                           disabled={savingPrescription}
-                          onClick={async () => {
-                            const validMeds = medicines.filter((m) =>
-                              m.medicineName.trim(),
-                            );
-                            if (!details) return;
-                            setSavingPrescription(true);
-                            setPrescriptionError("");
-                            setPrescriptionSaved(false);
-                            try {
-                              const headers = getAuthHeaders();
-                              await axios.post(
-                                "/api/clinic/prescriptions",
-                                {
-                                  appointmentId: details.appointmentId,
-                                  patientId: details.patientId,
-                                  medicines: validMeds,
-                                  aftercareInstructions,
-                                  includeInPdf,
-                                },
-                                { headers },
-                              );
-                              setPrescriptionSaved(true);
-                              const histRes = await axios.get(
-                                "/api/clinic/prescriptions",
-                                {
-                                  headers,
-                                  params: { patientId: details.patientId },
-                                },
-                              );
-                              if (histRes.data?.success)
-                                setPrescriptionHistory(
-                                  histRes.data.prescriptions || [],
-                                );
-                            } catch (err: any) {
-                              setPrescriptionError(
-                                err.response?.data?.message ||
-                                "Failed to save prescription",
-                              );
-                            } finally {
-                              setSavingPrescription(false);
-                            }
-                          }}
+                          onClick={saveNewPrescription}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                         >
                           {savingPrescription ? (
