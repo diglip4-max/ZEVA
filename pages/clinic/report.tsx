@@ -28,6 +28,7 @@ const RoomResourceReport = dynamic(() => import("../../components/reports/RoomRe
 const StockReport = dynamic(() => import("../../components/reports/StockReport"), { ssr: false });
 const OfferTrackReport = dynamic(() => import("../../components/reports/OfferTrackReport"), { ssr: false });
 const InsuranceClaimsReport = dynamic(() => import("../../components/reports/InsuranceClaimsReport"), { ssr: false });
+const AdvanceReport = dynamic(() => import("../../components/reports/AdvanceReport"), { ssr: false });
 
 const TAB_CONFIG = {
   department: { label: "Department", color: "bg-teal-800 hover:bg-teal-900" },
@@ -42,11 +43,12 @@ const TAB_CONFIG = {
   stock: { label: "Stock", color: "bg-teal-800 hover:bg-teal-900" },
   offerTrack: { label: "Offer Track", color: "bg-teal-800 hover:bg-teal-900" },
   insuranceClaims: { label: "Insurance Claims", color: "bg-teal-800 hover:bg-teal-900" },
+  advancePending: { label: "Advance & Pending", color: "bg-teal-800 hover:bg-teal-900" },
 };
 
 function ReportPage() {
   const [activeTab, setActiveTab] = useState<
-    "department" | "package" | "membership" | "appointment" | "patient" | "lead" | "doctorStaff" | "rooms" | "revenue" | "stock" | "offerTrack" | "insuranceClaims"
+    "department" | "package" | "membership" | "appointment" | "patient" | "lead" | "doctorStaff" | "rooms" | "revenue" | "stock" | "offerTrack" | "insuranceClaims" | "advancePending"
   >("department");
   const [startDate, setStartDate] = useState(dayjs().startOf("month").format("YYYY-MM-DD"));
   const [endDate, setEndDate] = useState(dayjs().endOf("month").format("YYYY-MM-DD"));
@@ -532,6 +534,7 @@ function ReportPage() {
           {activeTab === "stock" && <StockReport startDate={startDate} endDate={endDate} headers={headers} />}
                     {activeTab === "offerTrack" && <OfferTrackReport startDate={startDate} endDate={endDate} headers={headers} canUpdate={permissions.canUpdate} />}
                                       {activeTab === "insuranceClaims" && <InsuranceClaimsReport startDate={startDate} endDate={endDate} headers={headers} />}
+          {activeTab === "advancePending" && <AdvanceReport startDate={startDate} endDate={endDate} headers={headers} />}
         </div>
       </div>
     </div>

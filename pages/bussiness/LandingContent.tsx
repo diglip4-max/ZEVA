@@ -198,8 +198,8 @@ export default function LandingContent({ includeHead = true, embedded = false }:
   {/* Images Section */}
   <div className="relative mt-4 flex w-full flex-col md:flex-row items-center md:items-start">
     <img 
-      src="/admin.png"
-      alt="admin"
+      src="/staff-dashboard.png"
+      alt="ZEVA staff dashboard preview"
       className="w-full h-full object-cover rounded-none md:rounded-xl shadow-md"
     />
 
