@@ -166,31 +166,47 @@ const StockLocationPage: NextPageWithLayout = ({
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
-  // URL-based role detection — no cross-role token scanning
+  // Role detection - check all token types in priority order so agent/doctorStaff
+  // users on clinic routes are not misclassified as clinic (which would read the
+  // clinic-level permission matrix instead of their own agent permissions)
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
-    try {
-      const token =
-        localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken");
-      if (token) {
-        const base64Url = token.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(
-          decodeURIComponent(
-            atob(base64)
-              .split("")
-              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join(""),
-          ),
-        );
-        return {
-          role: decoded.role || "clinic",
-          id: decoded.userId || decoded.id || null,
-        };
+    const tokensToCheck = [
+      "clinicToken",
+      "doctorToken",
+      "agentToken",
+      "staffToken",
+      "userToken",
+      "adminToken",
+    ];
+    for (const key of tokensToCheck) {
+      try {
+        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (token) {
+          const base64Url = token.split(".")[1];
+          if (!base64Url) continue;
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const decoded = JSON.parse(
+            decodeURIComponent(
+              atob(base64)
+                .split("")
+                .map(
+                  (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
+                )
+                .join(""),
+            ),
+          );
+          const role = decoded.role || decoded.userRole || null;
+          if (role) {
+            return {
+              role,
+              id: decoded.userId || decoded.id || null,
+            };
+          }
+        }
+      } catch (e) {
+        /* ignore decode errors, try next token */
       }
-    } catch (e) {
-      /* ignore */
     }
     return { role: "clinic", id: null };
   };
@@ -405,89 +421,79 @@ const StockLocationPage: NextPageWithLayout = ({
       return;
     }
 
-    // Only check permissions for agent/doctorStaff roles when not on agent route
-    if (agentToken || staffToken || userToken) {
-      const fetchPermissions = async () => {
-        try {
+    // Fetch permissions for agent/doctorStaff/any non-clinic-non-doctor role
+    // (role comes from the decoded token, so agent/doctorStaff users landing on
+    // a clinic route resolve here instead of running the clinic-level branch)
+    const fetchPermissions = async () => {
+      try {
+        console.log(
+          "Fetching Agent/Staff Permissions for clinic_stock_locations...",
+        );
+        setPermissionsLoaded(false);
+        // Use agent permissions API for agent/doctorStaff
+        const res = await axios.get("/api/agent/get-module-permissions", {
+          params: { moduleKey: MODULE_KEY },
+          headers: { Authorization: `Bearer ${agentStaffToken}` },
+        });
+        const data = res.data;
+        console.log("Agent Permissions API Response:", data);
+
+        if (!isMounted) return;
+
+        // Default to true if module not found in permissions (matches backend logic)
+        if (
+          !data?.permissions &&
+          data?.error?.includes("not found in agent permissions")
+        ) {
           console.log(
-            "Fetching Agent/Staff Permissions for clinic_stock_locations...",
+            "Module not found in permissions, granting full access by default",
           );
-          setPermissionsLoaded(false);
-          // Use agent permissions API for agent/doctorStaff
-          const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: MODULE_KEY },
-            headers: { Authorization: `Bearer ${agentStaffToken}` },
+          setPermissions({
+            canRead: true,
+            canCreate: true,
+            canUpdate: true,
+            canDelete: true,
           });
-          const data = res.data;
-          console.log("Agent Permissions API Response:", data);
-
-          if (!isMounted) return;
-
-          // Default to true if module not found in permissions (matches backend logic)
-          if (
-            !data?.permissions &&
-            data?.error?.includes("not found in agent permissions")
-          ) {
-            console.log(
-              "Module not found in permissions, granting full access by default",
-            );
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-            return;
-          }
-
-          const actions =
-            data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) =>
-            val === true ||
-            val === "true" ||
-            String(val || "").toLowerCase() === "true";
-
-          const canAll = isTrue(actions.all);
-
-          const newPerms = {
-            canRead: canAll || isTrue(actions.read),
-            canCreate: canAll || isTrue(actions.create),
-            canUpdate: canAll || isTrue(actions.update),
-            canDelete: canAll || isTrue(actions.delete),
-          };
-
-          setPermissions(newPerms);
-          console.log("Setting permissions:", newPerms);
-        } catch (err: any) {
-          console.error("Error fetching agent permissions:", err);
-          if (isMounted) {
-            // Default to full access on error (backward compatibility)
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-          }
-        } finally {
-          if (isMounted) {
-            setPermissionsLoaded(true);
-          }
+          return;
         }
-      };
 
-      fetchPermissions();
-      return;
-    }
+        const actions =
+          data?.permissions?.actions || data?.data?.moduleActions || {};
+        const isTrue = (val: any) =>
+          val === true ||
+          val === "true" ||
+          String(val || "").toLowerCase() === "true";
 
-    // Default to full access for other cases
-    setPermissions({
-      canRead: true,
-      canCreate: true,
-      canUpdate: true,
-      canDelete: true,
-    });
-    setPermissionsLoaded(true);
+        const canAll = isTrue(actions.all);
+
+        const newPerms = {
+          canRead: canAll || isTrue(actions.read),
+          canCreate: canAll || isTrue(actions.create),
+          canUpdate: canAll || isTrue(actions.update),
+          canDelete: canAll || isTrue(actions.delete),
+        };
+
+        setPermissions(newPerms);
+        console.log("Setting permissions:", newPerms);
+      } catch (err: any) {
+        console.error("Error fetching agent permissions:", err);
+        // On error, deny all access (secure default)
+        if (isMounted) {
+          setPermissions({
+            canRead: false,
+            canCreate: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setPermissionsLoaded(true);
+        }
+      }
+    };
+
+    fetchPermissions();
   }, [isAgentRoute]);
 
   // Fetch stock locations
@@ -700,8 +706,9 @@ const StockLocationPage: NextPageWithLayout = ({
     );
   }
 
-  // If canRead is false, show access denied
-  if (!permissions.canRead) {
+  // Full-page Access Denied only when BOTH read and create are denied;
+  // a create-only role still gets the header + Add Location button below
+  if (!permissions.canRead && !permissions.canCreate) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md w-full">
@@ -775,6 +782,26 @@ const StockLocationPage: NextPageWithLayout = ({
         </div>
       </div>
 
+      {/* Read-only data area (stats + table). When read is denied but create is
+          allowed, the header + Add Location button above stay visible and this
+          area is replaced by an inline Access Denied card */}
+      {!permissions.canRead ? (
+        <div className="max-w-9xl mx-auto">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-gray-600">
+              You do not have permission to view stock locations. Please contact
+              your administrator if you believe this is an error.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Stats Overview */}
       <div className="max-w-9xl mx-auto mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1142,6 +1169,8 @@ const StockLocationPage: NextPageWithLayout = ({
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

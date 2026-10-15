@@ -114,6 +114,26 @@ export default async function handler(req, res) {
       if (Object.keys(monthSectionMatch.invoicedDate).length === 0) delete monthSectionMatch.invoicedDate;
     }
 
+    // EDGE-CASE: Treatment/Service billing that ALSO sold a package (service
+    // Treatment/Service + non-empty package + selectedTreatments, and NO
+    // clearance metadata). In package reports only its PACKAGE portion counts
+    // (paid minus the proportional treatment share) — the treatment share is
+    // reported by the revenue report. The empty-array guards keep every
+    // pre-existing record type flowing through byte-identically (clearance
+    // and unpaid-package records are handled by their own branches).
+    const __mixedTpShapeExpr = {
+      $and: [
+        { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+        { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+        { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+        { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$unpaidPackagesPaid" }, "array"] }, { $ifNull: ["$unpaidPackagesPaid", []] }, []] } }, 0] },
+        { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+      ],
+    };
+    // Same clinic/date scope as the given match object but WITHOUT its
+    // service:"Package" gate (used to admit the mixed shape above).
+    const __tpMatchBase = (m) => { const b = { ...m }; delete b.service; return b; };
+
     // Helper to build pipeline and summary
     const buildPipelines = (matchObj) => {
       const pipeline = [
@@ -603,7 +623,7 @@ export default async function handler(req, res) {
     })() : null;
     
     const combinedSummaryAgg = await Billing.aggregate([
-      { $match: { ...match, service: "Package" } },
+      { $match: { $or: [{ ...match, service: "Package" }, { ...__tpMatchBase(match), $expr: __mixedTpShapeExpr }] } },
       {
         $lookup: {
           from: "appointments",
@@ -674,7 +694,7 @@ export default async function handler(req, res) {
           totalPaid: { $sum: { $subtract: [
             { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
             { $cond: [
-              { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+              { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, __mixedTpShapeExpr] },
               {
                 $multiply: [
                   { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
@@ -1293,7 +1313,7 @@ export default async function handler(req, res) {
     }
 
     const salesStaffBillingPipeline = [
-      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } } ] } }, // Include both Package billings and Treatment billings that clear pending packages
+      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(salesStaffBillingMatch), $expr: __mixedTpShapeExpr } ] } }, // Include both Package billings and Treatment billings that clear pending packages
       // Apply payment method filter (supports both single paymentMethod and multiplePayments array)
       ...(paymentMethodFilter ? [{ $match: paymentMethodFilter }] : []),
       // Exclude cross-invoice clearance billings to avoid double-counting
@@ -1335,14 +1355,24 @@ export default async function handler(req, res) {
       },
       {
         $addFields: {
-          __packageName: { 
+          __packageName: {
             $cond: {
-              if: { $eq: ["$service", "Treatment"] },
-              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-              else: "$package"
+              if: __mixedTpShapeExpr,
+              then: "$package",
+              else: {
+                $cond: {
+                  if: { $eq: ["$service", "Treatment"] },
+                  then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                  else: "$package"
+                }
+              }
             }
           },
           __patientId: "$patientId",
+          // Carry the mixed-shape flag + billing invoicer through the groups so
+          // the post-lookup stage can fall back to them for seller attribution.
+          __tpShape: __mixedTpShapeExpr,
+          __billingInvoicedBy: "$invoicedBy",
           __month: { $month: "$invoicedDate" },
           __year: { $year: "$invoicedDate" }
         }
@@ -1372,12 +1402,14 @@ export default async function handler(req, res) {
             patientId: "$__patientId",
             packageName: "$__packageName"
           },
+          __tpShape: { $first: "$__tpShape" },
+          __billingInvoicedBy: { $first: "$__billingInvoicedBy" },
           // Note: pendingUsed is NOT added because `paid` already includes
           // any pending cleared on this billing. Adding pendingUsed would double-count.
           totalPaidForPackage: { $sum: { $subtract: [
             { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] } ] },
             { $cond: [
-              { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+              { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, __mixedTpShapeExpr] },
               {
                 $multiply: [
                   { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
@@ -1387,15 +1419,15 @@ export default async function handler(req, res) {
               0,
             ] },
           ] } },
-          totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+          totalPendingForPackage: { $sum: { $cond: { if: { $or: [{ $eq: ["$service", "Package"] }, __mixedTpShapeExpr] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
           // For mixed billings (Package + Treatment), only count package amount
           // Use proportional discount: treatmentPrice * (amount / originalAmount)
           totalAmountForPackage: { $first: { $cond: { 
-            if: { $eq: ["$service", "Package"] }, 
+            if: { $or: [{ $eq: ["$service", "Package"] }, __mixedTpShapeExpr] }, 
             then: { $subtract: [
               { $ifNull: ["$amount", 0] },
               { $cond: [
-                { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+                { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, __mixedTpShapeExpr] },
                 {
                   $multiply: [
                     { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
@@ -1430,7 +1462,13 @@ export default async function handler(req, res) {
       // Now calculate final totalPaid, totalPending, totalAmount, and determine soldBy
       {
         $addFields: {
-          soldBy: { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+          soldBy: {
+            $cond: [
+              { $and: ["$__tpShape", { $eq: [{ $ifNull: ["$__patientReg.packages.packageSoldBy", ""] }, ""] }] },
+              { $ifNull: ["$__billingInvoicedBy", ""] },
+              { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+            ],
+          },
           totalAmount: {
             $ifNull: [
               {
@@ -1631,14 +1669,20 @@ export default async function handler(req, res) {
     // Get all (patientId + packageName) pairs from Billing to avoid duplicates
     const salesStaffBillingKeys = new Set();
     const salesStaffBillingKeyPipeline = [
-      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } } ] } },
+      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(salesStaffBillingMatch), $expr: __mixedTpShapeExpr } ] } },
       {
         $addFields: {
-          __packageName: { 
+          __packageName: {
             $cond: {
-              if: { $eq: ["$service", "Treatment"] },
-              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-              else: "$package"
+              if: __mixedTpShapeExpr,
+              then: "$package",
+              else: {
+                $cond: {
+                  if: { $eq: ["$service", "Treatment"] },
+                  then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                  else: "$package"
+                }
+              }
             }
           }
         }

@@ -241,6 +241,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [isSearchingPatient, setIsSearchingPatient] = useState(false);
   const patientSearchRef = useRef<HTMLDivElement>(null);
+  const patientSearchRequestRef = useRef(0);
 
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -313,9 +314,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
 
   // Patient search handler with debounce
   useEffect(() => {
-    if (patientSearchPhone.length < 2) {
+    // Invalidate any in-flight request for a previous term
+    const requestId = ++patientSearchRequestRef.current;
+    const trimmedSearch = patientSearchPhone.trim();
+
+    if (trimmedSearch.length < 1) {
       setPatientSearchResults([]);
       setShowPatientDropdown(false);
+      setIsSearchingPatient(false);
       return;
     }
 
@@ -327,8 +333,9 @@ const NewProductSalesPage: NextPageWithLayout = () => {
       setIsSearchingPatient(true);
       try {
         const response = await axios.get(
-          `/api/appointment-booking/search-patient?search=${encodeURIComponent(patientSearchPhone)}&clinicId=${clinicId}&limit=10`,
+          `/api/appointment-booking/search-patient?search=${encodeURIComponent(trimmedSearch)}&clinicId=${clinicId}&limit=10`,
         );
+        if (requestId !== patientSearchRequestRef.current) return;
         if (response.data?.success && Array.isArray(response.data?.data)) {
           setPatientSearchResults(response.data.data);
           setShowPatientDropdown(true);
@@ -337,13 +344,16 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           setShowPatientDropdown(false);
         }
       } catch (error) {
+        if (requestId !== patientSearchRequestRef.current) return;
         console.error("Error searching patients:", error);
         setPatientSearchResults([]);
         setShowPatientDropdown(false);
       } finally {
-        setIsSearchingPatient(false);
+        if (requestId === patientSearchRequestRef.current) {
+          setIsSearchingPatient(false);
+        }
       }
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [patientSearchPhone, clinicId]);

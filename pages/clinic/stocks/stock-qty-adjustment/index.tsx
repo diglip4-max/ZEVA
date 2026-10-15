@@ -11,7 +11,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { Filter, Printer, Package } from "lucide-react";
+import { Filter, Printer, Package, Loader2 } from "lucide-react";
 import AddAdjustmentModal from "./_components/AddAdjustmentModal";
 import EditAdjustmentModal from "./_components/EditAdjustmentModal";
 import DeleteAdjustmentModal from "./_components/DeleteAdjustmentModal";
@@ -37,21 +37,30 @@ const getStoredToken = () => {
   return null;
 };
 
-// URL-based role detection — no cross-role token scanning
+// Role detection — check all token types in priority order so agent/doctorStaff
+// users opening this page in the agent portal (/staff/clinic-*) are not
+// misclassified as clinic (which would read the clinic permission matrix)
 const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
-  // This file is inside /clinic/ — always clinic context
-  try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-    if (token) {
-      const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+  const tokensToCheck = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of tokensToCheck) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        const base64Url = token.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+        const role = decoded.role || decoded.userRole || null;
+        if (role) {
+          return { role, id: decoded.userId || decoded.id || null };
+        }
+      }
+    } catch (e) {
+      /* ignore decode errors, try next token */
     }
-  } catch (e) { /* ignore */ }
-  return { role: 'clinic', id: null };
+  }
+  return { role: "clinic", id: null };
 };
 
 const getUserRole = (): string | null => getUserInfo().role;
@@ -298,59 +307,57 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
       return;
     }
 
-    // Agent/doctorStaff tokens - check via agent permissions API
+    // Agent/doctorStaff (any non-clinic non-doctor role) - check via agent permissions API
     const agentStaffToken = getStoredToken();
     if (!agentStaffToken) {
       setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
       setPermissionsLoaded(true);
       return;
     }
-    if (agentToken || staffToken || userToken) {
-      const fetchPermissions = async () => {
-        try {
-          setPermissionsLoaded(false);
-          const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: MODULE_KEY },
-            headers: { Authorization: `Bearer ${agentStaffToken}` },
-          });
-          const data = res.data;
-          if (!isMounted) return;
-          if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
-            setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
-            return;
-          }
-          const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
-          const canAll = isTrue(actions.all);
-          setPermissions({
-            canRead: canAll || isTrue(actions.read),
-            canCreate: canAll || isTrue(actions.create),
-            canUpdate: canAll || isTrue(actions.update),
-            canDelete: canAll || isTrue(actions.delete),
-          });
-        } catch (err) {
-          console.error("Error fetching agent permissions:", err);
-          setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
-        } finally {
-          if (isMounted) setPermissionsLoaded(true);
+    const fetchPermissions = async () => {
+      try {
+        setPermissionsLoaded(false);
+        const res = await axios.get("/api/agent/get-module-permissions", {
+          params: { moduleKey: MODULE_KEY },
+          headers: { Authorization: `Bearer ${agentStaffToken}` },
+        });
+        const data = res.data;
+        if (!isMounted) return;
+        if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+          setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+          return;
         }
-      };
-      fetchPermissions();
-    } else {
-      setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
-      setPermissionsLoaded(true);
-    }
+        const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
+        const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+        const canAll = isTrue(actions.all);
+        setPermissions({
+          canRead: canAll || isTrue(actions.read),
+          canCreate: canAll || isTrue(actions.create),
+          canUpdate: canAll || isTrue(actions.update),
+          canDelete: canAll || isTrue(actions.delete),
+        });
+      } catch (err) {
+        console.error("Error fetching agent permissions:", err);
+        // On error, deny all access (secure default)
+        if (isMounted) setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+      } finally {
+        if (isMounted) setPermissionsLoaded(true);
+      }
+    };
+    fetchPermissions();
     return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
-    if (_permissionsLoaded) fetchRecords(1, "", filterData);
-  }, [_permissionsLoaded, filterData]);
+    // Only fetch records if permissions are loaded and read is allowed
+    if (_permissionsLoaded && permissions.canRead) fetchRecords(1, "", filterData);
+  }, [_permissionsLoaded, permissions.canRead, filterData]);
 
 
   useEffect(() => {
-    if (_permissionsLoaded) fetchRecords(1, searchTerm, filterData);
-  }, [searchTerm, filterData, fetchRecords, _permissionsLoaded]);
+    // Only fetch records if permissions are loaded and read is allowed
+    if (_permissionsLoaded && permissions.canRead) fetchRecords(1, searchTerm, filterData);
+  }, [searchTerm, filterData, fetchRecords, _permissionsLoaded, permissions.canRead]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -461,6 +468,18 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
     }
   };
 
+
+  // If permissions are not loaded yet, show loading spinner
+  if (!_permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          <p className="text-xs sm:text-sm">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show access denied message if no read permission (but still allow create if permitted)
   if (!permissions.canRead) {
@@ -988,24 +1007,6 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                     {expandedRows[record._id]
                                       ? "Hide Items"
                                       : "Show Items"}
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleDelete(record);
-                                    const menuEl = document.getElementById(
-                                      `menu-${record._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                >
-                                  <div className="flex items-center">
-                                    <TrashIcon className="h-4 w-4 mr-2" />
-                                    Delete
                                   </div>
                                 </button>
                                 {permissions.canDelete && (

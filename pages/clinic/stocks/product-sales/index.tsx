@@ -196,26 +196,30 @@ const getStoredToken = () => {
   return null;
 };
 
-// URL-based role detection — no cross-role token scanning
+// Role detection — check all token types in priority order so agent/doctorStaff
+// users opening this page in the agent portal (/staff/clinic-*) are not
+// misclassified as clinic (which would read the clinic permission matrix)
 const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
-  // This file is inside /clinic/ — always clinic context
-  try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-    if (token) {
-      const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c?.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return {
-        role: decoded.role || 'clinic',
-        id: decoded.userId || decoded.id || null,
-      };
+  const tokensToCheck = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of tokensToCheck) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        const base64Url = token.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+        const role = decoded.role || decoded.userRole || null;
+        if (role) {
+          return { role, id: decoded.userId || decoded.id || null };
+        }
+      }
+    } catch (error) {
+      /* ignore decode errors, try next token */
     }
-  } catch (error) {
-    /* ignore */
   }
-  return { role: 'clinic', id: null };
+  return { role: "clinic", id: null };
 };
 
 const getUserRole = (): string | null => getUserInfo().role;
@@ -369,11 +373,14 @@ const ProductSalesPage: NextPageWithLayout = () => {
   );
 
   useEffect(() => {
-    if (_permissionsLoaded) fetchProductSales(1, "");
-  }, [_permissionsLoaded, fetchProductSales]);
+    // Only fetch records if permissions are loaded and read is allowed
+    if (_permissionsLoaded && permissions.canRead) fetchProductSales(1, "");
+  }, [_permissionsLoaded, permissions.canRead, fetchProductSales]);
 
   useEffect(() => {
-    if (_permissionsLoaded) fetchProductSales(1, searchTerm);
+    // Only fetch records if permissions are loaded and read is allowed
+    if (_permissionsLoaded && permissions.canRead)
+      fetchProductSales(1, searchTerm);
   }, [
     searchTerm,
     startDate,
@@ -383,6 +390,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
     selectedPaymentStatus,
     selectedPaymentMethodId,
     _permissionsLoaded,
+    permissions.canRead,
     fetchProductSales,
   ]);
 
@@ -481,10 +489,14 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 const mod = (p.module || "").toLowerCase();
                 const modKey = (p.moduleKey || "").toLowerCase();
                 return (
+                  mod === "clinic_product_sales" ||
+                  mod === "custom_product_sales" ||
                   mod === "clinic_stock_product_sales" ||
                   mod === "product_sales" ||
                   mod === "sale_products" ||
                   mod === "sale-products" ||
+                  modKey === "clinic_product_sales" ||
+                  modKey === "custom_product_sales" ||
                   modKey === "clinic_stock_product_sales" ||
                   modKey === "product_sales" ||
                   modKey === "sale_products" ||
@@ -500,10 +512,13 @@ const ProductSalesPage: NextPageWithLayout = () => {
                         const key = (sm.moduleKey || "").toLowerCase();
                         const name = (sm.name || "").toLowerCase();
                         return (
+                          key === "clinic_product_sales" ||
+                          key === "custom_product_sales" ||
                           key === "clinic_stock_product_sales" ||
                           key === "product_sales" ||
                           key === "sale_products" ||
                           key === "sale-products" ||
+                          name === "clinic_product_sales" ||
                           name === "clinic_stock_product_sales" ||
                           name === "product sales" ||
                           name === "product_sales" ||
@@ -582,58 +597,71 @@ const ProductSalesPage: NextPageWithLayout = () => {
       fetchClinicPermissions();
       return;
     }
+    // Agent/doctorStaff (any non-clinic non-doctor role) - check via agent permissions API.
+    // Try each known module key variant until one resolves to a permission document:
+    // clinic_product_sales (user-stated key), custom_product_sales (sidebar mapping),
+    // clinic_stock_product_sales (legacy key previously used by this page)
+    const AGENT_MODULE_KEYS = [
+      "clinic_product_sales",
+      "custom_product_sales",
+      "clinic_stock_product_sales",
+    ];
     const agentStaffToken = getStoredToken();
     if (!agentStaffToken) {
       setPermissions(noPerms);
       setPermissionsLoaded(true);
       return;
     }
-    if (agentToken || staffToken || userToken) {
-      const fetchPermissions = async () => {
-        try {
-          if (!isMounted) return;
-          setPermissionsLoaded(false);
+    const fetchPermissions = async () => {
+      try {
+        setPermissionsLoaded(false);
+        let data: any = null;
+        for (const key of AGENT_MODULE_KEYS) {
           const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: "clinic_stock_product_sales" },
+            params: { moduleKey: key },
             headers: { Authorization: `Bearer ${agentStaffToken}` },
           });
-          const data = res.data;
-          console.log("DEBUG product-sales agent permissions:", data);
           if (!isMounted) return;
-          if (
-            !data?.permissions &&
-            data?.error?.includes("not found in agent permissions")
-          ) {
-            setPermissions(allPerms);
-            return;
+          if (res.data?.permissions) {
+            data = res.data;
+            break;
           }
-          const actions =
-            data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) =>
-            val === true ||
-            val === "true" ||
-            String(val || "").toLowerCase() === "true";
-          const canAll = isTrue(actions.all);
-          setPermissions({
-            canRead: canAll || isTrue(actions.read),
-            canCreate: canAll || isTrue(actions.create),
-            canUpdate: canAll || isTrue(actions.update),
-            canDelete: canAll || isTrue(actions.delete),
-          });
-        } catch (err) {
-          console.error("Error fetching agent permissions:", err);
-          if (isMounted) setPermissions(allPerms);
-        } finally {
-          if (isMounted) setPermissionsLoaded(true);
         }
-      };
-      fetchPermissions();
-      return;
-    } else {
-      if (!isMounted) return;
-      setPermissions(allPerms);
-      setPermissionsLoaded(true);
-    }
+        console.log("DEBUG product-sales agent permissions:", data);
+        if (!data) {
+          // No permission document found for any known module key - deny all access (secure default)
+          setPermissions(noPerms);
+          return;
+        }
+        if (
+          !data?.permissions &&
+          data?.error?.includes("not found in agent permissions")
+        ) {
+          setPermissions(allPerms);
+          return;
+        }
+        const actions =
+          data?.permissions?.actions || data?.data?.moduleActions || {};
+        const isTrue = (val: any) =>
+          val === true ||
+          val === "true" ||
+          String(val || "").toLowerCase() === "true";
+        const canAll = isTrue(actions.all);
+        setPermissions({
+          canRead: canAll || isTrue(actions.read),
+          canCreate: canAll || isTrue(actions.create),
+          canUpdate: canAll || isTrue(actions.update),
+          canDelete: canAll || isTrue(actions.delete),
+        });
+      } catch (err) {
+        console.error("Error fetching agent permissions:", err);
+        // On error, deny all access (secure default)
+        if (isMounted) setPermissions(noPerms);
+      } finally {
+        if (isMounted) setPermissionsLoaded(true);
+      }
+    };
+    fetchPermissions();
     return () => {
       isMounted = false;
     };
@@ -652,7 +680,19 @@ const ProductSalesPage: NextPageWithLayout = () => {
 
   const displayData = productSales.length > 0 ? productSales : [];
 
-  const handleAddSale = () => router.push("/clinic/stocks/product-sales/new");
+  // The staff/agent portal serves this page under /staff|/agent slugs. Pushing
+  // the raw clinic route from there drops the session context and withClinicAuth
+  // bounces agent/doctorStaff users to clinic login — route through the portal
+  // slug instead. Clinic users keep the direct clinic route.
+  const handleAddSale = () => {
+    const pathname =
+      typeof window !== "undefined" ? window.location.pathname : "";
+    if (pathname.startsWith("/staff/") || pathname.startsWith("/agent/")) {
+      router.push("/staff/clinic-stocks-product-sales-new");
+      return;
+    }
+    router.push("/clinic/stocks/product-sales/new");
+  };
 
   const handleExport = async () => {
     try {
@@ -706,6 +746,18 @@ const ProductSalesPage: NextPageWithLayout = () => {
     setSelectedPaymentMethodId("");
     setSearchTerm("");
   };
+
+  // If permissions are not loaded yet, show loading spinner
+  if (!_permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          <p className="text-xs sm:text-sm">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!permissions.canRead) {
     return (

@@ -53,7 +53,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [pagination, setPagination] = useState({
     totalResults: 0,
@@ -129,8 +129,9 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
   );
 
   useEffect(() => {
-    fetchRecords(1, searchTerm, filterData);
-  }, [searchTerm, filterData, fetchRecords]);
+    // Only fetch records if permissions are loaded and read is allowed
+    if (permissionsLoaded && permissions.canRead) fetchRecords(1, searchTerm, filterData);
+  }, [searchTerm, filterData, fetchRecords, permissionsLoaded, permissions.canRead]);
 
   // Detect agent route and token
   useEffect(() => {
@@ -164,20 +165,30 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
-  // URL-based role detection — no cross-role token scanning
+  // Role detection — check all token types in priority order so agent/doctorStaff
+  // users opening this page in the agent portal (/staff/clinic-*) are not
+  // misclassified as clinic (which would read the clinic permission matrix)
   const getUserInfo = (): { role: string | null; id: string | null } => {
     if (typeof window === "undefined") return { role: null, id: null };
-    // This file is inside /clinic/ — always clinic context
-    try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-      if (token) {
-        const base64Url = token.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+    const tokensToCheck = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+    for (const key of tokensToCheck) {
+      try {
+        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (token) {
+          const base64Url = token.split(".")[1];
+          if (!base64Url) continue;
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+          const role = decoded.role || decoded.userRole || null;
+          if (role) {
+            return { role, id: decoded.userId || decoded.id || null };
+          }
+        }
+      } catch (e) {
+        /* ignore decode errors, try next token */
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    }
+    return { role: "clinic", id: null };
   };
 
   const getUserRole = (): string | null => {
@@ -378,73 +389,64 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
       return;
     }
 
-    if (agentToken || staffToken || userToken) {
-      const fetchPermissions = async () => {
-        try {
-          setPermissionsLoaded(false);
-          const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: MODULE_KEY },
-            headers: { Authorization: `Bearer ${agentStaffToken}` },
-          });
-          const data = res.data;
+    const fetchPermissions = async () => {
+      try {
+        setPermissionsLoaded(false);
+        const res = await axios.get("/api/agent/get-module-permissions", {
+          params: { moduleKey: MODULE_KEY },
+          headers: { Authorization: `Bearer ${agentStaffToken}` },
+        });
+        const data = res.data;
 
-          if (!isMounted) return;
+        if (!isMounted) return;
 
-          if (
-            !data?.permissions &&
-            data?.error?.includes("not found in agent permissions")
-          ) {
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-            return;
-          }
-
-          const actions =
-            data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) =>
-            val === true ||
-            val === "true" ||
-            String(val || "").toLowerCase() === "true";
-
-          const canAll = isTrue(actions.all);
-
+        if (
+          !data?.permissions &&
+          data?.error?.includes("not found in agent permissions")
+        ) {
           setPermissions({
-            canRead: canAll || isTrue(actions.read),
-            canCreate: canAll || isTrue(actions.create),
-            canUpdate: canAll || isTrue(actions.update),
-            canDelete: canAll || isTrue(actions.delete),
+            canRead: true,
+            canCreate: true,
+            canUpdate: true,
+            canDelete: true,
           });
-        } catch (err: any) {
-          if (isMounted) {
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-          }
-        } finally {
-          if (isMounted) {
-            setPermissionsLoaded(true);
-          }
+          return;
         }
-      };
 
-      fetchPermissions();
-      return;
-    }
+        const actions =
+          data?.permissions?.actions || data?.data?.moduleActions || {};
+        const isTrue = (val: any) =>
+          val === true ||
+          val === "true" ||
+          String(val || "").toLowerCase() === "true";
 
-    setPermissions({
-      canRead: true,
-      canCreate: true,
-      canUpdate: true,
-      canDelete: true,
-    });
-    setPermissionsLoaded(true);
+        const canAll = isTrue(actions.all);
+
+        setPermissions({
+          canRead: canAll || isTrue(actions.read),
+          canCreate: canAll || isTrue(actions.create),
+          canUpdate: canAll || isTrue(actions.update),
+          canDelete: canAll || isTrue(actions.delete),
+        });
+      } catch (err: any) {
+        // On error, deny all access (secure default)
+        if (isMounted) {
+          setPermissions({
+            canRead: false,
+            canCreate: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setPermissionsLoaded(true);
+        }
+      }
+    };
+
+    fetchPermissions();
+    return;
   }, [isAgentRoute]);
 
   const displayData = records.slice(0, pagination.limit || 10);

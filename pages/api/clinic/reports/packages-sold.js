@@ -95,6 +95,26 @@ export default async function handler(req, res) {
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
+    // EDGE-CASE: Treatment/Service billing that ALSO sold a package (service
+    // Treatment/Service + non-empty package + selectedTreatments, and NO
+    // clearance metadata). In package reports only its PACKAGE portion counts
+    // (paid minus the proportional treatment share) — the treatment share is
+    // reported by the revenue report. The empty-array guards keep every
+    // pre-existing record type flowing through byte-identically (clearance
+    // and unpaid-package records are handled by their own branches).
+    const __mixedTpShapeExpr = {
+      $and: [
+        { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+        { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+        { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+        { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$unpaidPackagesPaid" }, "array"] }, { $ifNull: ["$unpaidPackagesPaid", []] }, []] } }, 0] },
+        { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+      ],
+    };
+    // Same clinic/date scope as the given match object but WITHOUT its
+    // service:"Package" gate (used to admit the mixed shape above).
+    const __tpMatchBase = (m) => { const b = { ...m }; delete b.service; return b; };
+
     // Helper: build the comprehensive effectiveDepartmentId pipeline stages
     // (service.departmentId -> treatmentServices[0].departmentId -> doctorDepartments[0].clinicDepartmentId)
     // Mirrors the logic in package-performance.js so both endpoints report consistent stats
@@ -201,7 +221,7 @@ export default async function handler(req, res) {
     }
 
     const pipeline = [
-      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(match), $expr: __mixedTpShapeExpr }] } },
       // Apply payment method filter (supports both single paymentMethod and multiplePayments array)
       ...(paymentMethodFilter ? [{ $match: paymentMethodFilter }] : []),
       // Exclude cross-invoice clearance billings to avoid double-counting
@@ -250,12 +270,23 @@ export default async function handler(req, res) {
         $addFields: {
           __packageName: {
             $cond: {
-              if: { $eq: ["$service", "Treatment"] },
-              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-              else: "$package"
+              if: __mixedTpShapeExpr,
+              then: "$package",
+              else: {
+                $cond: {
+                  if: { $eq: ["$service", "Treatment"] },
+                  then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                  else: "$package"
+                }
+              }
             }
           },
-          __patientId: "$patientId"
+          __patientId: "$patientId",
+          // Carry the mixed-shape flag + billing invoicer through the groups so
+          // the post-lookup stage can fall back to them for seller attribution.
+          __tpShape: __mixedTpShapeExpr,
+          __billingInvoicedBy: "$invoicedBy",
+          __billingInvoicedById: "$invoicedById"
         }
       },
       {
@@ -283,6 +314,9 @@ export default async function handler(req, res) {
             patientId: "$__patientId",
             packageName: "$__packageName"
           },
+          __tpShape: { $first: "$__tpShape" },
+          __billingInvoicedBy: { $first: "$__billingInvoicedBy" },
+          __billingInvoicedById: { $first: "$__billingInvoicedById" },
           // For mixed billings (Package + Treatment), only count package portion
           // Note: pendingUsed is NOT added here because `paid` already includes
           // any pending cleared on this billing. Adding pendingUsed would double-count
@@ -290,7 +324,7 @@ export default async function handler(req, res) {
           totalPaidForPackage: { $sum: { $subtract: [
             { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] } ] },
             { $cond: [
-              { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+              { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, __mixedTpShapeExpr] },
               // Apply proportional discount: treatment price * (amount / originalAmount)
               // This ensures when a discount is applied to the total billing, the treatment
               // portion is reduced proportionally, leaving the correct package revenue.
@@ -303,14 +337,14 @@ export default async function handler(req, res) {
               0,
             ] },
           ] } },
-          totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+          totalPendingForPackage: { $sum: { $cond: { if: { $or: [{ $eq: ["$service", "Package"] }, __mixedTpShapeExpr] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
           // For mixed billings (Package + Treatment), only count package amount
           totalAmountForPackage: { $first: { $cond: { 
-            if: { $eq: ["$service", "Package"] }, 
+            if: { $or: [{ $eq: ["$service", "Package"] }, __mixedTpShapeExpr] }, 
             then: { $subtract: [
               { $ifNull: ["$amount", 0] },
               { $cond: [
-                { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+                { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, __mixedTpShapeExpr] },
                 // Apply proportional discount: treatment price * (amount / originalAmount)
                 {
                   $multiply: [
@@ -353,6 +387,9 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          __tpShape: { $first: "$__tpShape" },
+          __billingInvoicedBy: { $first: "$__billingInvoicedBy" },
+          __billingInvoicedById: { $first: "$__billingInvoicedById" },
           totalPaidForPackage: { $first: "$totalPaidForPackage" },
           totalPendingForPackage: { $first: "$totalPendingForPackage" },
           totalAmountForPackage: { $first: "$totalAmountForPackage" },
@@ -389,7 +426,26 @@ export default async function handler(req, res) {
         $addFields: {
           patientId: "$_id.patientId",
           packageName: "$_id.packageName",
-          soldBy: { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+          // EDGE-CASE: for the Treatment/Service + package mixed shape, fall
+          // back to the billing's own invoicer when the PatientRegistration
+          // package entry has no seller (direct billings may not write a PR
+          // package row). packageSoldBy stays authoritative whenever present.
+          soldBy: {
+            $cond: [
+              { $and: ["$__tpShape", { $eq: [{ $ifNull: ["$__patientReg.packages.packageSoldBy", ""] }, ""] }] },
+              { $ifNull: ["$__billingInvoicedBy", ""] },
+              { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+            ],
+          },
+          // Coalesced seller id for the sales-staff filter (PR id when
+          // present, otherwise the billing invoicer for the mixed shape).
+          __soldByUserId: {
+            $cond: [
+              { $and: ["$__tpShape", { $eq: [{ $ifNull: ["$__patientReg.packages.packageSoldByUserId", null] }, null] }] },
+              "$__billingInvoicedById",
+              { $ifNull: ["$__patientReg.packages.packageSoldByUserId", null] },
+            ],
+          },
           clinicId: { $ifNull: ["$__patientReg.clinicId", null] },
           totalAmount: { 
             $ifNull: [
@@ -447,17 +503,22 @@ export default async function handler(req, res) {
       const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
       
       if (isValidObjectId) {
-        // Match by user ID (packageSoldByUserId)
+        // Match by coalesced seller user id (PR packageSoldByUserId, falling
+        // back to the billing invoicer for the mixed shape). The string
+        // branch covers ids persisted as strings.
         pipeline.push({
           $match: {
-            "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId))
+            $or: [
+              { __soldByUserId: new mongoose.Types.ObjectId(String(salesStaffId)) },
+              { __soldByUserId: String(salesStaffId) },
+            ],
           }
         });
       } else {
-        // Match by user name (packageSoldBy)
+        // Match by coalesced seller name (PR packageSoldBy, else billing invoicer)
         pipeline.push({
           $match: {
-            "__patientReg.packages.packageSoldBy": String(salesStaffId)
+            soldBy: String(salesStaffId)
           }
         });
       }
@@ -893,19 +954,30 @@ export default async function handler(req, res) {
 
     // For count, we need to apply the same filters
     const countPipeline = [
-      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(match), $expr: __mixedTpShapeExpr }] } },
       // Apply payment method filter (supports both single paymentMethod and multiplePayments array)
       ...(paymentMethodFilter ? [{ $match: paymentMethodFilter }] : []),
       {
         $addFields: {
           __packageName: {
             $cond: {
-              if: { $eq: ["$service", "Treatment"] },
-              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-              else: "$package"
+              if: __mixedTpShapeExpr,
+              then: "$package",
+              else: {
+                $cond: {
+                  if: { $eq: ["$service", "Treatment"] },
+                  then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                  else: "$package"
+                }
+              }
             }
           },
-          __patientId: "$patientId"
+          __patientId: "$patientId",
+          // Carry the mixed-shape flag + billing invoicer through the groups so
+          // the post-lookup stage can fall back to them for seller attribution.
+          __tpShape: __mixedTpShapeExpr,
+          __billingInvoicedBy: "$invoicedBy",
+          __billingInvoicedById: "$invoicedById"
         }
       },
       // Group by billing ID to count EACH billing separately (not unique patient+package)
@@ -917,6 +989,9 @@ export default async function handler(req, res) {
             packageName: "$__packageName",
             billingId: "$_id"
           },
+          __tpShape: { $first: "$__tpShape" },
+          __billingInvoicedBy: { $first: "$__billingInvoicedBy" },
+          __billingInvoicedById: { $first: "$__billingInvoicedById" },
           appointmentIds: { $addToSet: "$appointmentId" },
           doctorIds: { $addToSet: { $ifNull: ["$doctorId", null] } }
         }
@@ -955,7 +1030,29 @@ export default async function handler(req, res) {
           as: "__patientReg"
         }
       },
-      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } },
+      // Coalesce seller identity the same way as the row pipeline (PR
+      // packageSoldBy authoritative; billing invoicer fallback for the
+      // Treatment/Service + package mixed shape).
+      {
+        $addFields: {
+          __tpShape: { $ifNull: ["$__tpShape", false] },
+          soldBy: {
+            $cond: [
+              { $and: ["$__tpShape", { $eq: [{ $ifNull: ["$__patientReg.packages.packageSoldBy", ""] }, ""] }] },
+              { $ifNull: ["$__billingInvoicedBy", ""] },
+              { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+            ],
+          },
+          __soldByUserId: {
+            $cond: [
+              { $and: ["$__tpShape", { $eq: [{ $ifNull: ["$__patientReg.packages.packageSoldByUserId", null] }, null] }] },
+              "$__billingInvoicedById",
+              { $ifNull: ["$__patientReg.packages.packageSoldByUserId", null] },
+            ],
+          },
+        },
+      },
     ];
 
     if (doctorId && !shouldIncludeUnpaid) {
@@ -975,13 +1072,16 @@ export default async function handler(req, res) {
       if (isValidObjectId) {
         countPipeline.push({
           $match: {
-          "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId)) 
+            $or: [
+              { __soldByUserId: new mongoose.Types.ObjectId(String(salesStaffId)) },
+              { __soldByUserId: String(salesStaffId) },
+            ],
           }
         });
       } else {
         countPipeline.push({
           $match: {
-          "__patientReg.packages.packageSoldBy": String(salesStaffId)
+            soldBy: String(salesStaffId)
           }
         });
       }
@@ -1051,7 +1151,7 @@ export default async function handler(req, res) {
       })() : null;
       
       return [
-        { $match: { $or: [matchObj, { ...matchObj, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+        { $match: { $or: [matchObj, { ...matchObj, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(matchObj), $expr: __mixedTpShapeExpr }] } },
         // Apply payment method filter (supports both single paymentMethod and multiplePayments array)
         ...(paymentMethodFilter ? [{ $match: paymentMethodFilter }] : []),
         // Exclude cross-invoice clearance billings to avoid double-counting
@@ -1096,6 +1196,12 @@ export default async function handler(req, res) {
             ],
           },
         },
+        // Carry the mixed-shape flag BEFORE the appointment/service lookups
+        // overwrite the `service` field, so later stages read it as DATA
+        // (same pattern as the row/count pipelines). Without this the group's
+        // discount subtraction would re-evaluate the flag post-overwrite and
+        // silently count the full billing amount instead of the package part.
+        { $addFields: { __tpShape: __mixedTpShapeExpr } },
         {
           $lookup: {
             from: "appointments",
@@ -1130,9 +1236,15 @@ export default async function handler(req, res) {
             },
             __packageName: {
               $cond: {
-                if: { $eq: ["$service", "Treatment"] },
-                then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-                else: "$package"
+                if: "$__tpShape",
+                then: "$package",
+                else: {
+                  $cond: {
+                    if: { $eq: ["$service", "Treatment"] },
+                    then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                    else: "$package"
+                  }
+                }
               }
             }
           }
@@ -1163,8 +1275,14 @@ export default async function handler(req, res) {
           (() => {
             const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
             return isValidObjectId 
-              ? { $match: { "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId)) } }
-              : { $match: { "__patientReg.packages.packageSoldBy": String(salesStaffId) } };
+              ? { $match: { $or: [
+                  { "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId)) },
+                  { $and: [{ $expr: { $eq: ["$__tpShape", true] } }, { $or: [{ invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) }, { invoicedById: String(salesStaffId) }] }] },
+                ] } }
+              : { $match: { $or: [
+                  { "__patientReg.packages.packageSoldBy": String(salesStaffId) },
+                  { $and: [{ $expr: { $eq: ["$__tpShape", true] } }, { invoicedBy: String(salesStaffId) }] },
+                ] } };
           })()
         ] : []),
         {
@@ -1198,7 +1316,7 @@ export default async function handler(req, res) {
             totalPaid: { $sum: { $subtract: [
               { $add: [ { $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] } ] },
               { $cond: [
-                { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+                { $or: [{ $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] }, "$__tpShape"] },
                 // Apply proportional discount: treatment price * (amount / originalAmount)
                 // This ensures when a discount is applied to the total billing, the treatment
                 // portion is reduced proportionally, leaving the correct package revenue.
@@ -1211,7 +1329,7 @@ export default async function handler(req, res) {
                 0,
               ] },
             ] } },
-            totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+            totalPending: { $sum: { $cond: { if: { $or: [{ $eq: ["$service", "Package"] }, "$__tpShape"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
           },
@@ -1337,7 +1455,7 @@ export default async function handler(req, res) {
     // ── DEBUG: Log individual billing breakdown for Total Revenue and Paid Revenue ─
     try {
       const breakdownPipeline = [
-        { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+        { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }, { ...__tpMatchBase(match), $expr: __mixedTpShapeExpr }] } },
         {
           $addFields: {
             __packageName: {

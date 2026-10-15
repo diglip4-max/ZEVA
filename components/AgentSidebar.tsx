@@ -1231,11 +1231,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   "statistics",
                 ),
                 createItem(
-                  "Stock Qty Adjustment",
-                  "/staff/clinic-stocks-stock-qty-adjustment",
-                  "statistics",
-                ),
-                createItem(
                   "Direct Stock Transfer",
                   "/staff/clinic-stocks-stock-transfer-direct-stock-transfer",
                   "arrow-right",
@@ -1249,11 +1244,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   "Transfer Stock On Request",
                   "/staff/clinic-stocks-stock-transfer-transfer-stock",
                   "refresh-cw",
-                ),
-                createItem(
-                  "Material Activity Consumption",
-                  "/staff/clinic-stocks-material-consumptions",
-                  "⚡",
                 ),
                 createItem(
                   "Material Consumptions",

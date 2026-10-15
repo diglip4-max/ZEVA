@@ -107,7 +107,7 @@ export default function FinanceManager() {
                 <div className="text-[11px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mb-1">
                   {clinic?.name || "Zeva"}
                 </div>
-                <h1 className="text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-none">
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 dark:text-stone-50 leading-none">
                   Finance Manager
                 </h1>
               </div>
@@ -146,7 +146,7 @@ export default function FinanceManager() {
                         },
                       );
                     }}
-                    className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 ${ activeTab === t.id ? "bg-white dark:bg-[#16231f] text-teal-700 dark:text-teal-300 shadow-sm" : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200" }`}
+                    className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-full transition-all duration-200 ${ activeTab === t.id ? "bg-white dark:bg-[#16231f] text-teal-700 dark:text-teal-300 shadow-sm" : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200" }`}
                   >
                     {t.label}
                   </button>

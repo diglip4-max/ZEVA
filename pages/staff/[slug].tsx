@@ -215,6 +215,9 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-services_setup": () => import("../clinic/services_setup"),
   "clinic-kaka-analytics": () => import("../clinic/kaka-analytics"),
   "clinic-automation": () => import("../clinic/automation"),
+  "clinic-stocks-product-sales": () => import("../clinic/stocks/product-sales"),
+  "clinic-stocks-product-sales-new": () =>
+    import("../clinic/stocks/product-sales/new"),
 
   // Campaigns
   "clinic-campaigns": () => import("../clinic/campaigns"),

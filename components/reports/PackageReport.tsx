@@ -373,7 +373,20 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         // Pass doctor name so the PatientRegistration pipeline can filter by packageSoldBy
         const docObj = doctors.find((d: any) => d._id === selectedDoctor);
         const docName = docObj?.name || (docObj?.firstName && docObj?.lastName ? `${docObj.firstName} ${docObj.lastName}` : null);
-        if (docName) params.doctorName = docName;
+        if (docName) {
+          params.doctorName = docName;
+          // The KPI cards attribute a doctor filter by the doctor's NAME against the
+          // sales-staff data (see `metrics`: salesStaffData.filter(s => s.name ===
+          // selectedDoctorName)), i.e. the packages SOLD by that doctor — not the
+          // packages where the doctor is only the treating doctor. includeUnpaid=true
+          // switches the API to this same attribution: it skips the treating-doctor
+          // match on the Billing pipeline and pulls the doctor's PatientRegistration
+          // packages by name, so the client-side soldBy filter below can keep the
+          // rows that back the card. Without it the request is pre-filtered by the
+          // treating doctor, so the modal shows "No packages found". When the name
+          // cannot be resolved, the previous treating-doctor behavior is kept.
+          params.includeUnpaid = "true";
+        }
       }
       if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
       if (selectedDepartment) params.departmentId = selectedDepartment;

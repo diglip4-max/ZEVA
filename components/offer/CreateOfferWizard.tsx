@@ -153,6 +153,9 @@ export default function CreateOfferWizard({
   });
   const [form, setForm] = useState(getInitialForm);
 
+  // UI toggle: show/hide the Max Total Benefit Cap input
+  const [maxBenefitCapEnabled, setMaxBenefitCapEnabled] = useState(true);
+
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -547,6 +550,7 @@ export default function CreateOfferWizard({
         cashbackExpiryDays: offer.cashbackExpiryDays || 0,
       });
       setClinicId(offer.clinicId || null);
+      setMaxBenefitCapEnabled((offer.maxBenefitCap || 0) > 0);
     }
   }, [mode, offer]);
 
@@ -645,7 +649,7 @@ export default function CreateOfferWizard({
       }
     }
 
-    if (form.maxBenefitCap <= 0) {
+    if (maxBenefitCapEnabled && form.maxBenefitCap <= 0) {
       newErrors.maxBenefitCap = "Max benefit cap is mandatory";
       errorMessages.push("Please enter a valid Max Total Benefit Cap");
     }
@@ -1287,19 +1291,39 @@ export default function CreateOfferWizard({
                 </div>
 
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Max Total Benefit Cap *</label>
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
                     <input
-                      type="number"
-                      name="maxBenefitCap"
-                      value={form.maxBenefitCap}
-                      onChange={handleChange}
-                      className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.maxBenefitCap ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
-                      placeholder="e.g., 30"
-                      required
+                      type="checkbox"
+                      checked={maxBenefitCapEnabled}
+                      onChange={(e) => {
+                        setMaxBenefitCapEnabled(e.target.checked);
+                        if (errors.maxBenefitCap) {
+                          setErrors({ ...errors, maxBenefitCap: "" });
+                        }
+                      }}
+                      className="w-4 h-4 text-teal-600 rounded"
                     />
-                    {errors.maxBenefitCap && <p className="text-red-500 text-[10px] mt-1">{errors.maxBenefitCap}</p>}
-                  </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-300">Max Total Benefit Cap</span>
+                      <span className="text-[10px] text-gray-500">Enable to limit the maximum benefit amount</span>
+                    </div>
+                  </label>
+
+                  {maxBenefitCapEnabled && (
+                    <div>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Max Total Benefit Cap *</label>
+                      <input
+                        type="number"
+                        name="maxBenefitCap"
+                        value={form.maxBenefitCap}
+                        onChange={handleChange}
+                        className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.maxBenefitCap ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
+                        placeholder="e.g., 30"
+                        required
+                      />
+                      {errors.maxBenefitCap && <p className="text-red-500 text-[10px] mt-1">{errors.maxBenefitCap}</p>}
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Minimum Billing Amount (Optional)</label>

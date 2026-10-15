@@ -298,7 +298,7 @@ function InfoCard({
           {label}
         </span>
       </div>
-      <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+      <div className="text-xs font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
         {value}
       </div>
     </div>
@@ -1384,7 +1384,7 @@ function NewPettyCashModal({
                   <Coins className="w-3 h-3" />
                   Manual Addition
                 </div>
-                <h3 className="text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
+                <h3 className="text-lg font-bold text-stone-900 dark:text-stone-50 leading-[1.1]">
                   Add Petty Cash
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
@@ -1420,7 +1420,7 @@ function NewPettyCashModal({
                   What is it for?
                 </h4>
               </div>
-              <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+              <label className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5 block">
                 Name <span className="text-rose-500">*</span>
               </label>
               <input
@@ -1430,7 +1430,7 @@ function NewPettyCashModal({
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
                 placeholder="e.g. Office supplies, Snacks, Petrol..."
-                className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
+                className="w-full px-4 py-2.5 text-xs rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
               />
             </div>
 
@@ -1443,7 +1443,7 @@ function NewPettyCashModal({
                   Amount
                 </h4>
               </div>
-              <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+              <label className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5 block">
                 Total ({symbol}) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
@@ -1459,7 +1459,7 @@ function NewPettyCashModal({
                     setForm((f) => ({ ...f, amount: e.target.value }))
                   }
                   placeholder="0"
-                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 font-bold transition-all shadow-inner"
+                  className="w-full pl-9 pr-4 py-3.5 text-lg rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 font-bold transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -1483,7 +1483,7 @@ function NewPettyCashModal({
               onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
               placeholder="Any additional notes..."
               rows={2}
-              className="w-full px-4 py-3 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all resize-none"
+              className="w-full px-4 py-3 text-xs rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all resize-none"
             />
           </div>
         </div>
@@ -1695,7 +1695,7 @@ function NewExpenseModal({
                     <TrendingDown className="w-3 h-3" />
                     Expense Record
                   </div>
-                  <h3 className="text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-stone-50 leading-[1.1]">
                     Add Expense
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
@@ -1767,7 +1767,7 @@ function NewExpenseModal({
                         onChange={(e) =>
                           updateExpenseItem(idx, "itemName", e.target.value)
                         }
-                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500/10 dark:focus:ring-rose-400/10 focus:border-rose-500 dark:focus:border-rose-400 transition-all"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500/10 dark:focus:ring-rose-400/10 focus:border-rose-500 dark:focus:border-rose-400 transition-all"
                       />
                     </div>
                     <div className="w-32 flex flex-col gap-1 relative">
@@ -1783,7 +1783,7 @@ function NewExpenseModal({
                         onChange={(e) =>
                           updateExpenseItem(idx, "amount", e.target.value)
                         }
-                        className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500/10 dark:focus:ring-rose-400/10 focus:border-rose-500 dark:focus:border-rose-400 transition-all text-right"
+                        className="w-full pl-8 pr-3 py-2.5 text-xs rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500/10 dark:focus:ring-rose-400/10 focus:border-rose-500 dark:focus:border-rose-400 transition-all text-right"
                       />
                     </div>
                     {expenseItems.length > 1 && (
@@ -1885,7 +1885,7 @@ function NewExpenseModal({
                     onChange={(e) => setDeductFromPettyCash(e.target.checked)}
                     className="w-4 h-4 text-rose-600 border-[#E8E3D8] dark:border-[#1f2e29] rounded focus:ring-rose-500"
                   />
-                  <span className="text-xs font-semibold text-stone-600 dark:text-stone-300 leading-tight">
+                  <span className="text-xs font-medium text-stone-600 dark:text-stone-300 leading-tight">
                     Deduct from Petty Cash
                   </span>
                 </label>
@@ -1893,7 +1893,7 @@ function NewExpenseModal({
                   <span className="text-stone-400 dark:text-stone-500 text-base">
                     {symbol}
                   </span>
-                  <span className="text-3xl font-bold text-stone-900 dark:text-stone-50 leading-none">
+                  <span className="text-lg font-bold text-stone-900 dark:text-stone-50 leading-none">
                     {totalExpenseAmount.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -2024,11 +2024,11 @@ const StatsSection: React.FC<StatsSectionProps> = ({
     <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
       {stats.map((s) => (
         <div key={s.label} className="p-5">
-          <div className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+          <div className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-400 mb-1.5">
             {s.label}
           </div>
           <div
-            className={`text-lg font-semibold ${s.tone || "text-stone-800 dark:text-stone-100"}`}
+            className={`text-lg sm:text-xl font-bold ${s.tone || "text-stone-800 dark:text-stone-100"}`}
           >
             {s.value}
           </div>
@@ -2408,10 +2408,10 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
       {/* Title */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
+          <h2 className="text-lg font-bold text-stone-900 dark:text-stone-50">
             Petty Cash
           </h2>
-          <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
             Every petty cash entry in the clinic has — now or later
           </p>
         </div>
@@ -2465,7 +2465,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                 <button
                   key={tab.value}
                   onClick={() => setActiveTab(tab.value)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.value ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/60"}`}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.value ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/60"}`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -2497,13 +2497,13 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="text-sm rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
+            className="text-xs rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="text-sm rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
+            className="text-xs rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
 
           {isManual && (
@@ -2512,7 +2512,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
               onChange={(e) =>
                 setManualTypeFilterLocal(e.target.value as ManualTypeFilter)
               }
-              className="text-sm rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
+              className="text-xs rounded-full border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
             >
               <option value="all">All Types</option>
               <option value="Income">Income</option>
@@ -2521,7 +2521,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
           )}
 
           {!isManual && !isIncome && (
-            <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+            <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
               <input
                 type="checkbox"
                 checked={showVoided}

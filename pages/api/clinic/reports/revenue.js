@@ -213,7 +213,41 @@ export default async function handler(req, res) {
     // to Treatment/Service revenue (see treatmentRevenueAgg), so we subtract
     // it here to prevent double-counting.
     const packageRevenueAgg = await Billing.aggregate([
-      { $match: { ...clinicMatch, ...dateMatch, service: "Package", ...(paymentMethodFilter || {}) } },
+      // Clinic + date-range + payment-method filtering, kept in its OWN $match
+      // stage: a single $match object can hold only ONE $expr key, so spreading
+      // ...dateMatch (an $expr) into the same object as the $or admission $expr
+      // below silently drops the date filter (the later key overwrites the
+      // earlier one) and makes this aggregation sum ALL-TIME package revenue
+      // instead of the selected range.
+      {
+        $match: {
+          ...clinicMatch,
+          ...dateMatch,
+          ...(paymentMethodFilter || {}),
+        },
+      },
+      // EDGE-CASE: also admit Treatment/Service billings that sold a package
+      // alongside the treatment (service Treatment/Service + non-empty package
+      // + selectedTreatments + no breakdown). Their package portion (paid minus
+      // the proportional treatment share, subtracted below) is real package
+      // revenue and must reach the Package KPI total.
+      {
+        $match: {
+          $expr: {
+            $or: [
+              { $eq: ["$service", "Package"] },
+              {
+                $and: [
+                  { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                  { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+                  { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                ],
+              },
+            ],
+          },
+        },
+      },
       // Exclude Package clearance billings that clear pending from a different
       // invoice (prevents double-counting with the original package billing)
       {
@@ -306,7 +340,6 @@ export default async function handler(req, res) {
                   $cond: [
                     {
                       $and: [
-                        { $eq: ["$service", "Package"] },
                         {
                           $gt: [{
                             $size: {
@@ -317,6 +350,21 @@ export default async function handler(req, res) {
                               ]
                             }
                           }, 0]
+                        },
+                        {
+                          $or: [
+                            { $eq: ["$service", "Package"] },
+                            // EDGE-CASE: Treatment/Service billing that also sold a
+                            // package — subtract the proportional treatment share
+                            // so only the package portion stays in package revenue.
+                            {
+                              $and: [
+                                { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                                { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                                { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                              ],
+                            },
+                          ],
                         },
                       ],
                     },
@@ -3384,7 +3432,20 @@ export default async function handler(req, res) {
         },
       },
       { $unwind: { path: "$apptSvc", preserveNullAndEmptyArrays: true } },
-      // 4. Unwind pendingClearedBreakdown (preserveNullAndEmptyArrays so billings
+      // 4. Stash the full breakdown array before unwinding so post-unwind
+      //    stages can tell how many breakdown items the billing originally had.
+      {
+        $addFields: {
+          __breakdownItems: {
+            $cond: [
+              { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+              { $ifNull: ["$pendingClearedBreakdown", []] },
+              [],
+            ],
+          },
+        },
+      },
+      // 4b. Unwind pendingClearedBreakdown (preserveNullAndEmptyArrays so billings
       //    without a breakdown keep flowing through the pipeline).
       {
         $unwind: {
@@ -3392,7 +3453,7 @@ export default async function handler(req, res) {
           preserveNullAndEmptyArrays: true,
         },
       },
-      // 4b. Multi-payment method support
+      // 4c. Multi-payment method support
       {
         $addFields: {
           __effectivePaid: {
@@ -3487,6 +3548,51 @@ export default async function handler(req, res) {
                   { $ifNull: ["$cashbackWalletUsed", 0] },
                 ],
               },
+            ],
+          },
+        },
+      },
+      // 5b. EDGE-CASE FIX: A Treatment/Service billing whose ONLY breakdown item
+      //    is a cross-invoice Package clearance (an appointment treatment invoice
+      //    that also pays off a pending package balance) produces just one cleared
+      //    Package row here, which step 6 drops — losing the billing's entire
+      //    treatment revenue from Revenue by Service. Reinterpret that row as the
+      //    billing's own treatment row: revenue = paid total minus the cleared
+      //    package slice (that slice is already reported under Revenue by Package).
+      {
+        $addFields: {
+          isOwnTreatmentOnPackageClearance: {
+            $and: [
+              "$isClearedItem",
+              { $eq: ["$effectiveService", "Package"] },
+              { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+              { $ne: [{ $ifNull: ["$treatment", ""] }, ""] },
+              { $ne: ["$invoiceNumber", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", ""] }] },
+              { $eq: [{ $size: "$__breakdownItems" }, 1] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          isClearedItem: { $cond: ["$isOwnTreatmentOnPackageClearance", false, "$isClearedItem"] },
+          effectiveAmount: {
+            $cond: [
+              "$isOwnTreatmentOnPackageClearance",
+              {
+                $subtract: [
+                  {
+                    $add: [
+                      { $ifNull: ["$__effectivePaid", 0] },
+                      { $ifNull: ["$advanceUsed", 0] },
+                      { $ifNull: ["$claimAmountUsed", 0] },
+                      { $ifNull: ["$cashbackWalletUsed", 0] },
+                    ],
+                  },
+                  { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+                ],
+              },
+              "$effectiveAmount",
             ],
           },
         },
@@ -3589,7 +3695,6 @@ export default async function handler(req, res) {
             $cond: [
               {
                 $and: [
-                  { $eq: ["$service", "Package"] },
                   {
                     $gt: [{
                       $size: {
@@ -3600,6 +3705,21 @@ export default async function handler(req, res) {
                         ]
                       }
                     }, 0]
+                  },
+                  {
+                    $or: [
+                      { $eq: ["$service", "Package"] },
+                      // EDGE-CASE: Treatment/Service billing that also sold a package
+                      // — scale to the treatment share only, so the package share is
+                      // not double-counted (it is reported under Revenue by Package).
+                      {
+                        $and: [
+                          { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                          { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                          { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                        ],
+                      },
+                    ],
                   },
                 ],
               },
@@ -4079,7 +4199,6 @@ export default async function handler(req, res) {
                         $cond: [
                           {
                             $and: [
-                              { $eq: ["$service", "Package"] },
                               {
                                 $gt: [{
                                   $size: {
@@ -4090,6 +4209,21 @@ export default async function handler(req, res) {
                                     ]
                                   }
                                 }, 0]
+                              },
+                              {
+                                $or: [
+                                  { $eq: ["$service", "Package"] },
+                                  // EDGE-CASE: Treatment/Service billing that also sold
+                                  // a package — subtract the proportional treatment
+                                  // share so the row amount is the package portion.
+                                  {
+                                    $and: [
+                                      { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                                      { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                                      { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                                    ],
+                                  },
+                                ],
                               },
                             ],
                           },
@@ -4170,7 +4304,19 @@ export default async function handler(req, res) {
                   { $eq: ["$effectiveService", "Package"] },
                   {
                     $or: [
-                      { $ne: ["$service", "Package"] },
+                      // EDGE-CASE FIX: admit a NON-Package billing here only when it is a
+                      // PURE clearance billing (no own treatment/package content). A
+                      // Treatment/Service billing that carries its own real revenue must
+                      // NOT appear in Revenue by Package — its cleared package slice is
+                      // already reported via the ORIGINAL package billing's own row, and
+                      // its own paid amount belongs to Revenue by Service.
+                      {
+                        $and: [
+                          { $ne: ["$service", "Package"] },
+                          { $eq: [{ $ifNull: ["$treatment", ""] }, ""] },
+                          { $eq: [{ $ifNull: ["$package", ""] }, ""] },
+                        ],
+                      },
                       {
                         $and: [
                           { $eq: ["$invoiceNumber", "$pendingClearedBreakdown.invoiceNumber"] },
@@ -4196,6 +4342,21 @@ export default async function handler(req, res) {
                   }
                 ]
               }
+            },
+            // EDGE-CASE: Treatment/Service billing that ALSO sold a package
+            // (service Treatment/Service + non-empty package + selectedTreatments,
+            // no breakdown). Its step-4 amount is the package portion (paid minus
+            // the proportional treatment share), so the package gets its own card.
+            {
+              isClearedItem: false,
+              $expr: {
+                $and: [
+                  { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                  { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+                  { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                ],
+              },
             },
             {
               isClearedItem: true,
@@ -4263,11 +4424,26 @@ export default async function handler(req, res) {
               emrNumber: "$patient.emrNumber",
               service: {
                 $cond: [
-                  // Mixed billing: use billing's own service
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$service",
-                  // Clearance billing: use breakdown's service
-                  { $cond: ["$isClearedItem", "$effectiveService", "$service"] },
+                  // EDGE-CASE: Treatment/Service billing that also sold a package —
+                  // this row IS the package portion, so badge it as Package
+                  {
+                    $and: [
+                      { $eq: ["$isClearedItem", false] },
+                      { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                      { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                      { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+                    ],
+                  },
+                  "Package",
+                  {
+                    $cond: [
+                      // Mixed billing: use billing's own service
+                      { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                      "$service",
+                      // Clearance billing: use breakdown's service
+                      { $cond: ["$isClearedItem", "$effectiveService", "$service"] },
+                    ],
+                  },
                 ],
               },
               packageName: {
@@ -4292,11 +4468,26 @@ export default async function handler(req, res) {
               },
               treatmentName: {
                 $cond: [
-                  // Mixed billing: use billing's own treatment
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$treatment",
-                  // Clearance billing: use breakdown's treatmentName
-                  { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] }, "$treatment"] },
+                  // EDGE-CASE: Treatment/Service billing that also sold a package —
+                  // the treatment belongs to Revenue by Service, show none here
+                  {
+                    $and: [
+                      { $eq: ["$isClearedItem", false] },
+                      { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                      { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                      { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+                    ],
+                  },
+                  null,
+                  {
+                    $cond: [
+                      // Mixed billing: use billing's own treatment
+                      { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                      "$treatment",
+                      // Clearance billing: use breakdown's treatmentName
+                      { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] }, "$treatment"] },
+                    ],
+                  },
                 ],
               },
               invoiceNumber: {
@@ -4312,32 +4503,47 @@ export default async function handler(req, res) {
               amount: "$effectiveAmount",
               paid: {
                 $cond: [
-                  // Mixed billing (cleared): use billing's own paid
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$paid",
-                  // Non-cleared Package billing with selectedTreatments: use effectiveAmount (package portion)
+                  // EDGE-CASE: Treatment/Service billing that also sold a package —
+                  // this row's paid is the package portion (effectiveAmount)
+                  {
+                    $and: [
+                      { $eq: ["$isClearedItem", false] },
+                      { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                      { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+                      { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+                    ],
+                  },
+                  "$effectiveAmount",
                   {
                     $cond: [
+                      // Mixed billing (cleared): use billing's own paid
+                      { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                      "$paid",
+                      // Non-cleared Package billing with selectedTreatments: use effectiveAmount (package portion)
                       {
-                        $and: [
-                          { $not: "$isClearedItem" },
-                          { $eq: ["$service", "Package"] },
+                        $cond: [
                           {
-                            $gt: [{
-                              $size: {
-                                $cond: [
-                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                                  { $ifNull: ["$selectedTreatments", []] },
-                                  []
-                                ]
-                              }
-                            }, 0]
+                            $and: [
+                              { $not: "$isClearedItem" },
+                              { $eq: ["$service", "Package"] },
+                              {
+                                $gt: [{
+                                  $size: {
+                                    $cond: [
+                                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                      { $ifNull: ["$selectedTreatments", []] },
+                                      []
+                                    ]
+                                  }
+                                }, 0]
+                              },
+                            ],
                           },
+                          "$effectiveAmount",
+                          // Clearance billing: 0 (the cleared amount is shown via amount)
+                          { $cond: ["$isClearedItem", 0, "$paid"] },
                         ],
                       },
-                      "$effectiveAmount",
-                      // Clearance billing: 0 (the cleared amount is shown via amount)
-                      { $cond: ["$isClearedItem", 0, "$paid"] },
                     ],
                   },
                 ],
@@ -5123,12 +5329,40 @@ export default async function handler(req, res) {
                         ],
                       },
                       // Treatment/Service with cross-invoice breakdown: use sum of multiplePayments
+                      // EDGE-CASE FIX: when the billing records its payment only via the
+                      // top-level paymentMethod (no multiplePayments entries), the reduce
+                      // below collapses to 0 and the billing silently vanishes from
+                      // Revenue by Payment Method even though money was received. Fall
+                      // back to paid minus the pending-balance slice (pendingUsed) that
+                      // was transferred cross-invoice — the original cleared billing now
+                      // carries that slice in its own paid, so the total stays exact.
                       {
-                        $reduce: {
-                          input: "$multiplePayments",
-                          initialValue: 0,
-                          in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
-                        }
+                        $cond: [
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$multiplePayments" }, "array"] },
+                                  { $ifNull: ["$multiplePayments", []] },
+                                  [],
+                                ],
+                              },
+                            }, 0],
+                          },
+                          {
+                            $reduce: {
+                              input: "$multiplePayments",
+                              initialValue: 0,
+                              in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                            }
+                          },
+                          {
+                            $max: [
+                              0,
+                              { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] },
+                            ],
+                          },
+                        ],
                       },
                       "$paid"  // All other billings: include paid
                     ]
@@ -6370,7 +6604,30 @@ export default async function handler(req, res) {
         $addFields: {
           // Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
           // Include advanceUsed to capture full revenue (paid + advanceUsed)
-          billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          // EDGE-CASE FIX (mirrors byDoctorAgg billingPaid): For Treatment/Service
+          // billings with unpaidPackagesPaid AND a pendingClearedBreakdown, subtract
+          // pendingUsed — the cleared package slice is attributed to the ORIGINAL
+          // package billing's seller, so only the remaining money belongs to this
+          // billing's own treatment. Prevents full-price staff attribution when a
+          // mixed direct billing is only partially paid.
+          billingPaid: {
+            $cond: [
+              {
+                $and: [
+                  { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$unpaidPackagesPaid" }, "array"] }, { $ifNull: ["$unpaidPackagesPaid", []] }, []] } }, 0] },
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+                ],
+              },
+              {
+                $max: [
+                  0,
+                  { $subtract: [{ $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }, { $ifNull: ["$pendingUsed", 0] }] },
+                ],
+              },
+              { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+            ],
+          },
         },
       },
       // For clearance-only billings, lookup original billing to determine if it was direct or appointment-based
@@ -6533,12 +6790,36 @@ export default async function handler(req, res) {
               // treatmentAmount = billingPaid × (price × quantity / originalAmount)
               // For full payments this equals price × quantity; for partial payments it scales down proportionally
               // EDGE CASE: When originalAmount < amount (e.g., pending package clearance adds to total),
-              // use actual treatment price directly to avoid over-attribution
+              // attribute only the own-service share of the PAID money (billingPaid already excludes
+              // the cleared package slice via the EDGE-CASE FIX above), capped at the treatment
+              // price. Fully paid → equals price × quantity (identical to previous behavior);
+              // partially paid → only the paid share is attributed (mirrors byDoctorAgg).
+              // Degenerate originalAmount (≤ 0): keep raw treatment price (previous behavior).
               {
                 $cond: [
                   { $lt: [{ $ifNull: ["$originalAmount", "$amount", 1] }, "$amount"] },
-                  // originalAmount < amount: use actual treatment price (no proportional scaling)
-                  { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                  {
+                    $cond: [
+                      { $lte: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                      {
+                        $min: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          {
+                            $multiply: [
+                              { $ifNull: ["$billingPaid", 0] },
+                              {
+                                $divide: [
+                                  { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                  { $ifNull: ["$originalAmount", "$amount", 1] }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
                   // originalAmount >= amount: use proportional scaling
                   {
                     $multiply: [
@@ -6704,6 +6985,125 @@ export default async function handler(req, res) {
     console.log("[REVENUE_DEBUG] mixedPackageByDoctorAgg results:", JSON.stringify(mixedPackageByDoctorAgg, null, 2));
     console.log("[REVENUE_DEBUG] staffRevenueAgg before merge:", JSON.stringify(staffRevenueAgg, null, 2));
 
+    // NEW PIPELINE: Package portion of Treatment/Service billings that ALSO
+    // sold a package (service "Treatment"/"Service" + non-empty package +
+    // selectedTreatments). Example: a direct-billing agent invoice for a
+    // treatment (NEW1, 500) plus a package (phone, 500), amount/paid 1000.
+    // staffRevenuePipeline only unwinds selectedTreatments, so the package
+    // slice (amount − treatment price sum) never reached Revenue by Staff.
+    // Mirrors mixedPackageByDoctorAgg's proportional packageAmount formula
+    // (uses the Billing's own persisted $paid field, NOT $__effectivePaid).
+    // Guards keep this strictly additive to the reported case:
+    //   - service must be Treatment/Service (Package-service mixed billings
+    //     are handled by mixedPackageByDoctorAgg)
+    //   - no pendingClearedBreakdown (clearance-mixed billings are handled
+    //     by the billingPaid EDGE-CASE FIX in staffRevenuePipeline)
+    //   - invoicedByRole != doctorStaff (mirrors the staff pipeline
+    //     pass-through gate, so doctor-side attribution is unchanged)
+    const mixedPackageByStaffAgg = await Billing.aggregate([
+      { $match: { ...clinicMatch, ...dateMatch } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $in: [{ $ifNull: ["$service", ""] }, ["Treatment", "Service"]] },
+              { $ne: [{ $ifNull: ["$package", ""] }, ""] },
+              { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] } }, 0] },
+              { $lte: [{ $size: { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, { $ifNull: ["$pendingClearedBreakdown", []] }, []] } }, 0] },
+              { $ne: [{ $ifNull: ["$invoicedByRole", ""] }, "doctorStaff"] },
+              { $ne: [{ $ifNull: ["$invoicedById", null] }, null] },
+            ],
+          },
+        },
+      },
+      // Package portion = paid × (originalAmount − treatment price sum) / originalAmount
+      {
+        $addFields: {
+          billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          treatmentAmount: {
+            $sum: {
+              $map: {
+                input: { $cond: [{ $eq: [{ $type: "$selectedTreatments" }, "array"] }, { $ifNull: ["$selectedTreatments", []] }, []] },
+                as: "st",
+                in: {
+                  $multiply: [
+                    { $ifNull: ["$$st.price", 0] },
+                    { $ifNull: ["$$st.quantity", 1] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          packageAmount: {
+            $multiply: [
+              { $ifNull: ["$billingPaid", 0] },
+              {
+                $cond: [
+                  { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                  0,
+                  {
+                    $divide: [
+                      { $subtract: [{ $ifNull: ["$originalAmount", "$amount", 1] }, "$treatmentAmount"] },
+                      { $ifNull: ["$originalAmount", "$amount", 1] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      // Only include if package amount > 0
+      { $match: { packageAmount: { $gt: 0 } } },
+      // Lookup patient for display fields
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$patientId" },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: "$_id" }, { $toString: "$$patientId" }] } } },
+          ],
+          as: "patientInfo",
+        },
+      },
+      { $addFields: { patientInfo: { $arrayElemAt: ["$patientInfo", 0] } } },
+      // Group by invoicedById (the staff member who created the billing)
+      {
+        $group: {
+          _id: "$invoicedById",
+          amount: { $sum: "$packageAmount" },
+          invoices: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patientInfo.firstName", " ", { $ifNull: ["$patientInfo.lastName", ""] }] },
+              emrNumber: "$patientInfo.emrNumber",
+              service: "Package",
+              packageName: "$package",
+              treatmentName: null,
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$packageAmount",
+              paid: "$packageAmount",
+              pending: 0,
+              advance: 0,
+              advanceUsed: 0,
+              claimAmountUsed: 0,
+              cashbackWalletUsed: 0,
+              pendingUsed: 0,
+              pendingClaimUsed: 0,
+              isClearedItem: false,
+            },
+          },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
     // Merge mixed billing package portion into appropriate revenue arrays
     // doctorStaff → Revenue by Doctor, agent → Revenue by Staff
     if (mixedPackageByDoctorAgg.length > 0) {
@@ -6863,6 +7263,77 @@ export default async function handler(req, res) {
         }
       }
     }
+
+    // Merge Treatment+package package portions into Revenue by Staff
+    // (the package was sold by the same staff member who created the billing)
+    if (mixedPackageByStaffAgg.length > 0) {
+      for (const pkgStaffDoc of mixedPackageByStaffAgg) {
+        const existingStaff = staffRevenueAgg.find(s => String(s._id) === String(pkgStaffDoc._id));
+        if (existingStaff) {
+          existingStaff.revenue += pkgStaffDoc.amount;
+          existingStaff.details.push(...pkgStaffDoc.details);
+        } else {
+          staffRevenueAgg.push({
+            _id: pkgStaffDoc._id,
+            revenue: pkgStaffDoc.amount,
+            invoices: pkgStaffDoc.invoices,
+            details: pkgStaffDoc.details,
+          });
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TEMP DEBUG: partial-payment mixed billing attribution trace.
+    // Prints which rows (and amounts) each report section assigns to the
+    // two invoices involved in the partial-payment mixed billing case:
+    //   INV-20261014-628351 (Treatment 200 + package clearance 500, amount
+    //   700, paid 600, pending 100) and PKG-1791974569495-741 (original
+    //   package billing whose pending was cleared).
+    // ─────────────────────────────────────────────────────────────────────
+    const __dbgInvoices = ["INV-20261014-628351", "PKG-1791974569495-741", "INV-20261014-934733"];
+    const __dbgScan = (label, rows, amountKeys) => {
+      try {
+        const hits = [];
+        for (const r of rows || []) {
+          const det = Array.isArray(r?.details)
+            ? r.details.filter((d) => __dbgInvoices.includes(String(d?.invoiceNumber || "")))
+            : [];
+          if (det.length === 0) continue;
+          let amt = 0;
+          for (const k of amountKeys) { if (r?.[k] != null) { amt = r[k]; break; } }
+          hits.push({
+            id: String(r?._id ?? r?.serviceId ?? r?.packageName ?? r?.method ?? ""),
+            groupAmount: amt,
+            matched: det.map((d) => ({
+              invoiceNumber: d.invoiceNumber,
+              service: d.service ?? null,
+              packageName: d.packageName ?? d.package ?? null,
+              treatmentName: d.treatmentName ?? d.treatment ?? null,
+              amount: d.amount ?? d.revenue ?? d.totalAmount ?? null,
+              paid: d.paid ?? null,
+              isClearedItem: d.isClearedItem ?? null,
+            })),
+          });
+        }
+        console.log(`[REVENUE_DEBUG_PARTIAL] ${label} ::`, JSON.stringify(hits));
+      } catch (e) {
+        console.log(`[REVENUE_DEBUG_PARTIAL] ${label} scan failed:`, e?.message);
+      }
+    };
+    __dbgScan("revenueByDoctor(merged)", byDoctorAgg, ["amount"]);
+    __dbgScan("revenueByStaff(merged)", staffRevenueAgg, ["revenue", "amount"]);
+    __dbgScan("selfRefPackageClearanceAgg", selfRefPackageClearanceAgg, ["amount"]);
+    __dbgScan("packageClearanceAgg", packageClearanceAgg, ["amount"]);
+    __dbgScan("unpaidPackageByDoctorAgg", unpaidPackageByDoctorAgg, ["amount"]);
+    __dbgScan("mixedPackageByDoctorAgg", mixedPackageByDoctorAgg, ["amount"]);
+    __dbgScan("mixedTreatmentByDoctorAgg", mixedTreatmentByDoctorAgg, ["revenue", "amount"]);
+    __dbgScan("mixedPackageByStaffAgg", mixedPackageByStaffAgg, ["amount"]);
+    __dbgScan("patientProfilePackageAgg", patientProfilePackageAgg, ["amount"]);
+    __dbgScan("revenueByService", revenueByService, ["amount"]);
+    __dbgScan("revenueByPackage", revenueByPackage, ["amount"]);
+    __dbgScan("revenueByPaymentMethod", revenueByPaymentMethod, ["amount"]);
+    // ─────────────────────────────────────────────────────────────────────
 
     // Build revenueByDoctor AFTER all merges are complete
     const doctorIds = byDoctorAgg.map((d) => d._id).filter(Boolean);

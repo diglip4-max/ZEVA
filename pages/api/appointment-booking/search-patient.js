@@ -9,7 +9,7 @@ import User from "../../../models/Users";
  * patient details when an existing patient is found.
  *
  * Query Params:
- *   - search    (required): Search term (name or phone number, min 2 characters)
+ *   - search    (required): Search term (name or phone number, min 1 character)
  *   - phone     (required, deprecated): Legacy param, same as search
  *   - clinicId  (required): Clinic ID to scope the search
  *   - limit     (optional): Max number of results (default: 10)
@@ -29,10 +29,10 @@ export default async function handler(req, res) {
     const searchTerm = search || phone;
 
     // Validate required params
-    if (!searchTerm || String(searchTerm).trim().length < 2) {
+    if (!searchTerm || String(searchTerm).trim().length < 1) {
       return res.status(400).json({
         success: false,
-        message: "Search term (search or phone) is required (min 2 characters)",
+        message: "Search term (search or phone) is required (min 1 character)",
       });
     }
 
