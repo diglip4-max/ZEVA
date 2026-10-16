@@ -132,6 +132,12 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: "$patientId",
+          // Emit the patient id as an explicit string field. The group key is
+          // `_id`, but the client contract (PatientRow.patientId) and the
+          // /api/clinic/patient-balance/[patientId] lookups need a real
+          // `patientId` on every row — previously it was undefined because
+          // only `_id` was produced.
+          patientId: { $first: { $toString: "$patientId" } },
           patientName: {
             // $let must be nested inside an accumulator ($first) — it cannot
             // sit at the top level of a $group field definition.
@@ -199,16 +205,72 @@ export default async function handler(req, res) {
       { $sort: { totalAdvance: -1 } },
     ]);
 
+    // ==========================================================================
+    // REMAINING ADVANCE BALANCE (batched, replaces the old per-patient
+    // /api/clinic/patient-balance/[patientId] N+1 fetch).
+    // We replicate EXACTLY how that API computes `advanceBalance`:
+    //   match  : { patientId, clinicId, isAdvanceOnly: { $ne: true } }
+    //   sum    : totalAdvanceGenerated += b.advance ; totalAdvanceUsed += b.advanceUsed
+    //   result : max(0, round2(totalAdvanceGenerated - totalAdvanceUsed))
+    // The only change is that we do it for ALL report patients in a single
+    // grouped aggregation (patientId: { $in: [...] }) instead of one query per
+    // patient. Same clinic scoping (clinicMatch) and same isAdvanceOnly guard,
+    // so every figure matches the patient-profile balance card.
+    // ==========================================================================
+    const patientObjectIds = patients
+      .map((p) => p._id)
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(String(id)))
+      .map((id) => new mongoose.Types.ObjectId(String(id)));
+
+    const remainingByPatient = {};
+    if (patientObjectIds.length) {
+      const remainingRows = await Billing.aggregate([
+        {
+          $match: {
+            ...clinicMatch,
+            isAdvanceOnly: { $ne: true },
+            patientId: { $in: patientObjectIds },
+          },
+        },
+        {
+          $group: {
+            _id: "$patientId",
+            totalAdvanceGenerated: { $sum: { $ifNull: ["$advance", 0] } },
+            totalAdvanceUsed: { $sum: { $ifNull: ["$advanceUsed", 0] } },
+          },
+        },
+      ]);
+      remainingRows.forEach((r) => {
+        remainingByPatient[String(r._id)] = Math.max(
+          0,
+          Number(
+            (
+              Number(r.totalAdvanceGenerated || 0) -
+              Number(r.totalAdvanceUsed || 0)
+            ).toFixed(2),
+          ),
+        );
+      });
+    }
+
+    // Attach the remaining balance to each patient row (0 when a patient has
+    // no matching billings — mirrors the patient-balance max(0, ...) floor).
+    patients.forEach((p) => {
+      p.remainingAdvance = remainingByPatient[String(p._id)] ?? 0;
+    });
+
     const totals = patients.reduce(
       (acc, p) => {
         acc.totalAdvance += Number(p.totalAdvance || 0);
+        acc.totalRemaining += Number(p.remainingAdvance || 0);
         acc.totalPatients += 1;
         acc.totalPayments += Number(p.paymentCount || 0);
         return acc;
       },
-      { totalAdvance: 0, totalPatients: 0, totalPayments: 0 },
+      { totalAdvance: 0, totalRemaining: 0, totalPatients: 0, totalPayments: 0 },
     );
     totals.totalAdvance = Number(totals.totalAdvance.toFixed(2));
+    totals.totalRemaining = Number(totals.totalRemaining.toFixed(2));
 
     return res.status(200).json({
       success: true,

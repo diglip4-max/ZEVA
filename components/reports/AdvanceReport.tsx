@@ -45,6 +45,10 @@ type PatientRow = {
   emrNumber: string;
   mobileNumber: string;
   totalAdvance: number;
+  // All-time remaining (available) advance for the patient, computed
+  // server-side in /api/clinic/reports/advance using the exact same
+  // logic as /api/clinic/patient-balance/[patientId] → advanceBalance.
+  remainingAdvance: number;
   paymentCount: number;
   lastPaymentDate: string | null;
   payments: AdvancePayment[];
@@ -233,6 +237,7 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [totals, setTotals] = useState<{
     totalAdvance: number;
+    totalRemaining: number;
     totalPatients: number;
     totalPayments: number;
   } | null>(null);
@@ -573,6 +578,9 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
           <div className="mt-3 text-3xl font-bold text-teal-700">
             {fmtCurrency(totals?.totalAdvance)}
           </div>
+          <div className="mt-1 text-sm font-semibold text-emerald-600">
+            Remaining: {fmtCurrency(totals?.totalRemaining)}
+          </div>
           <div className="mt-3">
             <span className="inline-flex items-center rounded-lg bg-teal-100 px-2.5 py-1 text-[11px] font-semibold text-teal-800">
               Patients: {totals?.totalPatients ?? 0} · Payments:{" "}
@@ -691,6 +699,9 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                 <th className="px-5 py-3 text-right text-xs font-medium text-gray-500">
                   Advance balance
                 </th>
+                <th className="px-5 py-3 text-right text-xs font-medium text-gray-500">
+                  Remaining
+                </th>
                 <th className="w-28 px-5 py-3 text-right text-xs font-medium text-gray-500">
                   Action
                 </th>
@@ -726,6 +737,9 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                   <td className="px-5 py-4 text-right text-base font-bold text-teal-600 whitespace-nowrap">
                     {fmtCurrency(p.totalAdvance)}
                   </td>
+                  <td className="px-5 py-4 text-right text-base font-bold text-emerald-600 whitespace-nowrap">
+                    {fmtCurrency(p.remainingAdvance)}
+                  </td>
                   <td className="px-5 py-4 text-right">
                     <button
                       onClick={() => setSelectedPatient(p)}
@@ -742,7 +756,7 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                 <tr>
                   <td
                     className="px-5 py-8 text-sm text-gray-400 text-center"
-                    colSpan={3}
+                    colSpan={4}
                   >
                     {advanceSearch.trim()
                       ? "No patients match your search."
@@ -760,6 +774,9 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                   </td>
                   <td className="px-5 py-4 text-right text-sm font-bold text-teal-700">
                     {fmtCurrency(totals?.totalAdvance)}
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm font-bold text-emerald-700">
+                    {fmtCurrency(totals?.totalRemaining)}
                   </td>
                   <td />
                 </tr>
@@ -1168,12 +1185,20 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
               </div>
 
               <div className="p-5 overflow-y-auto space-y-4">
-                {/* Summary cards — Total advance + Payments */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Summary cards — Total advance + Remaining + Payments */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 p-5">
                     <div className="text-sm text-gray-500">Total advance</div>
                     <div className="mt-1 text-3xl font-bold text-teal-700">
                       {fmtCurrency(selectedPatient.totalAdvance)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 p-5">
+                    <div className="text-sm text-gray-500">
+                      Remaining balance
+                    </div>
+                    <div className="mt-1 text-3xl font-bold text-emerald-600">
+                      {fmtCurrency(selectedPatient.remainingAdvance)}
                     </div>
                   </div>
                   <div className="rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 p-5">
