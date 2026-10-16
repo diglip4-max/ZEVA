@@ -20,6 +20,11 @@ import {
   EyeOff,
   Upload,
   Search,
+  Briefcase,
+  CreditCard,
+  FileText,
+  Fingerprint,
+  Phone,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -110,6 +115,8 @@ const ManageAgentsPage = () => {
   const [uploadingEmployeeVisaFront, setUploadingEmployeeVisaFront] = useState(false);
   const [uploadingEmployeeVisaBack, setUploadingEmployeeVisaBack] = useState(false);
   const [otherDocsUploading, setOtherDocsUploading] = useState({});
+  // Full-screen image preview for ID / passport / other-document uploads
+  const [previewImage, setPreviewImage] = useState(null);
   const [completionMap, setCompletionMap] = useState({});
   const [agentProfiles, setAgentProfiles] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
@@ -1722,128 +1729,69 @@ const ManageAgentsPage = () => {
 
       {profileAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-gray-500/30 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl rounded-3xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-200/30 bg-white">
+          <div className="relative w-full max-w-3xl rounded-2xl shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-gray-200 bg-white">
             {/* Header Section */}
-            <div className="sticky top-0 bg-white backdrop-blur-xl px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl shadow-lg border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl">
-                  <UserPlus className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
-                  <p className="text-xs text-gray-600 mt-0.5">Manage agent details and documents</p>
-                </div>
+            <div className="sticky top-0 bg-white px-5 py-4 flex items-center justify-between z-10 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Profile</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Manage agent details and documents</p>
               </div>
               <button
                 onClick={() => { setProfileAgent(null); }}
-                className="p-2 hover:bg-gray-100 rounded-xl text-gray-600 hover:text-gray-900 transition-all duration-200 flex-shrink-0 hover:scale-110"
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                 aria-label="Close modal"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content Section */}
-            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gray-50">
-              <div className="space-y-8">
-                {/* Basic Information Section */}
-                <div className="bg-white rounded-2xl border border-teal-100 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
+            <div className="p-4 sm:p-5 flex-1 overflow-y-auto bg-gray-50/70">
+              <div className="space-y-4">
+                {/* Profile Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-4 h-4 text-teal-600" />
                     </div>
-                    <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">Basic Information</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">Profile</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">This is how a guest will see a place here</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={profileForm.name}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                        placeholder="Enter full name"
-                      />
-                    </div>
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4  rounded-full"></span>
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        value={profileForm.email}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        Mobile Number *
-                      </label>
-                      <input
-                        type="tel"
-                        value={profileForm.phone}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                        placeholder="Enter mobile number"
-                      />
-                    </div>
-                    {/* Profile Photo Upload */}
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        Profile Photo
-                      </label>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-gradient-to-br from-teal-50 to-blue-50 border border-teal-200 rounded-xl">
-                        {/* Preview / Avatar — state-based fallback logic, no imperative DOM */}
-                        <div className="relative flex-shrink-0 group/avatar">
-                          {/* Image preview — rendered when photo URL exists AND load has not failed */}
-                          {profileForm.photo && !photoLoadFailed ? (
-                            <div
-                              key={`img-${profileForm.photo}`}
-                              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-2 ring-white shadow-lg border border-teal-200"
-                            >
-                              <img
-                                src={profileForm.photo}
-                                alt="Profile Preview"
-                                className="w-full h-full object-cover"
-                                onLoad={() => setPhotoLoadFailed(false)}
-                                onError={() => setPhotoLoadFailed(true)}
-                              />
-                            </div>
-                          ) : (
-                            <div
-                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-blue-500 flex items-center justify-center text-white ring-4 ring-white shadow-lg"
-                            >
-                              <span className="text-xl sm:text-2xl font-bold">
-                                {(profileForm?.name || 'U').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
+
+                  {/* Photo upload — avatar preview with state-based fallback, no imperative DOM */}
+                  <div className="rounded-xl bg-teal-50/70 border border-teal-100 p-4 mb-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      {profileForm.photo && !photoLoadFailed ? (
+                        <div
+                          key={`img-${profileForm.photo}`}
+                          className="relative h-16 w-16 rounded-full overflow-hidden ring-4 ring-white shadow flex-shrink-0"
+                        >
+                          <img
+                            src={profileForm.photo}
+                            alt="Profile Preview"
+                            className="h-full w-full object-cover"
+                            onLoad={() => setPhotoLoadFailed(false)}
+                            onError={() => setPhotoLoadFailed(true)}
+                          />
                         </div>
-                        {/* Upload controls */}
-                        <div className="flex flex-wrap sm:flex-row items-start sm:items-center gap-2 flex-1 min-w-0">
-                          <label className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 rounded-xl text-xs sm:text-sm font-semibold text-white cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md">
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-teal-500 flex items-center justify-center text-white ring-4 ring-white shadow flex-shrink-0">
+                          <span className="text-xl font-bold">
+                            {(profileForm?.name || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-xs font-semibold text-white cursor-pointer transition-colors shadow-sm">
                             {uploadingPhoto ? (
-                              <span className="animate-pulse flex items-center gap-2">
-                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Uploading...
-                              </span>
+                              <span className="animate-pulse">Uploading...</span>
                             ) : (
                               <>
-                                <Upload className="w-4 h-4" />
-                                <span>Upload Photo</span>
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Upload photo</span>
                               </>
                             )}
                             <input
@@ -1866,242 +1814,291 @@ const ManageAgentsPage = () => {
                                 setPhotoLoadFailed(false);
                                 setProfileForm((f) => ({ ...f, photo: "" }));
                               }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                              className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
                               Remove
                             </button>
                           )}
-                          <p className="text-[10px] sm:text-xs text-teal-700/70 w-full sm:w-auto">
-                            JPG, PNG, WebP up to 10MB
-                          </p>
                         </div>
+                        <p className="mt-2 text-[11px] text-gray-500">JPG, PNG or WebP up to 10 MB</p>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Full name</label>
+                      <input
+                        type="text"
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Email</label>
+                      <input
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Email"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Mobile number</label>
+                      <input
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Mobile number"
+                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Identity Information Section */}
-                <div className="bg-white rounded-2xl border border-teal-100 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.009 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.589l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.009 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" clipRule="evenodd" />
-                      </svg>
+                {/* Identity Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Fingerprint className="w-4 h-4 text-teal-600" />
                     </div>
-                    <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">Identity Information</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">Identity</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Government ID or visa passport for verification</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        ID Type
-                      </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">ID type</label>
                       <select
                         value={profileForm.idType}
                         onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
                       >
                         <option value="aadhaar">Aadhaar</option>
                         <option value="pan">PAN</option>
                         <option value="passport">Passport</option>
                       </select>
                     </div>
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        ID Number
-                      </label>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">ID number</label>
                       <input
                         type="text"
                         value={profileForm.idNumber}
                         onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                        placeholder="Enter ID number"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="ID number"
                       />
                     </div>
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4  rounded-full"></span>
-                        Upload ID Front
-                      </label>
-                      <label className="flex flex-col gap-2 w-full cursor-pointer group/upload">
-                        <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl text-sm font-semibold text-blue-700 group-hover/upload:from-blue-100 group-hover/upload:to-purple-100 group-hover/upload:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md">
-                          {uploadingIdDocFront ? (
-                            <span className="animate-pulse flex items-center gap-2">
-                              <svg className="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Uploading...
-                            </span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 text-blue-600" />
-                              <span className="text-blue-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentFrontUrl: url })), setUploadingIdDocFront);
-                          }}
-                        />
-                        {profileForm.idDocumentFrontUrl && (
-                          <span className="text-xs text-gray-600 truncate px-2">
-                            {getFileNameFromUrl(profileForm.idDocumentFrontUrl)}
-                          </span>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">ID front</label>
+                      <div className="flex items-center gap-2">
+                        {profileForm.idDocumentFrontUrl && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(profileForm.idDocumentFrontUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(profileForm.idDocumentFrontUrl)}
+                            className="flex-shrink-0 rounded-md overflow-hidden border border-teal-200 hover:opacity-80 transition-opacity"
+                            aria-label="Preview ID front"
+                          >
+                            <img src={profileForm.idDocumentFrontUrl} alt="ID front preview" className="h-9 w-9 object-cover" />
+                          </button>
                         )}
-                      </label>
+                        <div className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-xs text-gray-700">
+                            {profileForm.idDocumentFrontUrl ? getFileNameFromUrl(profileForm.idDocumentFrontUrl) : "No file chosen"}
+                          </span>
+                          <label className="flex-shrink-0 cursor-pointer">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md border border-teal-600 text-teal-700 text-[11px] font-semibold hover:bg-teal-600 hover:text-white transition-colors">
+                              {uploadingIdDocFront ? "Uploading..." : "Replace"}
+                            </span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentFrontUrl: url })), setUploadingIdDocFront);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4  rounded-full"></span>
-                        Upload ID Back
-                      </label>
-                      <label className="flex flex-col gap-2 w-full cursor-pointer group/upload">
-                        <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl text-sm font-semibold text-blue-700 group-hover/upload:from-blue-100 group-hover/upload:to-purple-100 group-hover/upload:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md">
-                          {uploadingIdDocBack ? (
-                            <span className="animate-pulse flex items-center gap-2">
-                              <svg className="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Uploading...
-                            </span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 text-blue-600" />
-                              <span className="text-blue-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentBackUrl: url })), setUploadingIdDocBack);
-                          }}
-                        />
-                        {profileForm.idDocumentBackUrl && (
-                          <span className="text-xs text-gray-600 truncate px-2">
-                            {getFileNameFromUrl(profileForm.idDocumentBackUrl)}
-                          </span>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">ID back</label>
+                      <div className="flex items-center gap-2">
+                        {profileForm.idDocumentBackUrl && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(profileForm.idDocumentBackUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(profileForm.idDocumentBackUrl)}
+                            className="flex-shrink-0 rounded-md overflow-hidden border border-teal-200 hover:opacity-80 transition-opacity"
+                            aria-label="Preview ID back"
+                          >
+                            <img src={profileForm.idDocumentBackUrl} alt="ID back preview" className="h-9 w-9 object-cover" />
+                          </button>
                         )}
-                      </label>
+                        <div className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-xs text-gray-700">
+                            {profileForm.idDocumentBackUrl ? getFileNameFromUrl(profileForm.idDocumentBackUrl) : "No file chosen"}
+                          </span>
+                          <label className="flex-shrink-0 cursor-pointer">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md border border-teal-600 text-teal-700 text-[11px] font-semibold hover:bg-teal-600 hover:text-white transition-colors">
+                              {uploadingIdDocBack ? "Uploading..." : "Replace"}
+                            </span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentBackUrl: url })), setUploadingIdDocBack);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Additional Information Section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Additional Information</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Passport details */}
+                  <p className="mt-5 mb-3 text-[11px] font-semibold text-gray-500">Passport details</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Passport Number</label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Passport number</label>
                       <input
                         type="text"
                         value={profileForm.passportNumber}
                         onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                        placeholder="Enter passport number"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Passport number"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport Front</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingPassportDocFront ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentFrontUrl: url })), setUploadingPassportDocFront);
-                          }}
-                        />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.passportDocumentFrontUrl ? getFileNameFromUrl(profileForm.passportDocumentFrontUrl) : "No file chosen"}
-                        </span>
-                      </label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Passport front</label>
+                      <div className="flex items-center gap-2">
+                        {profileForm.passportDocumentFrontUrl && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(profileForm.passportDocumentFrontUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(profileForm.passportDocumentFrontUrl)}
+                            className="flex-shrink-0 rounded-md overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity"
+                            aria-label="Preview passport front"
+                          >
+                            <img src={profileForm.passportDocumentFrontUrl} alt="Passport front preview" className="h-9 w-9 object-cover" />
+                          </button>
+                        )}
+                        <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors flex-1 min-w-0">
+                          <Upload className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-xs text-gray-600">
+                            {uploadingPassportDocFront ? "Uploading..." : profileForm.passportDocumentFrontUrl ? getFileNameFromUrl(profileForm.passportDocumentFrontUrl) : "Choose file"}
+                          </span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentFrontUrl: url })), setUploadingPassportDocFront);
+                            }}
+                          />
+                        </label>
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport Back</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingPassportDocBack ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentBackUrl: url })), setUploadingPassportDocBack);
-                          }}
-                        />
-                        <span className="text-xs text-gray-600 truncate">
-                          {profileForm.passportDocumentBackUrl ? getFileNameFromUrl(profileForm.passportDocumentBackUrl) : "No file chosen"}
-                        </span>
-                      </label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Passport back</label>
+                      <div className="flex items-center gap-2">
+                        {profileForm.passportDocumentBackUrl && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(profileForm.passportDocumentBackUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(profileForm.passportDocumentBackUrl)}
+                            className="flex-shrink-0 rounded-md overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity"
+                            aria-label="Preview passport back"
+                          >
+                            <img src={profileForm.passportDocumentBackUrl} alt="Passport back preview" className="h-9 w-9 object-cover" />
+                          </button>
+                        )}
+                        <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors flex-1 min-w-0">
+                          <Upload className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-xs text-gray-600">
+                            {uploadingPassportDocBack ? "Uploading..." : profileForm.passportDocumentBackUrl ? getFileNameFromUrl(profileForm.passportDocumentBackUrl) : "Choose file"}
+                          </span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentBackUrl: url })), setUploadingPassportDocBack);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-4 h-4 text-teal-600" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Emergency Contact</label>
-                      <input
-                        type="tel"
-                        value={profileForm.emergencyPhone}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                        placeholder="Enter emergency contact"
-                      />
+                      <h3 className="text-sm font-bold text-gray-900">Emergency contact</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Someone we can call if needed</p>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Emergency Name</label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Contact name</label>
                       <input
                         type="text"
                         value={profileForm.emergencyName}
                         onChange={(e) => setProfileForm((f) => ({ ...f, emergencyName: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                        placeholder="Enter emergency contact name"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Contact number</label>
+                      <input
+                        type="tel"
+                        value={profileForm.emergencyPhone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Phone number"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Employment Information Section */}
-                <div className="bg-white rounded-2xl border border-teal-100 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-                      </svg>
+                {/* Employment & Pay Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Briefcase className="w-4 h-4 text-teal-600" />
                     </div>
-                    <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">Employment Information</h3>
-                  </div>
-                  {/* Row 1: Base Salary | Commission Type | Commission Percentage */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Base Salary</label>
+                      <h3 className="text-sm font-bold text-gray-900">Employment &amp; pay</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Contracts, pay and anything about work</p>
+                    </div>
+                  </div>
+                
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Contract type</label>
+                      <select
+                        value={profileForm.contractType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                      >
+                        <option value="full">Full</option>
+                        <option value="part">Part</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Base salary</label>
                       <input
                         type="number"
                         min="0"
@@ -2120,12 +2117,17 @@ const ManageAgentsPage = () => {
                             };
                           });
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                        placeholder="Enter salary"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Base salary"
                       />
                     </div>
+                  </div>
+                
+                  {/* Commission */}
+                  <p className="mt-5 mb-3 text-[11px] font-semibold text-gray-500">Commission</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Type</label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Commission type</label>
                       <select
                         value={profileForm.commissionType}
                         onChange={(e) => {
@@ -2141,7 +2143,7 @@ const ManageAgentsPage = () => {
                             };
                           });
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
                       >
                         <option value="no_commission">No Commission</option>
                         <option value="flat">Flat</option>
@@ -2151,48 +2153,28 @@ const ManageAgentsPage = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Percentage</label>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Commission (%)</label>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={profileForm.commissionPercentage}
                         onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                        placeholder="Enter commission %"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                        placeholder="Commission (%)"
                       />
                     </div>
                   </div>
-
-                  {/* Row 2: Contract Type */}
-                  <div className="grid grid-cols-1 gap-4 mt-4">
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4rounded-full"></span>
-                        Contract Type
-                      </label>
-                      <select
-                        value={profileForm.contractType}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                      >
-                        <option value="full">Full</option>
-                        <option value="part">Part</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Row 3: Discount Type & Discount Amount */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div className="group">
-                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                        <span className="w-1 h-4 rounded-full"></span>
-                        Discount Type
-                      </label>
+                
+                  {/* Discount */}
+                  <p className="mt-5 mb-3 text-[11px] font-semibold text-gray-500">Discount</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Discount type</label>
                       <select
                         value={profileForm.discountType}
                         onChange={(e) => setProfileForm((f) => ({ ...f, discountType: e.target.value, discountAmount: e.target.value === "" ? "" : f.discountAmount }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
                       >
                         <option value="">No Discount</option>
                         <option value="percentage">Percentage</option>
@@ -2200,10 +2182,9 @@ const ManageAgentsPage = () => {
                       </select>
                     </div>
                     {profileForm.discountType && (
-                      <div className="group">
-                        <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
-                          <span className="w-1 h-4 rounded-full"></span>
-                          {profileForm.discountType === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount'}
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1.5">
+                          {profileForm.discountType === 'percentage' ? 'Discount (%)' : 'Discount amount'}
                         </label>
                         <input
                           type="number"
@@ -2211,19 +2192,19 @@ const ManageAgentsPage = () => {
                           step="0.01"
                           value={profileForm.discountAmount}
                           onChange={(e) => setProfileForm((f) => ({ ...f, discountAmount: e.target.value }))}
-                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
-                          placeholder={profileForm.discountType === 'percentage' ? "Enter percentage" : "Enter amount"}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                          placeholder={profileForm.discountType === 'percentage' ? "Discount (%)" : "Discount amount"}
                         />
                       </div>
                     )}
                   </div>
-
+                
                   {/* Target Fields Row */}
                   {(profileForm.commissionType === 'target_based' || profileForm.commissionType === 'target_plus_expense') && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                       <>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Target</label>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Target</label>
                           <select
                             value={profileForm.targetMultiplier}
                             onChange={(e) => {
@@ -2238,7 +2219,7 @@ const ManageAgentsPage = () => {
                                 };
                               });
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
                           >
                             <option value="1">1x</option>
                             <option value="2">2x</option>
@@ -2253,12 +2234,12 @@ const ManageAgentsPage = () => {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Target Amount</label>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Target amount</label>
                           <input
                             type="number"
                             value={profileForm.targetAmount}
                             readOnly
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
                           />
                         </div>
                       </>
@@ -2266,220 +2247,231 @@ const ManageAgentsPage = () => {
                   )}
                 </div>
 
-                {/* Other Document Section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Other Document</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Commented out - Employee Visa Front */}
-                    {/* <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Front</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingEmployeeVisaFront ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: url })), setUploadingEmployeeVisaFront);
-                          }}
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600 truncate">
-                            {profileForm.employeeVisaFrontUrl ? getFileNameFromUrl(profileForm.employeeVisaFrontUrl) : "No file chosen"}
-                          </span>
-                          {profileForm.employeeVisaFrontUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: "" }))}
-                              className="text-xs text-red-600 hover:text-red-700"
-                              aria-label="Clear Employee Visa Front"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      </label>
-                    </div> */}
-                    {/* Commented out - Employee Visa Back */}
-                    {/* <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Back</label>
-                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingEmployeeVisaBack ? (
-                            <span className="animate-pulse text-teal-600">Uploading...</span>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                              <span className="text-teal-600">Choose file</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: url })), setUploadingEmployeeVisaBack);
-                          }}
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600 truncate">
-                            {profileForm.employeeVisaBackUrl ? getFileNameFromUrl(profileForm.employeeVisaBackUrl) : "No file chosen"}
-                          </span>
-                          {profileForm.employeeVisaBackUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: "" }))}
-                              className="text-xs text-red-600 hover:text-red-700"
-                              aria-label="Clear Employee Visa Back"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      </label>
-                    </div> */}
+                {/* Other Documents Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start justify-between gap-3 mb-5">
+                    <div className="flex items-start gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                        <FileStack className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Other documents</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Contracts, notes and anything else as file</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileForm(f => ({
+                          ...f,
+                          otherDocuments: [...(f.otherDocuments || []), { name: "", url: "" }]
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-600 text-teal-700 text-xs font-semibold hover:bg-teal-600 hover:text-white transition-colors flex-shrink-0"
+                    >
+                      + Add document
+                    </button>
                   </div>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs font-medium text-teal-900"></div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileForm(f => ({
-                            ...f,
-                            otherDocuments: [...(f.otherDocuments || []), { name: "", url: "" }]
-                          }));
+
+                  {/* Commented out - Employee Visa Front */}
+                  {/* <div>
+                    <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Front</label>
+                    <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                        {uploadingEmployeeVisaFront ? (
+                          <span className="animate-pulse text-teal-600">Uploading...</span>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                            <span className="text-teal-600">Choose file</span>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: url })), setUploadingEmployeeVisaFront);
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-md hover:bg-gray-800"
-                      >
-                        + Add Document
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {(profileForm.otherDocuments || []).map((doc, idx) => (
-                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
-                          <div className="sm:col-span-4">
-                            <label className="block text-xs font-medium text-teal-700 mb-1.5">Document Name</label>
-                            <input
-                              type="text"
-                              value={doc.name || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setProfileForm(f => {
-                                  const arr = [...(f.otherDocuments || [])];
-                                  arr[idx] = { ...arr[idx], name: val };
-                                  return { ...f, otherDocuments: arr };
-                                });
-                              }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
-                              placeholder="e.g. License, Address Proof"
-                            />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload File</label>
-                            <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
-                              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                                {otherDocsUploading[idx] ? (
-                                  <span className="animate-pulse text-teal-600">Uploading...</span>
-                                ) : (
-                                  <>
-                                    <Upload className="w-4 h-4 mr-2 text-teal-600" />
-                                    <span className="text-teal-600">Choose file</span>
-                                  </>
-                                )}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.employeeVisaFrontUrl ? getFileNameFromUrl(profileForm.employeeVisaFrontUrl) : "No file chosen"}
+                        </span>
+                        {profileForm.employeeVisaFrontUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: "" }))}
+                            className="text-xs text-red-600 hover:text-red-700"
+                            aria-label="Clear Employee Visa Front"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </label>
+                  </div> */}
+                  {/* Commented out - Employee Visa Back */}
+                  {/* <div>
+                    <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Back</label>
+                    <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                        {uploadingEmployeeVisaBack ? (
+                          <span className="animate-pulse text-teal-600">Uploading...</span>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                            <span className="text-teal-600">Choose file</span>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: url })), setUploadingEmployeeVisaBack);
+                        }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.employeeVisaBackUrl ? getFileNameFromUrl(profileForm.employeeVisaBackUrl) : "No file chosen"}
+                        </span>
+                        {profileForm.employeeVisaBackUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: "" }))}
+                            className="text-xs text-red-600 hover:text-red-700"
+                            aria-label="Clear Employee Visa Back"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </label>
+                  </div> */}
+
+                  <div className="space-y-3">
+                    {(profileForm.otherDocuments || []).map((doc, idx) => (
+                      <div key={idx} className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                        <div className="flex-1 min-w-0">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Document name</label>
+                          <input
+                            type="text"
+                            value={doc.name || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProfileForm(f => {
+                                const arr = [...(f.otherDocuments || [])];
+                                arr[idx] = { ...arr[idx], name: val };
+                                return { ...f, otherDocuments: arr };
+                              });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-colors"
+                            placeholder="Document name"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1.5">File</label>
+                          <div className="flex items-center gap-2">
+                            {doc.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(doc.url) && (
+                              <div className="relative flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage(doc.url)}
+                                  className="block rounded-md overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity"
+                                  aria-label="Preview document"
+                                >
+                                  <img src={doc.url} alt={doc.name || "Document preview"} className="h-9 w-9 object-cover" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProfileForm(f => {
+                                      const arr = [...(f.otherDocuments || [])];
+                                      arr[idx] = { ...arr[idx], url: "" };
+                                      return { ...f, otherDocuments: arr };
+                                    });
+                                  }}
+                                  className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 text-[10px] leading-none flex items-center justify-center"
+                                  aria-label="Remove image"
+                                >
+                                  ×
+                                </button>
                               </div>
-                              <input
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    setOtherDocsUploading(s => ({ ...s, [idx]: true }));
-                                    uploadFile(
-                                      file,
-                                      (url) => {
-                                        setProfileForm(f => {
-                                          const arr = [...(f.otherDocuments || [])];
-                                          arr[idx] = { ...arr[idx], url };
-                                          return { ...f, otherDocuments: arr };
-                                        });
-                                      },
-                                      () => setOtherDocsUploading(s => ({ ...s, [idx]: false }))
-                                    );
-                                  }
-                                }}
-                              />
-                              {doc.url && (
-                                <span className="text-xs text-gray-600 truncate">
-                                  {getFileNameFromUrl(doc.url)}
+                            )}
+                            <div className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-2 flex-1 min-w-0">
+                              <FileText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                              <span className="flex-1 min-w-0 truncate text-xs text-gray-700">
+                                {otherDocsUploading[idx] ? "Uploading..." : doc.url ? getFileNameFromUrl(doc.url) : "No file chosen"}
+                              </span>
+                              <label className="flex-shrink-0 cursor-pointer">
+                                <span className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 transition-colors">
+                                  Choose file
                                 </span>
-                              )}
-                              {doc.url && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(doc.url) && (
-                                <div className="mt-1 relative inline-block">
-                                  <img
-                                    src={doc.url}
-                                    alt={doc.name || "Document preview"}
-                                    className="h-16 w-auto rounded border border-gray-200 object-contain"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setProfileForm(f => {
-                                        const arr = [...(f.otherDocuments || [])];
-                                        arr[idx] = { ...arr[idx], url: "" };
-                                        return { ...f, otherDocuments: arr };
-                                      });
-                                    }}
-                                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-white border border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-600 text-xs leading-5 flex items-center justify-center"
-                                    aria-label="Remove image"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              )}
-                            </label>
-                          </div>
-                          <div className="sm:col-span-2 flex items-center mt-6 sm:mt-6">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProfileForm(f => {
-                                  const arr = [...(f.otherDocuments || [])];
-                                  arr.splice(idx, 1);
-                                  return { ...f, otherDocuments: arr };
-                                });
-                                setOtherDocsUploading(s => {
-                                  const n = { ...s };
-                                  delete n[idx];
-                                  return n;
-                                });
-                              }}
-                              className="w-full h-[35px] px-3 py-2 border border-gray-300 rounded-lg text-xs text-red-700 hover:bg-red-50"
-                            >
-                              Remove
-                            </button>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setOtherDocsUploading(s => ({ ...s, [idx]: true }));
+                                      uploadFile(
+                                        file,
+                                        (url) => {
+                                          setProfileForm(f => {
+                                            const arr = [...(f.otherDocuments || [])];
+                                            arr[idx] = { ...arr[idx], url };
+                                            return { ...f, otherDocuments: arr };
+                                          });
+                                        },
+                                        () => setOtherDocsUploading(s => ({ ...s, [idx]: false }))
+                                      );
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-
+                        <div className="flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProfileForm(f => {
+                                const arr = [...(f.otherDocuments || [])];
+                                arr.splice(idx, 1);
+                                return { ...f, otherDocuments: arr };
+                              });
+                              setOtherDocsUploading(s => {
+                                const n = { ...s };
+                                delete n[idx];
+                                return n;
+                              });
+                            }}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors px-1 py-2"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* Bank Permissions Section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Bank Permissions</h3>
-                  <div className="space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-start gap-3 mb-5">
+                    <div className="h-9 w-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-4 h-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">Bank permissions</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Payout method the Agent can use</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
                     {clinicBankDetails?.card?.enabled && (
                       <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div>
@@ -2601,18 +2593,18 @@ const ManageAgentsPage = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => { setProfileAgent(null); }}
-                    className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="px-5 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={saveProfile}
-                    className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
+                    className="px-5 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
                   >
                     Save Changes
                   </button>
@@ -2620,6 +2612,28 @@ const ManageAgentsPage = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {/* Image preview lightbox for ID / passport / other-document uploads */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/25 rounded-full text-white transition-colors"
+            aria-label="Close preview"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Document preview"
+            className="max-h-[85vh] max-w-full rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
       {viewAgent && (

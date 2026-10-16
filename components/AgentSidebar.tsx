@@ -446,6 +446,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
     "Track-Members": "clinic_Track",
     "Track Members": "clinic_Track",
     "Create Agent": "clinic_create_agent",
+    "Create Members": "clinic_create_agent",
     "Create Lead": "clinic_create_lead",
     Inbox: "clinic_inbox",
     "Email Inbox": "clinic_email_inbox",
@@ -1127,7 +1128,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   "users",
                 ),
                 pickChild("Membership"),
-                pickTop("Create Agent"),
+                pickTop("Create Members"),
               ),
             },
             {
