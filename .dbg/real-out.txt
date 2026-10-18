@@ -1,0 +1,26 @@
+mongo connected
+DECRYPT OK — lastSyncedAt: "2026-06-22T06:47:03.416Z" | lastSyncError: undefined
+imapHost: mail.ramacarepolyclinic.com | imapPort: 993 (number) | user: query@ramacarepolyclinic.com | secure: true | passLen: 16
+=== IMAP CONNECT === port: 993 secure: true
+CONNECT OK
+MAILBOXES: INBOX | INBOX.Sent | INBOX.Drafts | INBOX.Archive | INBOX.spam | INBOX.Trash | INBOX.Junk
+[INBOX] exists=6829 | from-diglip4=0 | body-HIIIIIIIII=0
+[INBOX.Sent] exists=198 | from-diglip4=0 | body-HIIIIIIIII=0
+[INBOX.Drafts] exists=17 | from-diglip4=0 | body-HIIIIIIIII=0
+[INBOX.Archive] exists=0 | from-diglip4=0 | body-HIIIIIIIII=0
+[INBOX.spam] exists=2587 | from-diglip4=4 | body-HIIIIIIIII=1
+    HIT: diglip4@gmail.com | ***SPAM*** Re: (no subject) | "2026-10-17T04:58:39.000Z"
+    HIT: diglip4@gmail.com | ***SPAM*** Re: (no subject) | "2026-10-17T05:01:45.000Z"
+    HIT: diglip4@gmail.com | ***SPAM*** | "2026-10-17T05:19:57.000Z"
+    HIT: diglip4@gmail.com | ***SPAM*** Re: (no subject) | "2026-10-17T07:55:27.000Z"
+[INBOX.Trash] exists=51 | from-diglip4=0 | body-HIIIIIIIII=0
+[INBOX.Junk] exists=0 | from-diglip4=0 | body-HIIIIIIIII=0
+INBOX exists: 6829 recent: undefined
+seq 6824 uid 6881 | from: homakhadka5@gmail.com | subj: Aesthetic Experience Assistant Nurse-DHA LICENSED | date: "2026-10-16T18:49:05.000Z"
+seq 6825 uid 6882 | from: homakhadka5@gmail.com | subj: Aesthetic Experience Assistant Nurse-DHA LICENSED | date: "2026-10-17T06:02:50.000Z"
+seq 6826 uid 6883 | from: geetu2390@gmail.com | subj: Laser & Aesthetic Assistant Nurse - job application | date: "2026-10-17T07:05:23.000Z"
+seq 6827 uid 6884 | from: gavinliu@ofindit.cn | subj: Self-ligating bracket evaluation kit - US$159 delivered to Dubai | date: "2026-10-17T02:00:02.000Z"
+seq 6828 uid 6885 | from: no-reply@messaging.metamail.com | subj: Get more out of WhatsApp with Meta One | date: "2026-10-17T03:30:37.000Z"
+seq 6829 uid 6886 | from: query@ramacarepolyclinic.com | subj: Re: Explanation Regarding Missing Data in Our Clinic Software | date: "2026-10-17T04:54:30.000Z"
+IMAP DIAGNOSTIC COMPLETED SUCCESSFULLY
+DONE

@@ -1,0 +1,8 @@
+using ENCRYPTION_KEY len: 44
+mongo connected
+RAW doc keys: _id,clinicId,userId,name,label,email,status,type,emailProviderType,emailType,lastSyncedAt,isActive,inboxAutomation,createdAt,updatedAt,_ct,_ac,__v,owners
+raw.secrets: undefined
+raw._secrets: undefined
+raw._ac present: true raw._ct present: true
+ERROR: Authentication failed
+DONE

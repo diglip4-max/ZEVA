@@ -1,0 +1,15 @@
+ENCRYPTION_KEY len: 44 | SIGNING_KEY len: 88
+mongo connected
+raw _ct type: object | _ct keys: sub_type,buffer,position | _ac type: object
+total providers for clinic: 10
+-  | created "2026-01-24T13:43:52.601Z" | FAILED: Authentication failed
+-  | created "2026-02-13T05:14:28.613Z" | FAILED: Authentication failed
+- query@ramacarepolyclinic.com | created "2026-06-22T06:47:03.418Z" | FAILED: Authentication failed
+- director@ramacarepolyclinic.com | created "2026-08-06T12:07:57.292Z" | FAILED: Authentication failed
+- bills@ramacarepolyclinic.com | created "2026-08-17T09:09:11.371Z" | FAILED: Authentication failed
+- aiza@ramacarepolyclinic.ae | created "2026-09-04T07:03:04.632Z" | FAILED: Authentication failed
+- hannie@ramacarepolyclinic.ae | created "2026-09-04T07:07:00.124Z" | FAILED: Authentication failed
+- mimi@ramacarepolyclinic.ae | created "2026-09-08T13:53:51.770Z" | FAILED: Authentication failed
+- anusha@ramacarepolyclinic.com | created "2026-10-05T09:27:54.797Z" | FAILED: Authentication failed
+- shamna@ramacarepolyclinic.com | created "2026-10-06T12:03:07.104Z" | FAILED: Authentication failed
+DONE

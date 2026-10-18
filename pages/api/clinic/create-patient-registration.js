@@ -1733,19 +1733,134 @@ export default async function handler(req, res) {
       return { enabled: false };
     };
 
+    // Determine the actual commission earner whose bank permissions gate deductions:
+    // - directBilling === true  → the invoicedBy person (clinicUser) earns the commission
+    // - directBilling === false → the appointment doctor earns the commission
+    // Both agent and doctorStaff profiles are stored in AgentProfile, filtered by userId.
+    const bankPermissionUserId = directBilling
+      ? clinicUser?._id
+      : appointment?.doctorId;
+
+    // Fetch the earner's bank permissions once so multi-pay deductions can be filtered
+    // per payment method (deduct only on the methods the earner actually permits).
+    let earnerBankPermissions = null;
+    if (bankPermissionUserId) {
+      try {
+        const earnerProfile = await AgentProfile.findOne({
+          userId: bankPermissionUserId,
+        }).lean();
+        if (earnerProfile && earnerProfile.bankPermissions) {
+          earnerBankPermissions = earnerProfile.bankPermissions;
+        }
+      } catch (err) {
+        // console.error("[CreatePatientRegistration] Error getting earner bank permissions:", err);
+      }
+    }
+
+    const bankPermissionMethodMap = {
+      Card: "card",
+      "Bank Transfer": "bankTransfer",
+      BT: "bankTransfer",
+      Tabby: "tabby",
+      Tamara: "tamara",
+    };
+    // Returns true when a bank deduction may be applied for this payment method.
+    // Non-bank methods and missing profiles default to permitted to preserve
+    // existing behaviour; only an explicit `false` blocks the deduction.
+    const isMethodPermitted = (paymentMethodName) => {
+      if (!earnerBankPermissions) return true;
+      const key = bankPermissionMethodMap[paymentMethodName];
+      if (!key) return true;
+      return earnerBankPermissions[key] !== false;
+    };
+
     // Get the selected payment method's bank details (handle multiple payments)
     let selectedBankPaymentDetails = { enabled: false };
     // console.log("=== BANK DETAILS DEBUGGING ===");
     if (multiPayArr.length > 0) {
-      // console.log("Checking bank details for multiple payments");
-      // For multiple payments, check each payment method and use the first one with enabled bank details
-      // Or if you need to apply deductions for all, we'll adjust, but let's start with checking all
-      for (const mp of multiPayArr) {
-        const mpBankDetails = getBankPaymentDetails(mp.paymentMethod);
-        if (mpBankDetails.enabled) {
-          selectedBankPaymentDetails = mpBankDetails;
+      // For multiple payments, aggregate the bank deductions so that each payment
+      // method's bank deduction is applied ONLY to the portion of the total that was
+      // actually paid through that method (e.g. Card 400 with a 10% deduction should
+      // deduct 10% of 400, not 10% of the whole bill when the rest was paid via a
+      // non-deducted method such as "Package Full Paid").
+      const totalMultiPayAmount = multiPayArr.reduce(
+        (sum, mp) => sum + (parseFloat(mp.amount) || 0),
+        0,
+      );
 
-          break; // Use first one with enabled details for now (can adjust later if needed)
+      if (totalMultiPayAmount > 0) {
+        let hasEnabledMethod = false;
+        let weightedPercentNumerator = 0; // Sum of (methodAmount x percentageValue)
+        let flatDeductionTotal = 0; // Sum of flat values across enabled methods
+        let dominantApplyOn = null; // applyOn of the largest deducted method
+        let dominantApplyOnAmount = -1;
+        let hasPercentageMethod = false;
+        let hasFlatMethod = false;
+
+        for (const mp of multiPayArr) {
+          const mpBankDetails = getBankPaymentDetails(mp.paymentMethod);
+          if (!mpBankDetails || !mpBankDetails.enabled) continue;
+          // Skip methods the earner has NOT permitted: their share simply gets no
+          // deduction, while permitted methods still deduct on their own portion.
+          if (!isMethodPermitted(mp.paymentMethod)) continue;
+
+          hasEnabledMethod = true;
+          const mpAmount = parseFloat(mp.amount) || 0;
+
+          // Choose the applyOn belonging to the largest deducted portion
+          if (mpAmount > dominantApplyOnAmount) {
+            dominantApplyOnAmount = mpAmount;
+            dominantApplyOn = mpBankDetails.applyOn;
+          }
+
+          if (mpBankDetails.type === "percentage") {
+            hasPercentageMethod = true;
+            weightedPercentNumerator +=
+              mpAmount * (Number(mpBankDetails.value) || 0);
+          } else if (mpBankDetails.type === "flat") {
+            hasFlatMethod = true;
+            flatDeductionTotal += Number(mpBankDetails.value) || 0;
+          }
+        }
+
+        if (hasEnabledMethod) {
+          if (hasPercentageMethod && !hasFlatMethod) {
+            // Only percentage deductions: blend into an effective percentage of the
+            // total payment so each method's rate applies to its own portion.
+            const effectivePercent = weightedPercentNumerator / totalMultiPayAmount;
+            if (effectivePercent > 0) {
+              selectedBankPaymentDetails = {
+                enabled: true,
+                type: "percentage",
+                value: effectivePercent,
+                applyOn: dominantApplyOn || "earned",
+              };
+            }
+          } else if (!hasPercentageMethod && hasFlatMethod) {
+            // Only flat deductions: sum the fixed flat amounts across enabled methods.
+            if (flatDeductionTotal > 0) {
+              selectedBankPaymentDetails = {
+                enabled: true,
+                type: "flat",
+                value: flatDeductionTotal,
+                applyOn: dominantApplyOn || "earned",
+              };
+            }
+          } else {
+            // Mixed flat + percentage: convert everything into an effective percentage
+            // of the total payment so the aggregate deduction is preserved.
+            const effectivePercent =
+              (weightedPercentNumerator + flatDeductionTotal * 100) /
+              totalMultiPayAmount;
+            if (effectivePercent > 0) {
+              selectedBankPaymentDetails = {
+                enabled: true,
+                type: "percentage",
+                value: effectivePercent,
+                applyOn: dominantApplyOn || "earned",
+              };
+            }
+          }
         }
       }
     } else if (paymentMethod) {
@@ -1754,49 +1869,16 @@ export default async function handler(req, res) {
 
     // console.log("[CreatePatientRegistration] Selected bank payment details (clinic-level):", selectedBankPaymentDetails);
 
-    // Check if we have a doctor/agent, get their bank permissions (handle multiple payments)
-    if (appointment?.doctorId && selectedBankPaymentDetails.enabled) {
-      // console.log("[CreatePatientRegistration] Checking agent/doctor bank permissions for doctorId:", appointment.doctorId);
-      try {
-        const agentProfile = await AgentProfile.findOne({
-          userId: appointment.doctorId,
-        });
-        // console.log("[CreatePatientRegistration] Fetched agent profile:", agentProfile);
-        if (agentProfile && agentProfile.bankPermissions) {
-          const methodMap = {
-            Card: "card",
-            "Bank Transfer": "bankTransfer",
-            BT: "bankTransfer",
-            Tabby: "tabby",
-            Tamara: "tamara",
-          };
-
-          let allPermissionsEnabled = true;
-          if (multiPayArr.length > 0) {
-            // For multiple payments, check all payment methods
-            for (const mp of multiPayArr) {
-              const key = methodMap[mp.paymentMethod];
-              if (key && agentProfile.bankPermissions[key] === false) {
-                allPermissionsEnabled = false;
-                break;
-              }
-            }
-          } else {
-            // Single payment method check
-            const key = methodMap[paymentMethod];
-            if (key && agentProfile.bankPermissions[key] === false) {
-              allPermissionsEnabled = false;
-            }
-          }
-
-          if (!allPermissionsEnabled) {
-            // console.log("[CreatePatientRegistration] Doctor/agent has bank permission disabled for this method, disabling globally");
-            selectedBankPaymentDetails = { enabled: false };
-          }
-        }
-      } catch (err) {
-        // console.error("[CreatePatientRegistration] Error getting agent profile for bank permissions:", err);
-      }
+    // Single-payment bank-permission gate: if the earner has disabled the bank
+    // permission for the one payment method used, drop the deduction entirely.
+    // (For multiple payments the per-method permission filtering is already applied
+    //  inside the aggregation loop above, so no blanket disable is needed there.)
+    if (
+      multiPayArr.length === 0 &&
+      selectedBankPaymentDetails.enabled &&
+      !isMethodPermitted(paymentMethod)
+    ) {
+      selectedBankPaymentDetails = { enabled: false };
     }
     //console.log("[CreatePatientRegistration] Final selected bank payment details:", selectedBankPaymentDetails);
     const earnedAmountForCommission = amountNum; // Amount before any deductions

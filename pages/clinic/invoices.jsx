@@ -14,6 +14,11 @@ import {
   Clock,
   User,
   Lock,
+  Calendar,
+  Layers,
+  Banknote,
+  Activity,
+  Settings,
 } from "lucide-react";
 import AppointmentBillingModal from "../../components/AppointmentBillingModal";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
@@ -453,22 +458,22 @@ function InvoicesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-green-50" style={{ width: '100%', padding: '0', margin: '0' }}>
+    <div className="min-h-screen bg-gray-50" style={{ width: '100%', padding: '0', margin: '0' }}>
       {!permissionsLoaded ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <p className="text-sm text-green-700">Loading permissions...</p>
+          <p className="text-sm text-gray-500">Loading permissions...</p>
         </div>
       ) : !permissions.canRead ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-red-600" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center max-w-md">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-red-500" />
             </div>
-            <h2 className="text-xl font-bold text-green-900 mb-2">Access Denied</h2>
-            <p className="text-sm text-green-700 mb-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-sm text-gray-600 mb-4">
               You do not have permission to view patient invoices.
             </p>
-            <p className="text-xs text-green-600">
+            <p className="text-xs text-gray-500">
               Please contact your administrator to request access to the Invoices module.
             </p>
           </div>
@@ -478,40 +483,44 @@ function InvoicesPage() {
           <div className="p-2 sm:p-3 md:p-4 lg:p-6" style={{ width: '100%', minWidth: '100%' }}>
             <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
               {/* Header Section */}
-              <div className="bg-white rounded-2xl shadow-lg border border-green-100 mb-1 sm:mb-2 overflow-hidden">
-                <div className="bg-gradient-to-r from-green-500 to-green-500 px-4 sm:px-6 py-4 sm:py-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-1 sm:mb-2 overflow-hidden">
+                <div className="px-4 sm:px-6 pt-5 pb-2">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
-                        <FileText className="h-7 w-7 sm:h-8 sm:w-8" />
-                        Patient Invoices
-                      </h1>
-                      <p className="text-green-100 mt-1 text-sm sm:text-base">
-                        Manage and view invoices for patient complaints
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                          Patient Invoices
+                        </h1>
+                        <p className="text-gray-500 mt-0.5 text-sm">
+                          Manage and view invoices for patient complaints
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="inline-flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl transition-all duration-300 border border-white/30 backdrop-blur-sm shadow-sm"
+                        className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg transition-colors duration-200 shadow-sm"
                       >
-                        <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="font-medium text-sm">{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                        <Filter className="h-4 w-4" />
+                        <span className="font-semibold text-sm">{showFilters ? "Hide Filters" : "Show Filters"}</span>
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="px-4 sm:px-6 py-4 sm:py-5">
+                <div className="px-4 sm:px-6 py-4">
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-green-400 w-5 h-5" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
                       placeholder="Search by patient name, EMR number or mobile..."
                       value={pendingFilters.search}
                       onChange={(e) => handleFilterChange("search", e.target.value)}
                       onKeyDown={handleSearchKeyDown}
-                      className="w-full pl-12 pr-6 py-3 text-sm border-2 border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
+                      className="w-full pl-11 pr-4 py-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white placeholder-gray-400 transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -520,133 +529,126 @@ function InvoicesPage() {
 
               {/* Filters Section */}
               {showFilters && (
-                <div className="bg-white rounded-2xl shadow-lg border border-green-100 mb-4 sm:mb-6 p-4 sm:p-6 ">
-                  <div className=" rounded-xl p-4 sm:p-5 border border-green-100">
-                    <h3 className="text-sm font-semibold text-green-900 dark:text-white mb-4 flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      Filter Options
-                    </h3>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-gray-500" />
+                    Filter Options
+                  </h3>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                      <div
-                        className="cursor-pointer"
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    <div
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        try {
+                          const input = e.currentTarget.querySelector('input[type="date"]');
+                          if (input) input.showPicker();
+                        } catch (err) { }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5 cursor-pointer">
+                        From Date
+                      </label>
+                      <input
+                        type="date"
+                        value={pendingFilters.fromDate}
+                        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
                         onClick={(e) => {
-                          try {
-                            const input = e.currentTarget.querySelector('input[type="date"]');
-                            if (input) input.showPicker();
-                          } catch (err) { }
+                          e.stopPropagation();
+                          try { e.target.showPicker(); } catch { }
                         }}
-                      >
-                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider cursor-pointer">
-                          From Date
-                        </label>
-                        <input
-                          type="date"
-                          value={pendingFilters.fromDate}
-                          onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            try { e.target.showPicker(); } catch { }
-                          }}
-                          className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200 cursor-pointer"
-                        />
-                      </div>
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white transition-all duration-200 cursor-pointer"
+                      />
+                    </div>
 
-                      <div
-                        className="cursor-pointer"
+                    <div
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        try {
+                          const input = e.currentTarget.querySelector('input[type="date"]');
+                          if (input) input.showPicker();
+                        } catch (err) { }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5 cursor-pointer">
+                        To Date
+                      </label>
+                      <input
+                        type="date"
+                        value={pendingFilters.toDate}
+                        onChange={(e) => handleFilterChange("toDate", e.target.value)}
                         onClick={(e) => {
-                          try {
-                            const input = e.currentTarget.querySelector('input[type="date"]');
-                            if (input) input.showPicker();
-                          } catch (err) { }
+                          e.stopPropagation();
+                          try { e.target.showPicker(); } catch { }
                         }}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white transition-all duration-200 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Doctor
+                      </label>
+
+                      <select value={pendingFilters.doctorId}
+                        onChange={(e) => handleFilterChange("doctorId", e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white transition-all duration-200" >
+                        <option value="">All Doctors</option>
+                        {doctors.map((doc) => (<option key={doc._id} value={doc._id}> {doc.name}
+
+                        </option>))}
+                      </select>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Status
+                      </label>
+                      <select
+                        value={pendingFilters.status}
+                        onChange={(e) => handleFilterChange("status", e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white transition-all duration-200"
                       >
-                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider cursor-pointer">
-                          To Date
-                        </label>
-                        <input
-                          type="date"
-                          value={pendingFilters.toDate}
-                          onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            try { e.target.showPicker(); } catch { }
-                          }}
-                          className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200 cursor-pointer"
-                        />
-                      </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider">
-                          Doctor
-                        </label>
+                        <option value="">All Status</option>
 
-                        <select value={pendingFilters.doctorId}
-                          onChange={(e) => handleFilterChange("doctorId", e.target.value)} className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200" >
-                          <option value="">All Doctors</option>
-                          {doctors.map((doc) => (<option key={doc._id} value={doc._id}> {doc.name}
+                        {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Invoice Status
+                      </label>
+                      <select
+                        value={pendingFilters.isInvoiced}
+                        onChange={(e) => handleFilterChange("isInvoiced", e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 bg-white transition-all duration-200"
+                      >
+                        <option value="">All Invoice Status</option>
 
-                          </option>))}
-                        </select>
-                      </div>
-
-                      {/* Status */}
-                      <div>
-                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider">
-                          Status
-                        </label>
-                        <select
-                          value={pendingFilters.status}
-                          onChange={(e) => handleFilterChange("status", e.target.value)}
-                          className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
-                        >
-
-                          <option value="">All Status</option>
-
-                          {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider">
-                          Invoice Status
-                        </label>
-                        <select
-                          value={pendingFilters.isInvoiced}
-                          onChange={(e) => handleFilterChange("isInvoiced", e.target.value)}
-                          className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
-                        >
-                          <option value="">All Invoice Status</option>
-
-                          {Invoiced__options.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
+                        {Invoiced__options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                   </div>
 
-
-
-
-
-                  <div className="mt-6 flex justify-end gap-3">
+                  <div className="mt-5 flex justify-end gap-3">
                     <button
                       onClick={clearFilters}
-                      className="px-5 py-2.5 text-sm text-green-700 bg-white border-2 border-green-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all duration-200 font-medium"
+                      className="px-5 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium"
                     >
                       Clear All
                     </button>
                     <button
                       onClick={applyFilters}
-                      className="px-5 py-2.5 text-sm text-white bg-gradient-to-r from-green-600 to-green-600 border-2 border-green-600 rounded-lg hover:from-green-700 hover:to-green-700 hover:border-green-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
+                      className="px-5 py-2.5 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all duration-200 font-semibold shadow-sm"
                     >
                       Apply Filters
                     </button>
@@ -656,9 +658,9 @@ function InvoicesPage() {
 
               )}
 
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm mb-4 sm:mb-6 relative z-20">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                  Today's Status:
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm mb-4 sm:mb-6 relative z-20">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">
+                  Today's Status
                 </h3>
 
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -671,31 +673,35 @@ function InvoicesPage() {
                         setOpenActionMenu(null);
                         setActiveCard(activeCard === "pending" ? null : "pending");
                       }}
-                      className="w-full sm:w-auto flex items-center justify-center gap-3 px-4 sm:px-6 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100"
+                      className="w-full sm:w-80 flex items-center gap-3 px-4 py-3 rounded-xl border border-purple-100 bg-purple-50 hover:bg-purple-100 transition-colors"
                     >
-                      <span className="text-purple-700 dark:text-teal-100 font-semibold">
-                        Pending Amount
+                      <span className="w-10 h-10 rounded-lg bg-white/80 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-5 w-5 text-purple-600" />
                       </span>
-
-                      <span className="text-purple-700 dark:text-teal-100 font-bold">
-                        {pendingPatients.length}
+                      <span className="text-left">
+                        <span className="block text-xs font-semibold text-purple-800">
+                          Pending Amount
+                        </span>
+                        <span className="block text-xl font-bold text-purple-900 mt-0.5">
+                          {pendingPatients.length}
+                        </span>
                       </span>
                     </button>
 
                     {activeCard === "pending" && (
-                      <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border z-[9999]">
+                      <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999]">
 
-                        <div className="flex justify-between px-4 py-3 border-b bg-gray-50">
-                          <span className="font-semibold">
+                        <div className="flex justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+                          <span className="font-semibold text-gray-900">
                             Pending Amount
                           </span>
 
-                          <span>{pendingPatients.length} records</span>
+                          <span className="text-gray-600">{pendingPatients.length} records</span>
                         </div>
 
                         <div className="max-h-60 overflow-y-auto">
                           {pendingPatients.map((item) => (
-                            <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t">
+                            <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t border-gray-100">
                               <div className="text-sm font-medium text-gray-900">
                                 {item.patientName}
                               </div>
@@ -720,31 +726,35 @@ function InvoicesPage() {
                         setOpenActionMenu(null);
                         setActiveCard(activeCard === "advance" ? null : "advance");
                       }}
-                      className="w-full sm:w-auto flex items-center justify-center gap-3 px-4 sm:px-6 py-2 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100"
+                      className="w-full sm:w-80 flex items-center gap-3 px-4 py-3 rounded-xl border border-green-100 bg-green-50 hover:bg-green-100 transition-colors"
                     >
-                      <span className="text-teal-700 font-semibold">
-                        Advance Amount
+                      <span className="w-10 h-10 rounded-lg bg-white/80 flex items-center justify-center flex-shrink-0">
+                        <Banknote className="h-5 w-5 text-green-600" />
                       </span>
-
-                      <span className="text-teal-700 font-bold">
-                        {advancePatients.length}
+                      <span className="text-left">
+                        <span className="block text-xs font-semibold text-green-800">
+                          Advance Amount
+                        </span>
+                        <span className="block text-xl font-bold text-green-900 mt-0.5">
+                          {advancePatients.length}
+                        </span>
                       </span>
                     </button>
 
                     {activeCard === "advance" && (
-                      <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border z-[9999]">
+                      <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999]">
 
-                        <div className="flex justify-between px-4 py-3 border-b bg-gray-50">
-                          <span className="font-semibold">
+                        <div className="flex justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+                          <span className="font-semibold text-gray-900">
                             Advance Amount
                           </span>
 
-                          <span>{advancePatients.length} records</span>
+                          <span className="text-gray-600">{advancePatients.length} records</span>
                         </div>
 
                         <div className="max-h-60 overflow-y-auto">
                           {advancePatients.map((item) => (
-                            <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t">
+                            <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t border-gray-100">
                               <div className="text-sm font-medium text-gray-900">
                                 {item.patientName}
                               </div>
@@ -763,27 +773,18 @@ function InvoicesPage() {
                 </div>
               </div>
 
-              {/* Summary Stats */}
-              <div className="mb-0 mt-3 sm:mb-3 text-sm text-green-700 dark:text-teal-100 bg-white px-4 py-3 rounded-xl shadow-sm border border-green-100 flex items-center gap-2">
-                <span className="font-semibold">Showing</span>
-                <span className="font-bold text-green-900 dark:text-teal-100">{complaints.length}</span>
-                <span>of</span>
-                <span className="font-bold text-green-900 dark:text-teal-100">{total}</span>
-                <span>complaints</span>
-              </div>
-
               {/* Loading State */}
               {loading ? (
-                <div className="min-h-[400px]  bg-white rounded-2xl shadow-lg border border-green-100 flex items-center justify-center p-12">
+                <div className="min-h-[400px] bg-white rounded-xl shadow-sm border border-gray-200 flex items-center justify-center p-12">
                   <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
-                    <p className="text-green-700 text-lg font-medium">Loading invoices...</p>
+                    <div className="w-12 h-12 border-4 border-gray-200 border-t-green-600 rounded-full animate-spin"></div>
+                    <p className="text-gray-600 text-lg font-medium">Loading invoices...</p>
                   </div>
                 </div>
               ) : error ? (
-                <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-2xl p-8 shadow-lg">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-8 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <AlertTriangle className="h-8 w-8 text-red-600 flex-shrink-0" />
+                    <AlertTriangle className="h-8 w-8 text-red-500 flex-shrink-0" />
                     <div>
                       <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Invoices</h3>
                       <p className="text-red-700">{error}</p>
@@ -791,14 +792,14 @@ function InvoicesPage() {
                   </div>
                 </div>
               ) : complaints.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-lg border border-green-100 p-12 text-center">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <div className="flex flex-col items-center gap-4">
-                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center">
-                      <FileText className="h-10 w-10 text-green-400" />
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center">
+                      <FileText className="h-10 w-10 text-gray-400" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-green-900 mb-2">No Invoices Found</h3>
-                      <p className="text-green-600">There are no complaints matching your criteria.</p>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Invoices Found</h3>
+                      <p className="text-gray-500">There are no complaints matching your criteria.</p>
                     </div>
                   </div>
                 </div>
@@ -813,13 +814,17 @@ function InvoicesPage() {
 
               ) : (
                 /* Main Content Section */
-                <div className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {/* Card Header: Showing count + scroll hint */}
+                  <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+                    <div className="text-sm text-gray-500">
+                      Showing <span className="font-bold text-gray-900">{complaints.length}</span> of <span className="font-bold text-gray-900">{total}</span> complaints
+                    </div>
+                    <span className="hidden md:inline text-xs text-gray-400">← Scroll horizontally to view all columns →</span>
+                  </div>
+
                   {/* Desktop Table View */}
                   <div className="hidden lg:block">
-                    <div className="px-6 py-3 bg-gradient-to-r from-green-50 to-green-50 border-b border-green-100 text-xs sm:text-sm text-green-700 flex items-center justify-center gap-2">
-                      <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
-                      <span className="hidden sm:inline md:hidden">← Scroll to view all →</span>
-                    </div>
 
                     <div className="overflow-x-auto w-full">
                       <div
@@ -829,7 +834,7 @@ function InvoicesPage() {
                           maxHeight: '500px',
                           WebkitOverflowScrolling: 'touch',
                           scrollbarWidth: 'thin',
-                          scrollbarColor: '#4f46e5 #f1f1f1',
+                          scrollbarColor: '#9ca3af #f9fafb',
                           width: '100%',
                           minWidth: '1400px',
                           display: 'block',
@@ -837,43 +842,58 @@ function InvoicesPage() {
                         }}
                       >
                         <table className="w-full min-w-full" style={{ minWidth: '1400px', tableLayout: 'auto' }}>
-                          <thead className="bg-gradient-to-r from-green-600 to-green-600 text-white sticky top-0 z-10">
+                          <thead className="bg-gray-50 text-gray-500 border-y border-gray-200 sticky top-0 z-10">
                             <tr>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[180px]">
                                 <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4" />
+                                  <User className="h-3.5 w-3.5" />
                                   Patient Details
                                 </div>
                               </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[180px]">
                                 Doctor
                               </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                                Appointment Time
-                              </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                                Services
-                              </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                                Complaint Note
-                              </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[200px]">
                                 <div className="flex items-center gap-2">
-
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  Appointment Time
+                                </div>
+                              </th>
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[200px]">
+                                <div className="flex items-center gap-2">
+                                  <Layers className="h-3.5 w-3.5" />
+                                  Services
+                                </div>
+                              </th>
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[200px]">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-3.5 w-3.5" />
+                                  Complaint Note
+                                </div>
+                              </th>
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-3.5 w-3.5" />
                                   Pending Amount
                                 </div>
                               </th>
-                              <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
                                 <div className="flex items-center gap-2">
-
+                                  <Banknote className="h-3.5 w-3.5" />
                                   Advance Amount
                                 </div>
                               </th>
-                              <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
-                                Status
+                              <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Activity className="h-3.5 w-3.5" />
+                                  Status
+                                </div>
                               </th>
-                              <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[80px]">
-                                Action
+                              <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap w-[80px]">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Settings className="h-3.5 w-3.5" />
+                                  Action
+                                </div>
                               </th>
                             </tr>
                           </thead>
@@ -881,20 +901,17 @@ function InvoicesPage() {
                             {complaints.map((comp, index) => {
                               const balance = patientBalances[comp.patientId] || { pendingAmount: 0, advanceAmount: 0 };
                               const apptDetails = comp.appointment || {};
-                              const isEven = index % 2 === 0;
 
                               return (
                                 <tr
                                   key={comp._id}
-                                  className={`transition-all duration-200 ${isEven ? 'bg-white' : 'bg-green-50/30'} cursor-default`}
+                                  className="bg-white hover:bg-gray-50 transition-colors duration-150 cursor-default"
                                 >
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100">
                                     <div className="text-sm">
-                                      <div className="font-semibold text-green-900 dark:text-teal-100 text-base">{comp.patientName}</div>
-                                      <div className="text-green-600 text-xs mt-1 flex items-center gap-2 flex-wrap">
-                                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                                          EMR: {comp.emrNumber || "-"}
-                                        </span>
+                                      <div className="font-semibold text-gray-900 text-sm">{comp.patientName}</div>
+                                      <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
+                                        <span>EMR: {comp.emrNumber || "-"}</span>
                                         {comp.isInvoiced ? (
                                           <button
                                             onClick={() => {
@@ -903,25 +920,29 @@ function InvoicesPage() {
                                               setSelectedBillings(comp.billings);
                                               setBillingsModalOpen(true);
                                             }}
-                                            className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium hover:bg-green-200 transition cursor-pointer"
+                                            className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide hover:bg-green-200 transition cursor-pointer"
                                           >
-                                            INVOICED
+                                            Invoiced
                                           </button>
                                         ) : (
-                                          <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                                            REMAINING
+                                          <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide">
+                                            Remaining
                                           </span>
                                         )}
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                                    <div className="text-sm text-green-900 dark:text-teal-100 font-medium">{comp.doctorName}</div>
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100">
+                                    <div className="text-sm text-gray-600 font-medium">{comp.doctorName}</div>
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100">
                                     <div className="text-sm">
-                                      <div className="text-green-900 dark:text-teal-100 flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-green-400" />
+                                      <div className="text-gray-600 flex items-center gap-2">
+                                        {apptDetails.startDate || comp.appointmentDate ? (
+                                          <Calendar className="h-4 w-4 text-gray-400" />
+                                        ) : (
+                                          <Clock className="h-4 w-4 text-gray-400" />
+                                        )}
                                         {apptDetails.startDate
                                           ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
                                             day: "2-digit",
@@ -931,20 +952,20 @@ function InvoicesPage() {
                                           : comp.appointmentDate || "-"}
                                       </div>
                                       {apptDetails.fromTime && apptDetails.toTime && (
-                                        <div className="text-green-600 dark:text-teal-100 text-xs mt-1">
+                                        <div className="text-gray-500 text-xs mt-1 ml-6">
                                           {apptDetails.fromTime} - {apptDetails.toTime}
                                         </div>
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 border-b border-green-100">
-                                    <div className="text-sm text-green-900 dark:text-teal-100 max-w-[200px]">
+                                  <td className="px-4 py-4 border-b border-gray-100">
+                                    <div className="text-sm text-gray-600 max-w-[200px]">
                                       {comp.services && comp.services.length > 0
                                         ? comp.services.slice(0, 2).join(", ") + (comp.services.length > 2 ? "..." : "")
                                         : "-"}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 border-b border-green-100">
+                                  <td className="px-4 py-4 border-b border-gray-100">
                                     {comp.complaintNote && comp.complaintNote.length > 50 ? (
                                       <button
                                         onClick={() => {
@@ -955,39 +976,41 @@ function InvoicesPage() {
                                             note: comp.complaintNote
                                           });
                                         }}
-                                        className="text-left text-sm text-green-700 hover:text-green-900 hover:underline font-medium max-w-[180px] truncate"
+                                        className="text-left text-sm text-gray-600 hover:text-green-700 hover:underline font-medium max-w-[180px] truncate"
                                       >
                                         {comp.complaintNote.substring(0, 50)}...
                                       </button>
                                     ) : (
-                                      <div className="text-sm text-green-900 dark:text-teal-100 max-w-[180px]">
+                                      <div className="text-sm text-gray-600 max-w-[180px]">
                                         {comp.complaintNote || "-"}
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                                    <div className="text-sm font-semibold text-orange-600">
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100">
+                                    <div className="text-sm font-semibold text-red-500">
                                       {formatCurrency(balance.pendingAmount)}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100">
                                     <div className="text-sm font-semibold text-green-600">
                                       {formatCurrency(balance.advanceAmount)}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 border-b border-green-100">
+                                  <td className="px-4 py-4 border-b border-gray-100 text-center">
                                     <span
-                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "active"
+                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "arrived"
                                         ? "bg-green-100 text-green-700"
-                                        : comp?.appointment?.status?.toLowerCase() === "invoiced"
-                                          ? "bg-blue-100 text-blue-700"
-                                          : comp?.appointment?.status?.toLowerCase() === "pending"
-                                            ? "bg-yellow-100 text-yellow-700"
-                                            : comp?.appointment?.status?.toLowerCase() === "cancelled"
-                                              ? "bg-red-100 text-red-700"
-                                              : comp?.appointment?.status?.toLowerCase() === "completed"
-                                                ? "bg-emerald-100 text-emerald-700"
-                                                : "bg-gray-100 text-gray-700"
+                                        : comp?.appointment?.status?.toLowerCase() === "active"
+                                          ? "bg-green-100 text-green-700"
+                                          : comp?.appointment?.status?.toLowerCase() === "invoiced"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : comp?.appointment?.status?.toLowerCase() === "pending"
+                                              ? "bg-yellow-100 text-yellow-700"
+                                              : comp?.appointment?.status?.toLowerCase() === "cancelled"
+                                                ? "bg-red-100 text-red-700"
+                                                : comp?.appointment?.status?.toLowerCase() === "completed"
+                                                  ? "bg-emerald-100 text-emerald-700"
+                                                  : "bg-gray-100 text-gray-500"
                                         }`}
                                     >
                                       {comp?.appointment?.status
@@ -996,14 +1019,14 @@ function InvoicesPage() {
                                         : "-"}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap border-b border-green-100 text-center">
+                                  <td className="px-4 py-4 whitespace-nowrap border-b border-gray-100 text-center">
                                     <div className="relative inline-block">
                                       <button
                                         onClick={() => {
                                           setActiveCard(null);
                                           handleActionClick(comp._id);
                                         }}
-                                        className="p-2 text-green-600 hover:text-green-900 rounded-full hover:bg-green-100 transition-all duration-200"
+                                        className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-all duration-200"
                                       >
                                         <MoreVertical className="h-5 w-5" />
                                       </button>
@@ -1013,11 +1036,11 @@ function InvoicesPage() {
                                             className="fixed inset-0 z-[9998]"
                                             onClick={() => setOpenActionMenu(null)}
                                           />
-                                          <div className="absolute right-0 top-full mt-2 z-[9999] bg-white  rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                          <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 min-w-[140px] overflow-hidden">
                                             {permissions.canCreate && (
                                               <button
                                                 onClick={() => handleBillingClick(comp.appointment)}
-                                                className="w-full text-left px-4 py-3 text-sm text-green-900  hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
+                                                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all duration-200"
                                               >
                                                 <Receipt className="h-4 w-4" />
                                                 Billing
@@ -1039,23 +1062,21 @@ function InvoicesPage() {
 
                   {/* Mobile/Tablet Card View */}
                   <div className="lg:hidden">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50/50 border-t border-gray-100">
                       {complaints.map((comp, index) => {
                         const balance = patientBalances[comp.patientId] || { pendingAmount: 0, advanceAmount: 0 };
                         const apptDetails = comp.appointment || {};
                         return (
                           <div
                             key={comp._id}
-                            className="bg-white rounded-xl border border-green-100 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
                           >
                             {/* Patient Info */}
                             <div className="flex items-start justify-between mb-3">
                               <div>
-                                <h3 className="font-semibold text-green-900 text-base">{comp.patientName}</h3>
-                                <div className="text-green-600 text-xs mt-1 flex flex-wrap gap-2">
-                                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                                    EMR: {comp.emrNumber || "-"}
-                                  </span>
+                                <h3 className="font-semibold text-gray-900 text-base">{comp.patientName}</h3>
+                                <div className="text-gray-500 text-xs mt-1 flex flex-wrap gap-2 items-center">
+                                  <span>EMR: {comp.emrNumber || "-"}</span>
                                   {comp.isInvoiced ? (
                                     <button
                                       onClick={() => {
@@ -1064,13 +1085,13 @@ function InvoicesPage() {
                                         setSelectedBillings(comp.billings);
                                         setBillingsModalOpen(true);
                                       }}
-                                      className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium text-xs hover:bg-green-200 transition cursor-pointer"
+                                      className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide hover:bg-green-200 transition cursor-pointer"
                                     >
-                                      INVOICED
+                                      Invoiced
                                     </button>
                                   ) : (
-                                    <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium text-xs">
-                                      REMAINING
+                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide">
+                                      Remaining
                                     </span>
                                   )}
                                 </div>
@@ -1081,7 +1102,7 @@ function InvoicesPage() {
                                     setActiveCard(null);
                                     handleActionClick(comp._id);
                                   }}
-                                  className="p-2 text-green-600 hover:text-green-900 hover:bg-green-100 rounded-full transition-all duration-200"
+                                  className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200"
                                 >
                                   <MoreVertical className="h-5 w-5" />
                                 </button>
@@ -1091,11 +1112,11 @@ function InvoicesPage() {
                                       className="fixed inset-0 z-[9998]"
                                       onClick={() => setOpenActionMenu(null)}
                                     />
-                                    <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                    <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 min-w-[140px] overflow-hidden">
                                       {permissions.canCreate && (
                                         <button
                                           onClick={() => handleBillingClick(comp.appointment)}
-                                          className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
+                                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all duration-200"
                                         >
                                           <Receipt className="h-4 w-4" />
                                           Billing
@@ -1110,11 +1131,11 @@ function InvoicesPage() {
                             {/* Doctor and Time */}
                             <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                               <div>
-                                <span className="text-green-700 font-semibold">Doctor:</span>
-                                <span className="text-green-900 ml-1">{comp.doctorName}</span>
+                                <span className="text-gray-500 font-semibold">Doctor:</span>
+                                <span className="text-gray-900 ml-1">{comp.doctorName}</span>
                               </div>
-                              <div className="flex items-center gap-1 text-green-900">
-                                <Clock className="h-3.5 w-3.5 text-green-400" />
+                              <div className="flex items-center gap-1 text-gray-700">
+                                <Clock className="h-3.5 w-3.5 text-gray-400" />
                                 {apptDetails.startDate
                                   ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
                                     day: "2-digit",
@@ -1123,7 +1144,7 @@ function InvoicesPage() {
                                   })
                                   : comp.appointmentDate || "-"}
                                 {apptDetails.fromTime && apptDetails.toTime && (
-                                  <span className="text-green-600 text-xs ml-1">
+                                  <span className="text-gray-500 text-xs ml-1">
                                     @ {apptDetails.fromTime}
                                   </span>
                                 )}
@@ -1132,11 +1153,11 @@ function InvoicesPage() {
 
                             {/* Amounts */}
                             <div className="grid grid-cols-2 gap-3 mb-3">
-                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5">
-                                <div className="text-xs font-semibold text-orange-700">Pending</div>
-                                <div className="text-sm font-bold text-orange-600">{formatCurrency(balance.pendingAmount)}</div>
+                              <div className="bg-red-50 border border-red-100 rounded-lg p-2.5">
+                                <div className="text-xs font-semibold text-red-600">Pending</div>
+                                <div className="text-sm font-bold text-red-500">{formatCurrency(balance.pendingAmount)}</div>
                               </div>
-                              <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
+                              <div className="bg-green-50 border border-green-100 rounded-lg p-2.5">
                                 <div className="text-xs font-semibold text-green-700">Advance</div>
                                 <div className="text-sm font-bold text-green-600">{formatCurrency(balance.advanceAmount)}</div>
                               </div>
@@ -1145,7 +1166,9 @@ function InvoicesPage() {
                             {/* Status */}
                             <div className="flex items-center justify-between">
                               <span
-                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "active"
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "arrived"
+                                  ? "bg-green-100 text-green-700"
+                                  : comp?.appointment?.status?.toLowerCase() === "active"
                                   ? "bg-green-100 text-green-700"
                                   : comp?.appointment?.status?.toLowerCase() === "invoiced"
                                     ? "bg-blue-100 text-blue-700"
@@ -1155,7 +1178,7 @@ function InvoicesPage() {
                                         ? "bg-red-100 text-red-700"
                                         : comp?.appointment?.status?.toLowerCase() === "completed"
                                           ? "bg-emerald-100 text-emerald-700"
-                                          : "bg-gray-100 text-gray-700"
+                                          : "bg-gray-100 text-gray-500"
                                   }`}
                               >
                                 {comp?.appointment?.status
@@ -1164,7 +1187,7 @@ function InvoicesPage() {
                                   : "-"}
                               </span>
                               {comp.services && comp.services.length > 0 && (
-                                <div className="text-xs text-green-700 text-right">
+                                <div className="text-xs text-gray-500 text-right">
                                   {comp.services.slice(0, 2).join(", ")}
                                   {comp.services.length > 2 && " +" + (comp.services.length - 2)}
                                 </div>
@@ -1179,22 +1202,22 @@ function InvoicesPage() {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-green-50 to-green-50 border-t border-green-100">
-                      <div className="text-sm text-green-700 font-medium">
+                    <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-200">
+                      <div className="text-sm text-gray-600 font-medium">
                         Page {page} of {totalPages}
                       </div>
                       <div className="flex gap-3">
                         <button
                           disabled={page <= 1}
                           onClick={() => setPage(page - 1)}
-                          className="px-4 py-2 text-sm bg-white border-2 border-green-200 dark:text-teal-100 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium text-green-700"
+                          className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium text-gray-700"
                         >
                           ← Previous
                         </button>
                         <button
                           disabled={page >= totalPages}
                           onClick={() => setPage(page + 1)}
-                          className="px-4 py-2 text-sm bg-gradient-to-r from-green-600 to-green-600 text-white border-2 border-green-600 rounded-lg hover:from-green-700 hover:to-green-700 hover:border-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-md hover:shadow-lg"
+                          className="px-4 py-2 text-sm bg-green-600 text-white border border-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-semibold shadow-sm"
                         >
                           Next →
                         </button>

@@ -1,0 +1,3 @@
+connecting mongo... ac-xbmk5os-shard-00-02.mweyj1d.mongodb.net:27017,ac-xbmk5os-shard-00-01.mweyj1d.mongodb.net:27017,ac-xbmk5os-shard-00-00.mweyj1d.mongodb.net:27017 rs= atlas-9yh8bw-shard-0
+mongo connected
+ERROR: Authentication failed

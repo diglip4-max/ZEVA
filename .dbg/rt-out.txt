@@ -1,0 +1,12 @@
+mongoose-encryption version: 2.1.2
+ENCRYPTION_KEY: jiGBhbzdAc8mp5AurY/HAiM3fj+sGfpUOhp8ZaTU8+c=
+SIGNING_KEY len: 88
+mongo connected
+ROUND-TRIP decrypt: OK
+MY _ct type: object | ctor: Binary
+MY _ct sample: "YSaYUU2GqpBMLX37vAJof1jZ8TmpghWsfsByoxdWjTy6Bf6aU7I4XwVqqymLTYAPKh02qbpc0RWPs1wmPYqry+SYUF2eHZwgD6J9V9J4YEzAicvKp2kD+mT
+REAL _ct type: object | ctor: Binary
+REAL _ct is object with keys: sub_type,buffer,position
+REAL has plaintext secrets field: false
+dropped temp collection
+DONE

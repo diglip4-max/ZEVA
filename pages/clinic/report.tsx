@@ -1,4 +1,12 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import dayjs from "dayjs";
@@ -16,19 +24,277 @@ const TOKEN_PRIORITY = [
   "userToken",
 ];
 
-const DepartmentReport = dynamic(() => import("../../components/reports/DepartmentReport"), { ssr: false });
-const PackageReport = dynamic(() => import("../../components/reports/PackageReport"), { ssr: false });
-const MembershipReport = dynamic(() => import("../../components/reports/MembershipReport"), { ssr: false });
-const AppointmentReport = dynamic(() => import("../../components/reports/AppointmentReport"), { ssr: false });
-const PatientReport = dynamic(() => import("../../components/reports/PatientReport"), { ssr: false });
-const LeadReport = dynamic(() => import("../../components/reports/LeadReport"), { ssr: false });
-const DoctorStaffReport = dynamic(() => import("../../components/reports/DoctorStaffReport"), { ssr: false });
-const RevenueReport = dynamic(() => import("../../components/reports/RevenueReport"), { ssr: false });
-const RoomResourceReport = dynamic(() => import("../../components/reports/RoomResourceReport"), { ssr: false });
-const StockReport = dynamic(() => import("../../components/reports/StockReport"), { ssr: false });
-const OfferTrackReport = dynamic(() => import("../../components/reports/OfferTrackReport"), { ssr: false });
-const InsuranceClaimsReport = dynamic(() => import("../../components/reports/InsuranceClaimsReport"), { ssr: false });
-const AdvanceReport = dynamic(() => import("../../components/reports/AdvanceReport"), { ssr: false });
+// next/dynamic requires the options to be an inline object literal (SWC build
+// check), so the shared `loading` fallback is repeated per call. It lets the
+// gate also cover the JS chunk download the first time a report tab is opened.
+const DepartmentReport = dynamic(() => import("../../components/reports/DepartmentReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const PackageReport = dynamic(() => import("../../components/reports/PackageReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const MembershipReport = dynamic(() => import("../../components/reports/MembershipReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const AppointmentReport = dynamic(() => import("../../components/reports/AppointmentReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const PatientReport = dynamic(() => import("../../components/reports/PatientReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const LeadReport = dynamic(() => import("../../components/reports/LeadReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const DoctorStaffReport = dynamic(() => import("../../components/reports/DoctorStaffReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const RevenueReport = dynamic(() => import("../../components/reports/RevenueReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const RoomResourceReport = dynamic(() => import("../../components/reports/RoomResourceReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const StockReport = dynamic(() => import("../../components/reports/StockReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const OfferTrackReport = dynamic(() => import("../../components/reports/OfferTrackReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const InsuranceClaimsReport = dynamic(() => import("../../components/reports/InsuranceClaimsReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+const AdvanceReport = dynamic(() => import("../../components/reports/AdvanceReport"), { ssr: false, loading: () => <ReportChunkFallback /> });
+
+/**
+ * Loading gate for the report tabs.
+ *
+ * Every report page in components/reports fires several parallel fetches as
+ * soon as it mounts (and again whenever the date range changes), and each
+ * component renders its own partial content as responses trickle in. The gate
+ * keeps a single overlay up until all of those requests have landed, so a tab
+ * never shows half-populated sections while the remaining APIs are still
+ * running. Requests are counted through a temporary window.fetch patch, which
+ * keeps the 13 report components untouched.
+ */
+
+// Only report endpoints are tracked; unrelated background calls such as the
+// notification bell (/api/push-notification) must not drive the overlay.
+const REPORT_API_PATTERNS = ["/api/clinic/", "/api/lead-ms/", "/api/reports"];
+// Small grace window so a follow-up call in the same waterfall does not
+// briefly unhide partially rendered data.
+const REPORT_SETTLE_MS = 300;
+// First paint of a lazily imported report also waits for its JS chunk.
+const REPORT_CHUNK_SETTLE_MS = 350;
+// Safety net: never leave the overlay stuck if a request never settles.
+const REPORT_WATCHDOG_MS = 25000;
+
+function isReportApiUrl(url: unknown): boolean {
+  if (typeof url !== "string") return false;
+  return REPORT_API_PATTERNS.some((pattern) => url.includes(pattern));
+}
+
+interface ReportGateApi {
+  /** Mark a lazily loaded report chunk as pending; returns the release fn. */
+  registerChunk: () => () => void;
+}
+
+const ReportGateContext = createContext<ReportGateApi | null>(null);
+
+/** Fallback rendered by next/dynamic while a report chunk is downloading. */
+function ReportChunkFallback() {
+  const gate = useContext(ReportGateContext);
+  useEffect(() => {
+    if (!gate) return;
+    return gate.registerChunk();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gate]);
+  return null;
+}
+
+function ReportLoadingGate({ resetKey, children }: { resetKey: string; children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const inflightRef = useRef(0);
+  const chunksRef = useRef(0);
+  const settleTimerRef = useRef<any>(null);
+  const watchdogRef = useRef<any>(null);
+  // The patched fetch and the chunk fallback need the same bookkeeping, so the
+  // helpers created inside the effect are published through this ref.
+  const apiRef = useRef<Record<string, () => void>>({});
+
+  useLayoutEffect(() => {
+    setLoading(true);
+    inflightRef.current = 0;
+    chunksRef.current = 0;
+
+    const cancelSettle = () => {
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
+      }
+    };
+
+    const clearWatchdog = () => {
+      if (watchdogRef.current) {
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
+      }
+    };
+
+    const armWatchdog = () => {
+      clearWatchdog();
+      watchdogRef.current = setTimeout(() => {
+        watchdogRef.current = null;
+        inflightRef.current = 0;
+        chunksRef.current = 0;
+        cancelSettle();
+        setLoading(false);
+      }, REPORT_WATCHDOG_MS);
+    };
+
+    const isIdle = () => inflightRef.current === 0 && chunksRef.current === 0;
+
+    const scheduleSettle = (delay = REPORT_SETTLE_MS) => {
+      cancelSettle();
+      settleTimerRef.current = setTimeout(() => {
+        settleTimerRef.current = null;
+        if (isIdle()) {
+          clearWatchdog();
+          setLoading(false);
+        }
+      }, delay);
+    };
+
+    const markBusy = () => {
+      cancelSettle();
+      armWatchdog();
+      setLoading(true);
+    };
+
+    apiRef.current = { markBusy, scheduleSettle, clearWatchdog };
+    markBusy();
+
+    const originalFetch = window.fetch;
+    const countingFetch: typeof window.fetch = (input: any, init?: any) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input?.url ||
+            (typeof Request !== "undefined" && input instanceof Request ? input.url : "");
+      if (!isReportApiUrl(url)) return originalFetch(input as any, init);
+
+      inflightRef.current += 1;
+      markBusy();
+
+      const settle = () => {
+        inflightRef.current = Math.max(0, inflightRef.current - 1);
+        if (inflightRef.current === 0) scheduleSettle();
+      };
+
+      return originalFetch(input as any, init).then(
+        (res) => {
+          settle();
+          return res;
+        },
+        (err) => {
+          settle();
+          throw err;
+        }
+      );
+    };
+
+    (window as any).fetch = countingFetch;
+    // Nothing was ever issued (e.g. instant cached responses): settle anyway
+    scheduleSettle(REPORT_CHUNK_SETTLE_MS);
+
+    return () => {
+      cancelSettle();
+      clearWatchdog();
+      apiRef.current = {};
+      (window as any).fetch = originalFetch;
+    };
+  }, [resetKey]);
+
+  const gateApi = useMemo<ReportGateApi>(
+    () => ({
+      registerChunk: () => {
+        chunksRef.current += 1;
+        apiRef.current.markBusy?.();
+        let released = false;
+        return () => {
+          if (released) return;
+          released = true;
+          chunksRef.current = Math.max(0, chunksRef.current - 1);
+          apiRef.current.scheduleSettle?.();
+        };
+      },
+    }),
+    [resetKey]
+  );
+
+  return (
+    <ReportGateContext.Provider value={gateApi}>
+      {/* min-h mirrors the card body so the overlay still covers the area while
+          a freshly opened report has rendered no content yet */}
+      <div className="relative flex-1 w-full min-h-[460px] sm:min-h-[560px]">
+        {children}
+        {loading && (
+          <div className="report-overlay absolute inset-0 z-[900] flex justify-center items-start px-4 pt-10 sm:pt-16 pb-12 min-h-[280px]">
+            <div className="report-card w-full max-w-xs rounded-2xl bg-white ring-1 ring-slate-200/70 shadow-2xl shadow-teal-900/10 overflow-hidden">
+              {/* Gradient accent strip */}
+              <div className="h-1 w-full bg-gradient-to-r from-teal-500 via-emerald-500 to-blue-500"></div>
+              <div className="px-5 pt-5 pb-5 flex flex-col items-center gap-3">
+                {/* Layered animated spinner with center glyph + glow */}
+                <div className="relative h-12 w-12">
+                  <div className="report-glow absolute inset-0 rounded-full bg-teal-400/30 blur-lg"></div>
+                  <div className="absolute inset-0 rounded-full border-[3px] border-slate-100"></div>
+                  <div className="report-ring-a absolute inset-0 rounded-full border-[3px] border-transparent border-t-teal-600 border-r-teal-500"></div>
+                  <div className="report-ring-b absolute inset-1.5 rounded-full border-2 border-transparent border-b-blue-500 border-l-sky-400"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5 text-teal-600" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 3v18h18" />
+                      <path d="M7 15l3-4 3 2 4-6" />
+                    </svg>
+                  </div>
+                </div>
+                {/* Title with animated ellipsis */}
+                <div className="text-center space-y-0.5">
+                  <p className="text-sm font-semibold text-slate-800 tracking-tight">
+                    Preparing your report
+                    <span className="report-dots inline-flex w-6 justify-start">
+                      <span className="report-dot">.</span>
+                      <span className="report-dot">.</span>
+                      <span className="report-dot">.</span>
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">Crunching the latest analytics…</p>
+                </div>
+                {/* Glowing indeterminate progress bar */}
+                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden shadow-inner">
+                  <div className="report-loading-bar h-full rounded-full bg-gradient-to-r from-teal-500 via-emerald-500 to-blue-500"></div>
+                </div>
+              </div>
+            </div>
+            <style jsx>{`
+              .report-overlay {
+                background:
+                  radial-gradient(1200px 400px at 50% -10%, rgba(20, 184, 166, 0.08), rgba(255, 255, 255, 0) 60%),
+                  #ffffff;
+              }
+              .report-card {
+                animation: reportCardIn 0.35s ease-out both;
+              }
+              @keyframes reportCardIn {
+                from { opacity: 0; transform: translateY(8px) scale(0.98); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              .report-ring-a { animation: reportSpin 0.9s linear infinite; }
+              .report-ring-b { animation: reportSpinRev 1.4s linear infinite; }
+              @keyframes reportSpin { to { transform: rotate(360deg); } }
+              @keyframes reportSpinRev { to { transform: rotate(-360deg); } }
+              .report-glow { animation: reportPulse 2s ease-in-out infinite; }
+              @keyframes reportPulse {
+                0%, 100% { opacity: 0.5; transform: scale(0.9); }
+                50% { opacity: 1; transform: scale(1.05); }
+              }
+              .report-loading-bar {
+                width: 42%;
+                animation: reportLoadingSlide 1.2s ease-in-out infinite;
+              }
+              @keyframes reportLoadingSlide {
+                0% { transform: translateX(-120%); }
+                50% { transform: translateX(150%); }
+                100% { transform: translateX(320%); }
+              }
+              .report-dot { animation: reportBlink 1.2s infinite both; }
+              .report-dot:nth-child(2) { animation-delay: 0.2s; }
+              .report-dot:nth-child(3) { animation-delay: 0.4s; }
+              @keyframes reportBlink {
+                0%, 60%, 100% { opacity: 0.2; }
+                30% { opacity: 1; }
+              }
+            `}</style>
+          </div>
+        )}
+      </div>
+    </ReportGateContext.Provider>
+  );
+}
 
 const TAB_CONFIG = {
   department: { label: "Department", color: "bg-teal-800 hover:bg-teal-900" },
@@ -444,7 +710,7 @@ function ReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header Section - Responsive */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-[90%] sm:max-w-9xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
@@ -463,7 +729,7 @@ function ReportPage() {
         </div>
       </div>
 
-      <div className="max-w-[90%] sm:max-w-9xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <div className="w-full px-4 sm:px-6 py-4 sm:py-8 flex-1 flex flex-col">
         {/* Date Filter & Tabs Container - Responsive */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 mb-4 sm:mb-6 overflow-hidden">
           {/* Tabs Navigation - Scrollable on Mobile */}
@@ -520,21 +786,23 @@ function ReportPage() {
           </div>
         </div>
 
-        {/* Report Content - Responsive */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-3 sm:p-6 min-h-[500px] sm:min-h-[600px] overflow-x-auto">
-          {activeTab === "department" && <DepartmentReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "package" && <PackageReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "membership" && <MembershipReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "appointment" && <AppointmentReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "patient" && <PatientReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "lead" && <LeadReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "doctorStaff" && <DoctorStaffReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "revenue" && <RevenueReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "rooms" && <RoomResourceReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "stock" && <StockReport startDate={startDate} endDate={endDate} headers={headers} />}
-                    {activeTab === "offerTrack" && <OfferTrackReport startDate={startDate} endDate={endDate} headers={headers} canUpdate={permissions.canUpdate} />}
-                                      {activeTab === "insuranceClaims" && <InsuranceClaimsReport startDate={startDate} endDate={endDate} headers={headers} />}
-          {activeTab === "advancePending" && <AdvanceReport startDate={startDate} endDate={endDate} headers={headers} />}
+        {/* Report Content - Responsive, fills remaining viewport height */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-3 sm:p-6 flex-1 flex flex-col min-h-[500px] sm:min-h-[600px] overflow-x-auto relative">
+          <ReportLoadingGate resetKey={`${activeTab}|${startDate}|${endDate}`}>
+            {activeTab === "department" && <DepartmentReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "package" && <PackageReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "membership" && <MembershipReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "appointment" && <AppointmentReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "patient" && <PatientReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "lead" && <LeadReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "doctorStaff" && <DoctorStaffReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "revenue" && <RevenueReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "rooms" && <RoomResourceReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "stock" && <StockReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "offerTrack" && <OfferTrackReport startDate={startDate} endDate={endDate} headers={headers} canUpdate={permissions.canUpdate} />}
+            {activeTab === "insuranceClaims" && <InsuranceClaimsReport startDate={startDate} endDate={endDate} headers={headers} />}
+            {activeTab === "advancePending" && <AdvanceReport startDate={startDate} endDate={endDate} headers={headers} />}
+          </ReportLoadingGate>
         </div>
       </div>
     </div>

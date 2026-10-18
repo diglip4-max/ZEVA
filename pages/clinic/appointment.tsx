@@ -796,17 +796,30 @@ function AppointmentPage({
   useEffect(() => {
     if (customTimeSlotsLoading) return; // Don't apply until loaded from database
 
-    if (useCustomTimeSlots && customStartTime && customEndTime) {
-      // Custom time slots are enabled - use them
-      const startMinutes = timeStringToMinutes(customStartTime);
-      const endMinutes = timeStringToMinutes(customEndTime);
-      if (endMinutes > startMinutes) {
-        const slots = generateTimeSlots(customStartTime, customEndTime);
-        setTimeSlots(slots);
-        setClosingMinutes(endMinutes);
-      }
-    } else if (clinic?.timings && !useCustomTimeSlots) {
-      // Use clinic's existing timings based on selected day
+    // 1) Prefer the clinic's CUSTOM time slots ONLY when they are enabled AND
+    //    both times were actually saved AND they form a valid range
+    //    (end > start). timeStringToMinutes returns NaN for empty strings, so
+    //    the comparison is safely false when nothing was saved.
+    const customStartMinutes = timeStringToMinutes(customStartTime);
+    const customEndMinutes = timeStringToMinutes(customEndTime);
+    const hasValidCustomSlots =
+      useCustomTimeSlots &&
+      !!customStartTime &&
+      !!customEndTime &&
+      customEndMinutes > customStartMinutes;
+
+    if (hasValidCustomSlots) {
+      const slots = generateTimeSlots(customStartTime, customEndTime);
+      setTimeSlots(slots);
+      setClosingMinutes(customEndMinutes);
+      return;
+    }
+
+    // 2) Otherwise fall back to the logged-in clinic's own AM/PM timings from
+    //    the Clinic model (clinic.timings). This now ALSO covers the case
+    //    where custom time slots are toggled ON but the times were never
+    //    saved — previously that left the scheduler with no slots at all.
+    if (clinic?.timings) {
       if (Array.isArray(clinic.timings)) {
         // New weekly schedule schema — pick the entry for the selected day
         const dayTiming = parseTimingsForDay(clinic.timings, selectedDate);

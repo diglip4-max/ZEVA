@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { createPortal } from "react-dom";
 import {
   ChevronLeft,
@@ -232,6 +233,7 @@ function AttachmentCell({ url }: { url: string }) {
 
 export default function AdvanceReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [patients, setPatients] = useState<PatientRow[]>([]);
@@ -717,9 +719,16 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                     <div className="flex items-center gap-3">
                       <PatientAvatar name={p.patientName} />
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-gray-900 truncate">
+                        <button
+                          onClick={() =>
+                            router.push(
+                              `/clinic/patient-profile-view?id=${p.patientId}`
+                            )
+                          }
+                          className="text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline truncate"
+                        >
                           {p.patientName || "Unknown"}
-                        </div>
+                        </button>
                         <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-gray-500">
                           {p.emrNumber && (
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-mono">
@@ -882,9 +891,16 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                     <div className="flex items-center gap-3">
                       <PatientAvatar name={p.patientName} />
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-gray-900 truncate">
+                        <button
+                          onClick={() =>
+                            router.push(
+                              `/clinic/patient-profile-view?id=${p.patientId}`
+                            )
+                          }
+                          className="text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline truncate"
+                        >
                           {p.patientName || "Unknown"}
-                        </div>
+                        </button>
                         <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-gray-500">
                           {p.emrNumber && (
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-mono">
@@ -1050,9 +1066,16 @@ export default function AdvanceReport({ startDate, endDate, headers }: Props) {
                     <div className="flex items-center gap-3">
                       <PatientAvatar name={p.patientName} />
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-gray-900 truncate">
+                        <button
+                          onClick={() =>
+                            router.push(
+                              `/clinic/patient-profile-view?id=${p.patientId}`
+                            )
+                          }
+                          className="text-[13px] font-semibold text-blue-600 hover:text-blue-800 underline truncate"
+                        >
                           {p.patientName || "Unknown"}
-                        </div>
+                        </button>
                         <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-gray-500">
                           {p.emrNumber && (
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-mono">

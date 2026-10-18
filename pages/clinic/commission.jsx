@@ -877,13 +877,10 @@ function ClinicCommissionPage() {
                       Type
                     </th>
                     <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
-                      Type
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       %{" "}
                     </th>
                     <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
-                      Earned
+                     Earned
                     </th>
                     <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Paid
@@ -891,9 +888,12 @@ function ClinicCommissionPage() {
                     <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Count
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-100">
-                      Actions
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
+                     Actions
                     </th>
+                    {/* <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-100">
+                      Actions
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody>
