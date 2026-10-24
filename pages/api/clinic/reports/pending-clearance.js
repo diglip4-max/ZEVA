@@ -161,6 +161,12 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: "$patientId",
+          // Emit the patient id as an explicit string field. The group key is
+          // `_id`, but the client contract (PendingPatientRow.patientId) and the
+          // /clinic/patient-profile-view?id=... navigation need a real
+          // `patientId` on every row — otherwise it is undefined because only
+          // `_id` is produced.
+          patientId: { $first: { $toString: "$patientId" } },
           patientName: {
             // $let must be nested inside an accumulator ($first) — it cannot
             // sit at the top level of a $group field definition.

@@ -10,6 +10,7 @@ import { toast } from "react-hot-toast";
 const TOAST_IDS = {
   editSuccess: "appointment-edit-success",
   blockedEdit: "appointment-edit-blocked",
+  dischargeBillingRequired: "appointment-discharge-billing-required",
 };
 
 interface EditAppointmentModalProps {
@@ -250,6 +251,22 @@ export default function EditAppointmentModal({
             },
             icon: '🚫',
           });
+        } else if (response.data?.billingRequired) {
+          toast.dismiss(TOAST_IDS.dischargeBillingRequired);
+          toast.dismiss(TOAST_IDS.editSuccess);
+          toast.error(fallbackMessage, {
+            id: TOAST_IDS.dischargeBillingRequired,
+            duration: 5000,
+            style: {
+              background: '#fffbeb',
+              color: '#92400e',
+              border: '1px solid #fcd34d',
+              fontSize: '13px',
+              fontWeight: '500',
+            },
+            icon: '🧾',
+          });
+          setError(fallbackMessage);
         } else {
           setError(fallbackMessage);
         }
@@ -284,6 +301,29 @@ export default function EditAppointmentModal({
           },
           icon: '🚫',
         });
+        return;
+      }
+
+      // Discharge-blocked-because-no-billing: the API refuses the status change
+      // until a billing exists for the appointment (flagged via billingRequired).
+      // Surface it as a toast (plus the inline error) so the user knows to
+      // generate the billing first, and keep the modal open on the chosen status.
+      if (errorData?.billingRequired) {
+        toast.dismiss(TOAST_IDS.dischargeBillingRequired);
+        toast.dismiss(TOAST_IDS.editSuccess);
+        toast.error(errorMessage, {
+          id: TOAST_IDS.dischargeBillingRequired,
+          duration: 5000,
+          style: {
+            background: '#fffbeb',
+            color: '#92400e',
+            border: '1px solid #fcd34d',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+          icon: '🧾',
+        });
+        setError(errorMessage);
         return;
       }
 

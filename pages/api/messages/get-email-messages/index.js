@@ -80,8 +80,7 @@ export default async function handler(req, res) {
       let query = {
         clinicId: clinic._id,
         channel: "email",
-        replyToMessageId: null,
-      }; // Only fetch top-level email messages (not replies)
+      }; // Fetch all email messages
 
       if (providerId) {
         query.provider = providerId; // New: add provider filter to query
@@ -257,7 +256,6 @@ export default async function handler(req, res) {
       let baseCountQuery = {
         clinicId: clinic._id,
         channel: "email",
-        replyToMessageId: null,
       };
 
       if (providerId) {
@@ -314,10 +312,12 @@ export default async function handler(req, res) {
         groupedMessages[date].push(message);
       });
 
-      const formatedData = Object.keys(groupedMessages).map((date) => ({
-        date,
-        messages: groupedMessages[date],
-      }));
+      const formatedData = Object.keys(groupedMessages)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .map((date) => ({
+          date,
+          messages: groupedMessages[date],
+        }));
 
       const totalMessages = await Message.countDocuments(query);
       const totalPages = Math.ceil(totalMessages / limit);

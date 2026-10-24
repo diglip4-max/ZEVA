@@ -5,6 +5,7 @@ import User from "../../../../models/Users";
 import Room from "../../../../models/Room";
 import PatientRegistration from "../../../../models/PatientRegistration";
 import BlockedSlot from "../../../../models/BlockedSlot";
+import Billing from "../../../../models/Billing";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
@@ -257,6 +258,30 @@ export default async function handler(req, res) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid status" });
+    }
+
+    // Discharge guard: an appointment can only be moved to "Discharge" once a
+    // billing has been generated against it. Check the Billing model for a
+    // record linked to this appointmentId (scoped to the clinic). If none
+    // exists, block the status change and tell the user to generate the
+    // billing first. Only fires on the transition INTO Discharge, so editing
+    // an already-discharged appointment is not unexpectedly blocked. This is
+    // purely additive — every other status update behaves exactly as before.
+    if (status === "Discharge" && appointment.status !== "Discharge") {
+      const appointmentBilling = await Billing.findOne({
+        appointmentId,
+        clinicId,
+      })
+        .select("_id")
+        .lean();
+      if (!appointmentBilling) {
+        return res.status(400).json({
+          success: false,
+          billingRequired: true,
+          message:
+            "Billing has not been generated for this appointment yet. Please generate the billing first, then change the status to Discharge.",
+        });
+      }
     }
 
     // Validate followType enum

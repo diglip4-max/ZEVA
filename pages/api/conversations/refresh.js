@@ -1,4 +1,5 @@
 import { listImapIncomingEmailQueue } from "../../../bullmq/queue";
+import { syncImapEmails } from "../../../services/emailSync";
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
@@ -90,20 +91,34 @@ export default async function handler(req, res) {
       "Adding emailProviderIds to listImapIncomingEmailQueue: ",
       emailProviderIds,
     );
-    const job = await listImapIncomingEmailQueue.add(
-      "listImapIncomingEmailJob",
-      {
-        providerIds: emailProviderIds,
-      },
-    );
-    console.log(
-      "SMTP Email conversations refresh job added to queue. Job ID:",
-      job.id,
-    );
-    return res.status(200).json({
-      success: true,
-      message: "Email conversations refresh job added to queue",
-    });
+    
+    try {
+      const job = await listImapIncomingEmailQueue.add(
+        "listImapIncomingEmailJob",
+        {
+          providerIds: emailProviderIds,
+        },
+      );
+      console.log(
+        "SMTP Email conversations refresh job added to queue. Job ID:",
+        job.id,
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Email conversations refresh job added to queue",
+      });
+    } catch (queueError) {
+      console.warn("⚠️ Failed to add job to queue (Redis might be down). Running sync directly...", queueError.message);
+      
+      // FALLBACK: Run the sync directly if Redis/Queue is unavailable
+      const results = await syncImapEmails(emailProviderIds);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Direct sync completed (${results.processed} messages processed)`,
+        data: results
+      });
+    }
   } catch (error) {
     console.error("❌ Error refreshing conversations: ", error);
     res.status(500).json({

@@ -2913,22 +2913,72 @@ export default async function handler(req, res) {
         emrNumber: p.emrNumber
       }]));
 
-      // Group billings by effectiveSoldByUserId
-      const groupedBillings = new Map();
-      for (const billing of patientProfileBillings) {
+      // Resolve the "sold by" seller for each billing.
+      // PatientRegistration.packages reliably stores packageSoldBy (the NAME);
+      // packageSoldByUserId is frequently absent. So attribute revenue by looking the
+      // seller up by NAME first (mirrors staffRevenuePipeline and the "Sold By" column),
+      // then fall back to packageSoldByUserId, then the billing's invoicedById.
+      const preResolved = patientProfileBillings.map((billing) => {
         const patient = patientMap.get(String(billing.patientId));
         const matchedPackage = patient?.packages?.find(pkg => pkg.packageName === billing.package);
-        const packageSoldByUserId = matchedPackage?.packageSoldByUserId;
+        return {
+          billing,
+          soldByName: (matchedPackage?.packageSoldBy || "").trim(),
+          packageSoldByUserId: matchedPackage?.packageSoldByUserId ? String(matchedPackage.packageSoldByUserId) : "",
+        };
+      });
 
-        // Determine effectiveSoldByUserId: use packageSoldByUserId if valid, otherwise fall back to invoicedById
-        let effectiveSoldByUserId = null;
-        if (packageSoldByUserId && packageSoldByUserId !== "undefined" && packageSoldByUserId !== "") {
-          effectiveSoldByUserId = packageSoldByUserId;
-        } else if (billing.invoicedById) {
-          effectiveSoldByUserId = String(billing.invoicedById);
+      // Users referenced by sold-by NAME (primary attribution key).
+      const soldByNames = [...new Set(preResolved.map(r => r.soldByName).filter(Boolean))];
+      const nameUsers = soldByNames.length
+        ? await User.find({ name: { $in: soldByNames } }).select("_id name role").lean()
+        : [];
+      const userByName = new Map();
+      for (const u of nameUsers) {
+        const key = (u.name || "").trim();
+        // Keep the first match, mirroring the $arrayElemAt(..., 0) used elsewhere.
+        if (key && !userByName.has(key)) userByName.set(key, u);
+      }
+
+      // Users referenced by ID (packageSoldByUserId / invoicedById candidates).
+      const candidateIds = [...new Set(
+        preResolved
+          .flatMap(r => [
+            (r.packageSoldByUserId && r.packageSoldByUserId !== "undefined") ? r.packageSoldByUserId : null,
+            r.billing.invoicedById ? String(r.billing.invoicedById) : null,
+          ])
+          .filter(Boolean)
+      )];
+      const idUsers = candidateIds.length
+        ? await User.find({ _id: { $in: candidateIds.map(id => new mongoose.Types.ObjectId(id)) } }).select("_id role").lean()
+        : [];
+      const userRoleById = new Map(idUsers.map(u => [String(u._id), u.role]));
+
+      // Group billings by the resolved seller user id (always a string).
+      const groupedBillings = new Map();
+      for (const { billing, soldByName, packageSoldByUserId } of preResolved) {
+        // Ordered attribution candidates: sold-by NAME first (the reliably-stored field),
+        // then the stored packageSoldByUserId, then the billing's invoicedById. The first
+        // candidate whose role is agent/doctorStaff wins. Keeping packageSoldByUserId and
+        // invoicedById as later candidates preserves the original attribution behaviour,
+        // so nothing that used to be counted is lost — this only ADDS recovery of rows
+        // that were previously dropped (e.g. ObjectId/string key mismatch, or ID absent).
+        const candidates = [];
+        const nameUser = soldByName ? userByName.get(soldByName) : null;
+        if (nameUser) candidates.push({ id: String(nameUser._id), role: nameUser.role });
+        if (packageSoldByUserId && packageSoldByUserId !== "undefined") {
+          candidates.push({ id: packageSoldByUserId, role: userRoleById.get(packageSoldByUserId) });
+        }
+        if (billing.invoicedById) {
+          const invId = String(billing.invoicedById);
+          candidates.push({ id: invId, role: userRoleById.get(invId) });
         }
 
-        if (!effectiveSoldByUserId) continue;
+        const resolved = candidates.find(c => c.role === "doctorStaff" || c.role === "agent");
+        if (!resolved) continue;
+
+        const effectiveSoldByUserId = resolved.id;
+        const role = resolved.role;
 
         if (!groupedBillings.has(effectiveSoldByUserId)) {
           groupedBillings.set(effectiveSoldByUserId, {
@@ -2936,6 +2986,7 @@ export default async function handler(req, res) {
             amount: 0,
             invoices: 0,
             details: [],
+            role,
           });
         }
 
@@ -2967,20 +3018,9 @@ export default async function handler(req, res) {
         });
       }
 
-      // Lookup users to get roles
-      const userIds = [...groupedBillings.keys()];
-      const users = await User.find({ _id: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) } }).select("_id role").lean();
-      const userRoleMap = new Map(users.map(u => [String(u._id), u.role]));
-
-      // Build final aggregation result with role
-      for (const [userId, group] of groupedBillings) {
-        const role = userRoleMap.get(userId);
-        if (role === "doctorStaff" || role === "agent") {
-          patientProfilePackageAgg.push({
-            ...group,
-            role,
-          });
-        }
+      // Build final aggregation result (role already resolved during grouping).
+      for (const group of groupedBillings.values()) {
+        patientProfilePackageAgg.push(group);
       }
     }
 
