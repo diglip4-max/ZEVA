@@ -8,7 +8,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 //   sendSignInLinkToEmail,
 // } from "firebase/auth";
 import axios from "axios";
-// import { GoogleMap, Marker } from "@react-google-maps/api";
+import { GoogleMap, Marker } from "@react-google-maps/api";
 import { useRouter } from "next/router";
 import Layout from "@/components/Layout";
 
@@ -302,6 +302,12 @@ const RegisterClinic = (): React.ReactNode => {
   } | null>(null);
   const [isCheckingSlug, setIsCheckingSlug] = useState<boolean>(false);
   const slugCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Location picker state (typed location -> geocode -> map pin -> DB -> slug)
+  const [locationInput, setLocationInput] = useState<string>("");
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  const geocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   const showToastMessage = (
     message: string,
@@ -355,80 +361,114 @@ const RegisterClinic = (): React.ReactNode => {
 
   // Removed validateForm - now using single form validation in handleSubmit
 
-  // const onMapLoad = useCallback(() => {
-  //   const geocoderInstance = new window.google.maps.Geocoder();
-  //   setGeocoder(geocoderInstance);
-  // }, []);
+  // ── Location geocoding (typed location → map pin → DB → SEO slug city) ──
+  // Lazy singleton geocoder (the Maps JS API is already loaded app-wide in _app.tsx)
+  const getGeocoder = useCallback((): google.maps.Geocoder | null => {
+    if (typeof window === "undefined" || !window.google?.maps) return null;
+    if (!geocoderRef.current) {
+      geocoderRef.current = new window.google.maps.Geocoder();
+    }
+    return geocoderRef.current;
+  }, []);
 
-  // Geocoding functions are currently disabled (map UI is commented out)
-  // const geocodeAddress = useCallback(
-  //   (address: string) => {
-  //     if (!geocoder || !address.trim()) return;
-  //     geocoder.geocode({ address: address }, (results, status) => {
-  //       if (status === "OK" && results && results[0]) {
-  //         const location = results[0].geometry.location;
-  //         const formattedAddress = results[0].formatted_address || address;
-  //         setForm((f) => ({
-  //           ...f,
-  //           latitude: location.lat(),
-  //           longitude: location.lng(),
-  //         }));
-  //         setLocationInput(formattedAddress);
-  //         setErrors((prev) => ({ ...prev, location: undefined }));
-  //       }
-  //     });
-  //   },
-  //   [geocoder]
-  // );
+  // Extract the city from Google address components
+  const extractCity = (result: google.maps.GeocoderResult): string => {
+    const components = result.address_components || [];
+    const find = (type: string) =>
+      components.find((c) => (c.types || []).includes(type))?.long_name || "";
+    return (
+      find("locality") ||
+      find("administrative_area_level_2") ||
+      find("postal_town") ||
+      find("administrative_area_level_1") ||
+      ""
+    );
+  };
 
-  // const geocodeLocation = useCallback(
-  //   (location: string) => {
-  //     if (!geocoder || !location.trim()) {
-  //       return;
-  //     }
-  //     geocoder.geocode({ address: location }, (results, status) => {
-  //       if (status === "OK" && results && results[0]) {
-  //         const loc = results[0].geometry.location;
-  //         setForm((f) => ({
-  //           ...f,
-  //           latitude: loc.lat(),
-  //           longitude: loc.lng(),
-  //         }));
-  //         showToastMessage("Location updated on map!", "success");
-  //         setErrors((prev) => ({ ...prev, location: undefined }));
-  //       }
-  //     });
-  //   },
-  //   [geocoder]
-  // );
+  // Build a "City, <formatted address>" string: the whole slug pipeline
+  // (check-slug preview, register preview, slugService at approval) derives
+  // the URL city from the FIRST comma segment of the clinic address, so the
+  // stored address must start with the city for the URL to include it.
+  const buildCityFirstAddress = (
+    result: google.maps.GeocoderResult
+  ): string => {
+    const formatted = result.formatted_address || "";
+    const city = extractCity(result);
+    if (!city) return formatted;
+    if (formatted.toLowerCase().startsWith(`${city.toLowerCase()},`)) {
+      return formatted;
+    }
+    return `${city}, ${formatted}`;
+  };
 
-  // const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-  //   const newAddress = e.target.value;
-  //   setForm((f) => ({ ...f, address: newAddress }));
-  //   if (errors.address) setErrors((prev) => ({ ...prev, address: undefined }));
-  //   if (addressDebounceTimer) clearTimeout(addressDebounceTimer);
-  //   const timer = setTimeout(() => {
-  //     if (newAddress.trim().length > 10) geocodeAddress(newAddress);
-  //   }, 1000);
-  //   setAddressDebounceTimer(timer);
-  // };
+  // Apply a geocode result: store coords + city-first address, recenter map,
+  // and refresh the SEO URL preview with the resolved city
+  const applyGeocodeResult = useCallback(
+    (result: google.maps.GeocoderResult, fallbackText: string) => {
+      const pos = result.geometry?.location;
+      if (!pos) return;
+      const address = buildCityFirstAddress(result);
+      setForm((f) => ({
+        ...f,
+        address,
+        latitude: pos.lat(),
+        longitude: pos.lng(),
+      }));
+      setLocationInput(result.formatted_address || fallbackText);
+      setErrors((prev) => ({ ...prev, location: undefined }));
+      if (mapRef.current) {
+        mapRef.current.panTo({ lat: pos.lat(), lng: pos.lng() });
+        mapRef.current.setZoom(14);
+      }
+      checkSlugAvailability(form.name, address);
+      setIsGeocoding(false);
+    },
+    [form.name, checkSlugAvailability]
+  );
 
-  // const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const newLocation = e.target.value;
-  //   setLocationInput(newLocation);
-  //   // Clear location error when user types
-  //   if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
-  //   if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
-  //   const timer = setTimeout(() => {
-  //     if (newLocation.trim().length > 5) {
-  //       geocodeLocation(newLocation);
-  //     } else if (newLocation.trim().length === 0) {
-  //       // Clear location if input is empty
-  //       setForm((f) => ({ ...f, latitude: 0, longitude: 0 }));
-  //     }
-  //   }, 800);
-  //   setLocationDebounceTimer(timer);
-  // };
+  // Debounced geocode while the user types the location
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    setLocationInput(text);
+    if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+
+    if (!text.trim()) {
+      setForm((f) => ({ ...f, address: "", latitude: 0, longitude: 0 }));
+      setSlugPreview(null);
+      return;
+    }
+
+    geocodeTimerRef.current = setTimeout(() => {
+      const geocoder = getGeocoder();
+      if (!geocoder) return;
+      setIsGeocoding(true);
+      geocoder.geocode({ address: text }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          applyGeocodeResult(results[0], text);
+        } else {
+          setIsGeocoding(false);
+        }
+      });
+    }, 700);
+  };
+
+  // Clicking the map pins the location and reverse-geocodes it
+  const handleMapClick = (e: google.maps.MapMouseEvent) => {
+    if (!e.latLng) return;
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    setForm((f) => ({ ...f, latitude: lat, longitude: lng }));
+    const geocoder = getGeocoder();
+    if (geocoder) {
+      geocoder.geocode({ location: e.latLng }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          applyGeocodeResult(results[0], "");
+        }
+      });
+    }
+    showToastMessage("Location pinned from map!", "success");
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "");
@@ -549,6 +589,9 @@ const RegisterClinic = (): React.ReactNode => {
     } else if (!/^\d{10}$/.test(contactInfo.phone.replace(/\D/g, ""))) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
+    if (!form.address.trim() || form.latitude === 0 || form.longitude === 0) {
+      newErrors.location = "Please enter a location and pin it on the map";
+    }
     
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
@@ -656,6 +699,7 @@ const RegisterClinic = (): React.ReactNode => {
           setOwnerPassword("");
           setErrors({});
           setSlugPreview(null);
+          setLocationInput("");
           
           // Optionally redirect to dashboard after a short delay
           setTimeout(() => {
@@ -1262,33 +1306,60 @@ const RegisterClinic = (): React.ReactNode => {
                     </div>
                   )}
 
-                  {/* Address */}
-                  {/* <div>
+                  {/* Location: typed → auto-geocode → map pin → saved to DB → city in URL */}
+                  <div>
                     <label className="block text-xs font-medium text-black mb-1.5">
-                      Address * {!emailVerified && <span className="text-gray-500 text-xs">(Verify email first)</span>}
+                      Location <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      placeholder="Enter detailed address: Street, Building, Area, City, State, Pincode"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-all resize-none text-sm text-black placeholder-black/50 ${
-                        emailVerified 
-                          ? errors.address
-                            ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
-                            : "border-gray-300 focus:border-[#00b480] focus:ring-[#00b480]/20"
-                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                    <input
+                      type="text"
+                      placeholder="Type a location (e.g., Delhi, Noida Sector 5)"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none mb-1.5 ${
+                        errors.location
+                          ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
+                          : "border-gray-300 focus:border-[#00b480] focus:ring-[#00b480]/20"
                       }`}
-                      value={form.address}
-                      onChange={(e) => {
-                        handleAddressChange(e);
-                        checkSlugAvailability(form.name, e.target.value);
-                      }}
-                      rows={3}
-                      disabled={!emailVerified}
+                      value={locationInput}
+                      onChange={handleLocationChange}
                       required
                     />
-                    {errors.address && (
-                      <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>
+                    <p className="text-xs text-gray-500 mb-1.5">
+                      {isGeocoding
+                        ? "Finding location on map..."
+                        : "We pin it on the map automatically, or click the map to adjust."}
+                    </p>
+                    <div className={`h-40 border-2 rounded-lg overflow-hidden transition-all ${
+                      errors.location ? "border-red-400" : "border-gray-300"
+                    }`}>
+                      <GoogleMap
+                        mapContainerStyle={{ width: "100%", height: "100%" }}
+                        zoom={form.latitude !== 0 ? 14 : 5}
+                        center={{
+                          lat: form.latitude !== 0 ? form.latitude : 28.61,
+                          lng: form.longitude !== 0 ? form.longitude : 77.2,
+                        }}
+                        onLoad={(map) => { mapRef.current = map; }}
+                        onClick={handleMapClick}
+                        options={{
+                          streetViewControl: false,
+                          mapTypeControl: false,
+                          fullscreenControl: false,
+                        }}
+                      >
+                        {form.latitude !== 0 && form.longitude !== 0 && (
+                          <Marker position={{ lat: form.latitude, lng: form.longitude }} />
+                        )}
+                      </GoogleMap>
+                    </div>
+                    {errors.location && (
+                      <p className="text-red-500 text-xs mt-0.5">{errors.location}</p>
                     )}
-                  </div> */}
+                    {form.latitude !== 0 && form.longitude !== 0 && (
+                      <p className="text-xs text-green-600 mt-0.5">
+                        ✓ Location set: {form.latitude.toFixed(4)}, {form.longitude.toFixed(4)}
+                      </p>
+                    )}
+                  </div>
 
                   {/* Price Range and Hours */}
                   {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1326,72 +1397,7 @@ const RegisterClinic = (): React.ReactNode => {
                     </div>
                   </div> */}
 
-                  {/* Location with Map */}
-                  {/* <div>
-                    <label className="block text-xs font-medium text-black mb-1.5">
-                      Location <span className="text-red-500">*</span> {!emailVerified && <span className="text-gray-500 text-xs">(Verify email first)</span>}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Type address or location (e.g., Noida Sector 5)"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none mb-1.5 ${
-                        emailVerified 
-                          ? errors.location
-                            ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
-                            : "border-gray-300 focus:border-[#00b480] focus:ring-[#00b480]/20"
-                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
-                      }`}
-                      value={locationInput}
-                      onChange={handleLocationChange}
-                      disabled={!emailVerified}
-                    />
-                    {emailVerified && (
-                      <p className="text-xs text-gray-500 mb-1.5">Or click map to pin location</p>
-                    )}
-                    <div className={`h-40 border-2 rounded-lg overflow-hidden transition-all ${
-                      errors.location ? "border-red-400" : "border-gray-300"
-                    } ${!emailVerified ? "opacity-60 pointer-events-none" : ""}`}>
-                      <GoogleMap
-                        zoom={form.latitude !== 0 ? 15 : 12}
-                        center={{
-                          lat: form.latitude !== 0 ? form.latitude : 28.61,
-                          lng: form.longitude !== 0 ? form.longitude : 77.2,
-                        }}
-                        mapContainerStyle={{ width: "100%", height: "100%" }}
-                        onLoad={onMapLoad}
-                        onClick={(e) => {
-                          if (e.latLng && emailVerified) {
-                            setForm((f) => ({ 
-                              ...f, 
-                              latitude: e.latLng!.lat(), 
-                              longitude: e.latLng!.lng() 
-                            }));
-                            setErrors((prev) => ({ ...prev, location: undefined }));
-                            if (geocoder) {
-                              geocoder.geocode({ location: e.latLng }, (results, status) => {
-                                if (status === "OK" && results && results[0]) {
-                                  setLocationInput(results[0].formatted_address);
-                                  showToastMessage("Location set successfully!", "success");
-                                }
-                              });
-                            } else {
-                              showToastMessage("Location set successfully!", "success");
-                            }
-                          }
-                        }}
-                      >
-                        {form.latitude !== 0 && (
-                          <Marker position={{ lat: form.latitude, lng: form.longitude }} />
-                        )}
-                      </GoogleMap>
-                    </div>
-                    {errors.location && (
-                      <p className="text-red-500 text-xs mt-0.5">{errors.location}</p>
-                    )}
-                    {form.latitude !== 0 && form.longitude !== 0 && (
-                      <p className="text-xs text-green-600 mt-0.5">✓ Location set successfully</p>
-                    )}
-                  </div> */}
+                  {/* Location with Map — moved above (single active Location field) */}
 
                   {/* File Uploads */}
                   {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

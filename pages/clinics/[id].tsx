@@ -224,7 +224,27 @@ export default function ClinicDetail() {
           }
         }
 
-        setClinic(res.data?.clinic || res.data?.data || res.data);
+        const fetchedClinic = res.data?.clinic || res.data?.data || res.data;
+
+        // A slug that was retired because the clinic moved its location is
+        // resolved by the API (301) to the current clinic. Mirror that on the
+        // address bar so old shared links land on the canonical URL.
+        if (
+          !isObjectId &&
+          fetchedClinic?.slug &&
+          typeof slug === "string" &&
+          fetchedClinic.slug !== slug
+        ) {
+          router.replace(
+            clinicId
+              ? `/clinics/${fetchedClinic.slug}?c=${clinicId}`
+              : `/clinics/${fetchedClinic.slug}`,
+            undefined,
+            { shallow: false }
+          );
+        }
+
+        setClinic(fetchedClinic);
       } catch (err: any) {
         console.error("Error fetching clinic:", err);
         setError(err.response?.data?.message || "Failed to load clinic");

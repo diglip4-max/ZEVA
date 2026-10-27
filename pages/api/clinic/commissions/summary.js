@@ -3,10 +3,253 @@ import Commission from "../../../../models/Commission";
 import Referral from "../../../../models/Referral";
 import User from "../../../../models/Users";
 import AgentProfile from "../../../../models/AgentProfile";
+import PatientRegistration from "../../../../models/PatientRegistration";
 import Clinic from "../../../../models/Clinic";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { checkClinicPermission } from "../../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../../agent/permissions-helper";
+
+/**
+ * Scalable per-source commission grouping config.
+ * Adding a new commission source = add one entry here; the $match, $_id and
+ * any extra $group fields are derived from this single definition so all
+ * sources (referrer / doctor-staff / agent / product) stay consistent.
+ */
+const SOURCE_CONFIGS = {
+  referral: {
+    // Referrers are grouped by referralId; also catch legacy rows where only
+    // referralId is set but source was not stamped.
+    personKey: "$referralId",
+    match: {
+      $or: [{ source: "referral" }, { referralId: { $ne: null } }],
+      referralId: { $ne: null },
+    },
+    // Extra $group fields only relevant to this source.
+    extraGroup: {
+      lastReferralName: { $last: "$referralName" },
+    },
+  },
+  staff: {
+    // Doctor / staff / agent commissions are grouped by staffId.
+    personKey: "$staffId",
+    match: {
+      $or: [{ source: "staff" }, { staffId: { $ne: null } }],
+      staffId: { $ne: null },
+    },
+    extraGroup: {},
+  },
+  product: {
+    // Product-sale commissions belong to the selling staff member.
+    personKey: "$staffId",
+    match: {
+      source: "product",
+      productSaleId: { $ne: null },
+      staffId: { $ne: null },
+    },
+    extraGroup: {},
+  },
+};
+
+// Effective commission amount for a single record (final if recomputed, else original).
+const AMOUNT_EXPR = {
+  $cond: [
+    { $gt: ["$finalCommissionAmount", 0] },
+    "$finalCommissionAmount",
+    "$commissionAmount",
+  ],
+};
+
+// Build the $match stage: always clinic-scoped, plus the source filter and
+// optional date range. Centralised so every source gets identical treatment.
+function buildMatchStage(cfg, clinicId, dateMatch) {
+  const matchStage = { clinicId, ...cfg.match };
+  if (Object.keys(dateMatch).length > 0) {
+    Object.assign(matchStage, dateMatch);
+  }
+  return matchStage;
+}
+
+/**
+ * Build the full per-person aggregation pipeline for a source config.
+ * One shared $group spec emits all workflow buckets (submitted / pending-approval
+ * / unsubmitted / approved / deductions / oldest-pending-date) for every source,
+ * so signals and summaries read the same field names regardless of role.
+ */
+function buildPerSourcePipeline(cfg, matchStage) {
+  return [
+    { $match: matchStage },
+    {
+      $group: {
+        _id: cfg.personKey,
+        totalCommissionAmount: { $sum: AMOUNT_EXPR },
+        totalAmountPaid: { $sum: "$amountPaid" },
+        count: { $sum: 1 },
+        lastCommissionPercent: { $last: "$commissionPercent" },
+        // Commissions ticked as submitted (isSubmitted true), regardless of approval.
+        submittedCount: {
+          $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] },
+        },
+        // Submitted but not yet approved — the approval backlog count.
+        pendingApprovalCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", true] },
+                  { $eq: ["$isApproved", false] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        // Value of submitted-but-not-yet-approved commissions (approval backlog amount).
+        pendingApprovalEarnedAmount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", true] },
+                  { $eq: ["$isApproved", false] },
+                ],
+              },
+              AMOUNT_EXPR,
+              0,
+            ],
+          },
+        },
+        // Not yet marked submitted AND not approved — held-from-payout amount.
+        pendingEarnedAmount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", false] },
+                  { $eq: ["$isApproved", false] },
+                ],
+              },
+              AMOUNT_EXPR,
+              0,
+            ],
+          },
+        },
+        // Count of isSubmitted:false (+ not approved) invoices for this person.
+        pendingCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", false] },
+                  { $eq: ["$isApproved", false] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        // Fully approved (submitted + approved) amount & count.
+        approvedEarnedAmount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", true] },
+                  { $eq: ["$isApproved", true] },
+                ],
+              },
+              AMOUNT_EXPR,
+              0,
+            ],
+          },
+        },
+        approvedCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", true] },
+                  { $eq: ["$isApproved", true] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        // Total deductions = bank deduction + referral commission deducted.
+        deductionsAmount: {
+          $sum: {
+            $add: [
+              { $ifNull: ["$bankDeduction.deductionAmount", 0] },
+              { $ifNull: ["$referralCommissionDeducted", 0] },
+            ],
+          },
+        },
+        // Oldest not-yet-submitted/not-approved commission (for pending-age signal).
+        oldestPendingDate: {
+          $min: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$isSubmitted", false] },
+                  { $eq: ["$isApproved", false] },
+                ],
+              },
+              { $ifNull: ["$invoicedDate", "$createdAt"] },
+              "$$REMOVE",
+            ],
+          },
+        },
+        // Source-specific extras (e.g. denormalised referrer name).
+        ...cfg.extraGroup,
+      },
+    },
+    { $sort: { totalCommissionAmount: -1 } },
+  ];
+}
+
+
+/**
+ * Recover a human name for a staff/doctor/agent commission when the primary
+ * User lookup fails (dangling or foreign staffId — e.g. package-sold-by ids
+ * whose User account was removed). Tries, in order:
+ *   1. The stored `packageSoldBy` name on any patient package tagged with this id
+ *   2. A Referral document with the same id
+ *   3. A PatientRegistration document with the same id
+ * Returns "" if nothing matches so the caller can apply its own placeholder.
+ */
+async function resolveStaffNameFallback(staffId, clinicId) {
+  if (!staffId) return "";
+  const holder = await PatientRegistration.findOne({
+    clinicId,
+    "packages.packageSoldByUserId": staffId,
+  })
+    .select("packages.packageSoldBy packages.packageSoldByUserId")
+    .lean();
+  const pkgEntry = holder?.packages?.find(
+    (p) =>
+      String(p.packageSoldByUserId) === String(staffId) &&
+      (p.packageSoldBy || "").trim(),
+  );
+  if (pkgEntry) return pkgEntry.packageSoldBy.trim();
+
+  const ref = await Referral.findById(staffId).lean();
+  if (ref) {
+    const refName =
+      `${(ref.firstName || "").trim()} ${(ref.lastName || "").trim()}`.trim();
+    if (refName) return refName;
+  }
+
+  const pat = await PatientRegistration.findById(staffId).lean();
+  if (pat) {
+    const patName =
+      `${(pat.firstName || "").trim()} ${(pat.lastName || "").trim()}`.trim();
+    if (patName) return patName;
+  }
+  return "";
+}
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -101,185 +344,109 @@ export default async function handler(req, res) {
         999,
       );
       dateMatch.createdAt = { $gte: startOfDay, $lte: endOfDay };
-    } else if (req.query.startDate && req.query.endDate) {
-      const startDate = new Date(req.query.startDate);
-      const endDate = new Date(req.query.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      dateMatch.createdAt = { $gte: startDate, $lte: endDate };
+    } else if (req.query.startDate || req.query.endDate) {
+      const range = {};
+      if (req.query.startDate) {
+        const startDate = new Date(req.query.startDate);
+        startDate.setHours(0, 0, 0, 0);
+        range.$gte = startDate;
+      }
+      if (req.query.endDate) {
+        const endDate = new Date(req.query.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        range.$lte = endDate;
+      }
+      dateMatch.createdAt = range;
+    }
+
+    // Month-wise approved vs not-approved breakdown (overview chart)
+    if (req.query.groupBy === "month") {
+      const monthMatch = { clinicId };
+      if (source === "referral") {
+        monthMatch.$or = [{ source: "referral" }, { referralId: { $ne: null } }];
+        monthMatch.referralId = { $ne: null };
+      } else if (source === "staff") {
+        monthMatch.$or = [{ source: "staff" }, { staffId: { $ne: null } }];
+        monthMatch.staffId = { $ne: null };
+      } else if (source === "product") {
+        monthMatch.source = "product";
+        monthMatch.productSaleId = { $ne: null };
+        monthMatch.staffId = { $ne: null };
+      }
+      if (Object.keys(dateMatch).length > 0) {
+        Object.assign(monthMatch, dateMatch);
+      }
+      const amountExpr = {
+        $cond: [
+          { $gt: ["$finalCommissionAmount", 0] },
+          "$finalCommissionAmount",
+          "$commissionAmount",
+        ],
+      };
+      const monthly = await Commission.aggregate([
+        { $match: monthMatch },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m",
+                date: { $ifNull: ["$invoicedDate", "$createdAt"] },
+              },
+            },
+            approved: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$isSubmitted", true] },
+                      { $eq: ["$isApproved", true] },
+                    ],
+                  },
+                  amountExpr,
+                  0,
+                ],
+              },
+            },
+            pending: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$isSubmitted", false] },
+                      { $eq: ["$isApproved", false] },
+                    ],
+                  },
+                  amountExpr,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+      return res.status(200).json({
+        success: true,
+        items: monthly.map((m) => ({
+          month: m._id,
+          approved: Number((m.approved || 0).toFixed(2)),
+          pending: Number((m.pending || 0).toFixed(2)),
+        })),
+      });
     }
 
     let grouped = [];
-    if (source === "referral") {
-      const matchStage = {
-        clinicId,
-        $or: [{ source: "referral" }, { referralId: { $ne: null } }],
-        referralId: { $ne: null },
-      };
-      if (Object.keys(dateMatch).length > 0) {
-        Object.assign(matchStage, dateMatch);
-      }
-      grouped = await Commission.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: "$referralId",
-            totalCommissionAmount: {
-              $sum: {
-                $cond: [
-                  { $gt: ["$finalCommissionAmount", 0] },
-                  "$finalCommissionAmount",
-                  "$commissionAmount",
-                ],
-              },
-            },
-            totalAmountPaid: { $sum: "$amountPaid" },
-            count: { $sum: 1 },
-            lastCommissionPercent: { $last: "$commissionPercent" },
-            lastReferralName: { $last: "$referralName" },
-            submittedCount: {
-              $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] },
-            },
-            pendingApprovalCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ["$isSubmitted", true] },
-                      { $eq: ["$isApproved", false] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-        },
-        { $sort: { totalCommissionAmount: -1 } },
-      ]);
-    } else if (source === "staff") {
-      const matchStage = {
-        clinicId,
-        $or: [{ source: "staff" }, { staffId: { $ne: null } }],
-        staffId: { $ne: null },
-      };
-      if (Object.keys(dateMatch).length > 0) {
-        Object.assign(matchStage, dateMatch);
-      }
-      grouped = await Commission.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: "$staffId",
-            totalCommissionAmount: {
-              $sum: {
-                $cond: [
-                  { $gt: ["$finalCommissionAmount", 0] },
-                  "$finalCommissionAmount",
-                  "$commissionAmount",
-                ],
-              },
-            },
-            totalAmountPaid: { $sum: "$amountPaid" },
-            count: { $sum: 1 },
-            lastCommissionPercent: { $last: "$commissionPercent" },
-            submittedCount: {
-              $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] },
-            },
-            pendingApprovalCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ["$isSubmitted", true] },
-                      { $eq: ["$isApproved", false] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-        },
-        { $sort: { totalCommissionAmount: -1 } },
-      ]);
-    } else if (source === "product") {
-      const matchStage = {
-        clinicId,
-        // $or: [{ source: "product" }, { staffId: { $ne: null } }],
-        source: "product",
-        productSaleId: { $ne: null },
-        staffId: { $ne: null },
-      };
-      if (Object.keys(dateMatch).length > 0) {
-        Object.assign(matchStage, dateMatch);
-      }
-      grouped = await Commission.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: "$staffId",
-            totalCommissionAmount: {
-              $sum: {
-                $cond: [
-                  { $gt: ["$finalCommissionAmount", 0] },
-                  "$finalCommissionAmount",
-                  "$commissionAmount",
-                ],
-              },
-            },
-            totalAmountPaid: { $sum: "$amountPaid" },
-            count: { $sum: 1 },
-            lastCommissionPercent: { $last: "$commissionPercent" },
-            submittedCount: {
-              $sum: { $cond: [{ $eq: ["$isSubmitted", true] }, 1, 0] },
-            },
-            pendingApprovalCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ["$isSubmitted", true] },
-                      { $eq: ["$isApproved", false] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-        },
-        { $sort: { totalCommissionAmount: -1 } },
-      ]);
-    } else {
-      const matchStage = { clinicId };
-      if (Object.keys(dateMatch).length > 0) {
-        Object.assign(matchStage, dateMatch);
-      }
-      grouped = await Commission.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: "$staffId",
-            totalCommissionAmount: {
-              $sum: {
-                $cond: [
-                  { $gt: ["$finalCommissionAmount", 0] },
-                  "$finalCommissionAmount",
-                  "$commissionAmount",
-                ],
-              },
-            },
-            totalAmountPaid: { $sum: "$amountPaid" },
-            count: { $sum: 1 },
-            lastCommissionPercent: { $last: "$commissionPercent" },
-          },
-        },
-        { $sort: { totalCommissionAmount: -1 } },
-      ]);
+    // Per-person grouping runs through the shared SOURCE_CONFIGS pipeline builder
+    // so every commission source (referrer / doctor-staff / agent / any future
+    // source) stays consistent and scalable — one group spec for all sources.
+    const cfg = SOURCE_CONFIGS[source];
+    if (!cfg) {
+      return res.status(200).json({ success: true, items: [] });
     }
+    const matchStage = buildMatchStage(cfg, clinicId, dateMatch);
+    grouped = await Commission.aggregate(
+      buildPerSourcePipeline(cfg, matchStage),
+    );
 
     const results = [];
     for (const g of grouped) {
@@ -306,10 +473,18 @@ export default async function handler(req, res) {
           count: g.count,
           submittedCount: g.submittedCount || 0,
           pendingApprovalCount: g.pendingApprovalCount || 0,
+          pendingApprovalEarnedAmount: Number((g.pendingApprovalEarnedAmount || 0).toFixed(2)),
+          pendingEarnedAmount: Number((g.pendingEarnedAmount || 0).toFixed(2)),
+          pendingCount: g.pendingCount || 0,
+          approvedEarnedAmount: Number((g.approvedEarnedAmount || 0).toFixed(2)),
+          approvedCount: g.approvedCount || 0,
+          deductionsAmount: Number((g.deductionsAmount || 0).toFixed(2)),
+          oldestPendingDate: g.oldestPendingDate || null,
         });
       } else {
         const staffId = g._id;
         let name = "";
+        let staffRole = "";
         let percent = g.lastCommissionPercent || 0;
         let commissionType = "flat";
         let targetAmount = 0;
@@ -320,6 +495,12 @@ export default async function handler(req, res) {
           const user = await User.findById(staffId).select("name role").lean();
           if (user) {
             name = user.name || "";
+            staffRole = user.role || "";
+          }
+          // staffId may be dangling/foreign (e.g. package-sold-by) — recover the
+          // real name from stored package/referral/patient data instead of blank.
+          if (!name) {
+            name = await resolveStaffNameFallback(staffId, clinicId);
           }
           const profile = await AgentProfile.findOne({
             userId: staffId,
@@ -364,6 +545,7 @@ export default async function handler(req, res) {
           source: "staff",
           personId: staffId?.toString() || null,
           name,
+          staffRole,
           percent,
           commissionType,
           totalEarned: Number(g.totalCommissionAmount.toFixed(2)),
@@ -371,6 +553,13 @@ export default async function handler(req, res) {
           count: g.count,
           submittedCount: g.submittedCount || 0,
           pendingApprovalCount: g.pendingApprovalCount || 0,
+          pendingApprovalEarnedAmount: Number((g.pendingApprovalEarnedAmount || 0).toFixed(2)),
+          pendingEarnedAmount: Number((g.pendingEarnedAmount || 0).toFixed(2)),
+          pendingCount: g.pendingCount || 0,
+          approvedEarnedAmount: Number((g.approvedEarnedAmount || 0).toFixed(2)),
+          approvedCount: g.approvedCount || 0,
+          deductionsAmount: Number((g.deductionsAmount || 0).toFixed(2)),
+          oldestPendingDate: g.oldestPendingDate || null,
         };
 
         // Add target-specific fields if applicable

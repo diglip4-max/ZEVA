@@ -25,9 +25,11 @@ type MarketplaceCardProps = {
   // price: string;
   items: string[];
   delayMs?: number;
+  // Cards that are already live hide the teaser CTA.
+  showCta?: boolean;
 };
 
-function MarketplaceCard({ title, subtitle,  items, delayMs = 0 }: MarketplaceCardProps): ReactElement {
+function MarketplaceCard({ title, subtitle,  items, delayMs = 0, showCta = true }: MarketplaceCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -66,6 +68,7 @@ function MarketplaceCard({ title, subtitle,  items, delayMs = 0 }: MarketplaceCa
           ))}
         </ul>
 
+        {showCta && (
         <button
           type="button"
           className={[
@@ -75,6 +78,7 @@ function MarketplaceCard({ title, subtitle,  items, delayMs = 0 }: MarketplaceCa
         >
             Coming Soon 
         </button>
+        )}
       </div>
     </div>
   );
@@ -99,6 +103,7 @@ export default function MarketplaceSection(): ReactElement {
         <div className="mt-10 grid justify-items-center gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
           <MarketplaceCard
             delayMs={0}
+            showCta={false}
             title="Business Listings"
             subtitle="Expand your opportunities"
             // price="$49"
@@ -123,6 +128,7 @@ export default function MarketplaceSection(): ReactElement {
 
           <MarketplaceCard
             delayMs={240}
+            showCta={false}
             title="Vendor Marketplace"
             subtitle="Tools & services for your business"
             // price="$—"
@@ -131,6 +137,7 @@ export default function MarketplaceSection(): ReactElement {
 
           <MarketplaceCard
             delayMs={320}
+            showCta={false}
             title="Partnerships"
             subtitle="Collaborate & cross-refer"
             // price="$—"
@@ -139,6 +146,7 @@ export default function MarketplaceSection(): ReactElement {
 
           <MarketplaceCard
             delayMs={400}
+            showCta={false}
             title="Resources & Templates"
             subtitle="Docs to move faster"
             // price="$—"

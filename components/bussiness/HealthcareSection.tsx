@@ -74,9 +74,11 @@ type HealthcareCardProps = {
   // price: string;
   items: string[];
   delayMs?: number;
+  // Cards that are already live hide the teaser CTA.
+  showCta?: boolean;
 };
 
-function HealthcareCard({ icon, title, subtitle, items, delayMs = 0 }: HealthcareCardProps): ReactElement {
+function HealthcareCard({ icon, title, subtitle, items, delayMs = 0, showCta = true }: HealthcareCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -109,6 +111,7 @@ function HealthcareCard({ icon, title, subtitle, items, delayMs = 0 }: Healthcar
           ))}
         </ul>
 
+        {showCta && (
         <button
           type="button"
           className={[
@@ -118,6 +121,7 @@ function HealthcareCard({ icon, title, subtitle, items, delayMs = 0 }: Healthcar
         >
       Coming Soon 
         </button>
+        )}
       </div>
     </div>
   );
@@ -142,6 +146,7 @@ export default function HealthcareSection(): ReactElement {
         <div className="mt-10 grid justify-items-center gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
           <HealthcareCard
             delayMs={0}
+            showCta={false}
             icon={<FolderIcon className="h-6 w-6" />}
             title="Patient Records"
             subtitle="Secure digital records"
@@ -151,6 +156,7 @@ export default function HealthcareSection(): ReactElement {
 
           <HealthcareCard
             delayMs={80}
+            showCta={false}
             icon={<HeartIcon className="h-6 w-6" />}
             title="Insurance Integration"
             subtitle="Streamline claims"
@@ -160,6 +166,7 @@ export default function HealthcareSection(): ReactElement {
 
           <HealthcareCard
             delayMs={160}
+            showCta={false}
             icon={<VideoIcon className="h-6 w-6" />}
             title="Telemedicine"
             subtitle="Virtual consultations"
@@ -169,6 +176,7 @@ export default function HealthcareSection(): ReactElement {
 
           <HealthcareCard
             delayMs={240}
+            showCta={false}
             icon={<CubeIcon className="h-6 w-6" />}
             title="Inventory"
             subtitle="Track supplies & equipment"

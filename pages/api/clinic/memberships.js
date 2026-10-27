@@ -1,5 +1,6 @@
 import dbConnect from "../../../lib/database";
 import MembershipPlan from "../../../models/MembershipPlan";
+import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
@@ -42,6 +43,24 @@ export default async function handler(req, res) {
         clinicId,
         isDeleted: { $ne: true }
       }).sort({ createdAt: -1 }).lean();
+
+      // Count enrolled patients per membership plan (current + historical enrollments)
+      let enrolledByPlan = {};
+      try {
+        const enrollAgg = await PatientRegistration.aggregate([
+          { $match: { clinicId } },
+          { $project: { planIds: { $ifNull: ["$memberships.membershipId", []] } } },
+          { $unwind: "$planIds" },
+          { $group: { _id: "$planIds", count: { $sum: 1 } } },
+        ]);
+        enrollAgg.forEach((row) => {
+          enrolledByPlan[String(row._id)] = row.count;
+        });
+      } catch {
+        // Enrollment counts are supplementary overview data — degrade gracefully to 0
+        enrolledByPlan = {};
+      }
+
       const now = new Date();
       const enriched = memberships.map((m) => {
         const startDate = m.createdAt
@@ -56,9 +75,10 @@ export default async function handler(req, res) {
           endDate = end.toISOString().slice(0, 10);
           status = end >= now ? "Active" : "Expired";
         }
-        return { ...m, startDate, endDate, status };
+        return { ...m, startDate, endDate, status, enrolledCount: enrolledByPlan[String(m._id)] || 0 };
       });
-      return res.status(200).json({ success: true, memberships: enriched });
+      const totalEnrolled = enriched.reduce((sum, m) => sum + (m.enrolledCount || 0), 0);
+      return res.status(200).json({ success: true, memberships: enriched, totalEnrolled });
     } catch {
       return res.status(500).json({ success: false, message: "Failed to fetch memberships" });
     }

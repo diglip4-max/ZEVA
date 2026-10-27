@@ -5,6 +5,11 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import {
+  syncClinicUrlWithLocation,
+  buildCityFirstAddress,
+  getCityFromAddress,
+} from "../../../lib/clinicApprovalSeoService";
 
 // Configure multer for file upload (photos + documents) using memory storage for Cloudinary
 const storage = multer.memoryStorage();
@@ -666,6 +671,40 @@ export default async function handler(req, res) {
         console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
       }
 
+      // 📍 Location update: persist the coordinates picked/typed on the clinic
+      // profile, and keep the stored address in the "City, <details>" form the
+      // slug pipeline expects (the URL city is always address.split(',')[0]).
+      const incomingLat = parseFloat(updateData.latitude);
+      const incomingLng = parseFloat(updateData.longitude);
+      const hasFreshCoords =
+        Number.isFinite(incomingLat) &&
+        Number.isFinite(incomingLng) &&
+        !(incomingLat === 0 && incomingLng === 0);
+
+      if (hasFreshCoords) {
+        updateData.location = {
+          type: "Point",
+          coordinates: [incomingLng, incomingLat],
+        };
+      }
+      delete updateData.latitude;
+      delete updateData.longitude;
+
+      const incomingCity =
+        typeof updateData.city === "string" ? updateData.city.trim() : "";
+      delete updateData.city;
+      if (incomingCity && updateData.address) {
+        updateData.address = buildCityFirstAddress(updateData.address, incomingCity);
+      }
+
+      // Only a change of CITY moves the public URL. Editing street details inside
+      // the same city (or renaming the clinic) leaves the permanent link exactly
+      // as it is today, so existing SEO behaviour is never weakened.
+      const previousCity = getCityFromAddress(existingClinic.address);
+      const locationChanged =
+        !!incomingCity &&
+        incomingCity.toLowerCase() !== previousCity.toLowerCase();
+
       console.log("🔄 Updating clinic with data:", updateData);
       console.log("📦 Update data keys:", Object.keys(updateData));
       console.log("📄 Document names:", documentNames);
@@ -751,10 +790,47 @@ export default async function handler(req, res) {
 
       console.log("✅ Clinic updated successfully:", updatedClinic);
 
+      // 🌐 Keep the SEO URL in step with the clinic's current location.
+      // Mirrors the registration/approval rule (name + city) so a clinic that
+      // relocates after signing up gets a URL matching its new city, while the
+      // retired slug is retained for redirects. Non-fatal: the profile edit has
+      // already been saved even if this fails.
+      let urlSync = null;
+      if (locationChanged) {
+        try {
+          urlSync = await syncClinicUrlWithLocation(existingClinic._id);
+          if (urlSync.urlUpdated) {
+            updatedClinic.slug = urlSync.slug;
+            updatedClinic.previousSlugs = [
+              ...(updatedClinic.previousSlugs || []),
+              urlSync.previousSlug,
+            ].filter((s, i, arr) => s && arr.indexOf(s) === i);
+            console.log(
+              `🔗 Clinic URL moved: ${urlSync.previousSlug} → ${urlSync.slug}`
+            );
+          }
+        } catch (syncError) {
+          console.error(
+            "⚠️ URL sync after location change failed (non-fatal):",
+            syncError.message
+          );
+        }
+      }
+
       return res.status(200).json({
         success: true,
         clinic: updatedClinic,
         message: "Clinic updated successfully",
+        ...(urlSync && urlSync.urlUpdated
+          ? {
+              slug_updated: true,
+              slug: urlSync.slug,
+              previous_slug: urlSync.previousSlug,
+              clinic_url: urlSync.url,
+              url_message:
+                "🔗 Your clinic link now reflects your updated location. Previously shared links keep working.",
+            }
+          : {}),
       });
     } catch (error) {
       console.error("❌ Error updating clinic:", error);

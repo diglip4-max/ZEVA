@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, useRef, ReactElement } from "react";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 import {
@@ -29,6 +29,7 @@ import type { NextPageWithLayout } from "../_app";
 import Loader from "@/components/Loader";
 import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
+import { slugify } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -444,6 +445,21 @@ function ClinicManagementDashboard(): ReactElement {
     lat: 28.474389,
     lng: 77.50399,
   });
+  // Location editing state: coordinates + city resolved from the address field.
+  // The city drives the public clinic URL, so it is tracked separately.
+  const [pickedCoords, setPickedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [resolvedCity, setResolvedCity] = useState<string>("");
+  // True only once the clinic actively changed its location (typed a new
+  // address, clicked the map or used "Locate on Map"). Until then the saved
+  // coordinates/city are not re-sent, so a plain profile save behaves exactly
+  // as it did before.
+  const [locationDirty, setLocationDirty] = useState<boolean>(false);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const addressGeocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const addressGeocoderRef = useRef<google.maps.Geocoder | null>(null);
   const { isLoaded: mapsLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
   });
@@ -1076,6 +1092,112 @@ function ClinicManagementDashboard(): ReactElement {
     });
   }, [clinics]);
 
+  // ── Location editing: address text → geocode → map pin + city for the URL ──
+  const getAddressGeocoder = (): google.maps.Geocoder | null => {
+    if (typeof window === "undefined" || !window.google?.maps) return null;
+    if (!addressGeocoderRef.current) {
+      addressGeocoderRef.current = new window.google.maps.Geocoder();
+    }
+    return addressGeocoderRef.current;
+  };
+
+  // Read the city out of Google's address components (same precedence the
+  // registration page uses), so the stored address can stay "City, <details>".
+  const extractCityFromResult = (result: google.maps.GeocoderResult): string => {
+    const components = result.address_components || [];
+    const find = (type: string) =>
+      components.find((c) => (c.types || []).includes(type))?.long_name || "";
+    return (
+      find("locality") ||
+      find("administrative_area_level_2") ||
+      find("postal_town") ||
+      find("administrative_area_level_1") ||
+      ""
+    );
+  };
+
+  // Store a resolved geocode result: map pin + coordinates + city
+  const applyResolvedLocation = (
+    result: google.maps.GeocoderResult,
+    opts: { keepAddressText?: boolean } = {}
+  ) => {
+    const pos = result.geometry?.location;
+    if (!pos) return false;
+    const lat = pos.lat();
+    const lng = pos.lng();
+    const city = extractCityFromResult(result);
+
+    setPickedCoords({ lat, lng });
+    setMapCenter({ lat, lng });
+    setResolvedCity(city);
+
+    // Only overwrite the typed text with Google's canonical address when the
+    // field is empty, so a clinic's own street formatting is never lost.
+    if (!opts.keepAddressText) {
+      setEditForm((prev) => ({
+        ...prev,
+        address: prev.address?.trim()
+          ? prev.address
+          : result.formatted_address || "",
+      }));
+    }
+    return true;
+  };
+
+  // Debounced auto-locate while the clinic types a new location
+  const handleAddressChange = (value: string) => {
+    setEditForm((prev) => ({ ...prev, address: value }));
+    if (addressGeocodeTimerRef.current) {
+      clearTimeout(addressGeocodeTimerRef.current);
+    }
+    if (!value.trim()) {
+      setPickedCoords(null);
+      setResolvedCity("");
+      return;
+    }
+    addressGeocodeTimerRef.current = setTimeout(() => {
+      const geocoder = getAddressGeocoder();
+      if (!geocoder) return;
+      setIsLocating(true);
+      geocoder.geocode({ address: value }, (res, status) => {
+        setIsLocating(false);
+        if (status === "OK" && res && res[0]) {
+          applyResolvedLocation(res[0]);
+          setLocationDirty(true);
+        } else {
+          // Nothing resolved for this text, so never send a stale city that
+          // would move the public URL to the wrong place.
+          setResolvedCity("");
+        }
+      });
+    }, 800);
+  };
+
+  // Clicking the map pins an exact location and resolves its city
+  const handleLocationMapClick = (e: google.maps.MapMouseEvent) => {
+    if (!e.latLng) return;
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    setPickedCoords({ lat, lng });
+    setMapCenter({ lat, lng });
+    const geocoder = getAddressGeocoder();
+    if (geocoder) {
+      setIsLocating(true);
+      geocoder.geocode({ location: e.latLng }, (res, status) => {
+        setIsLocating(false);
+        if (status === "OK" && res && res[0]) {
+          applyResolvedLocation(res[0]);
+          setLocationDirty(true);
+        } else {
+          setResolvedCity("");
+        }
+      });
+    } else {
+      setResolvedCity("");
+    }
+    toast.success("Location pinned from map!");
+  };
+
   const locateOnMap = () => {
     if (!mapsLoaded) {
       setMapCenter({ lat: 28.474389, lng: 77.50399 });
@@ -1085,8 +1207,10 @@ function ClinicManagementDashboard(): ReactElement {
     const g = new window.google.maps.Geocoder();
     g.geocode({ address: addr }, (res, status) => {
       if (status === "OK" && res && res[0]) {
-        const loc = res[0].geometry.location;
-        setMapCenter({ lat: loc.lat(), lng: loc.lng() });
+        // Also capture coords + city so saving persists the new location and
+        // the public URL follows the clinic's city.
+        applyResolvedLocation(res[0], { keepAddressText: true });
+        setLocationDirty(true);
         toast.success("Location located on map!");
       } else {
         setMapCenter({ lat: 28.474389, lng: 77.50399 });
@@ -1107,9 +1231,25 @@ function ClinicManagementDashboard(): ReactElement {
       if (status === "OK" && res && res[0]) {
         const loc = res[0].geometry.location;
         setMapCenter({ lat: loc.lat(), lng: loc.lng() });
+        // Seed the current pin + city so the location starts from the clinic's
+        // saved values and a later edit is detected as an actual change.
+        setPickedCoords((prev) =>
+          prev ? prev : { lat: loc.lat(), lng: loc.lng() }
+        );
+        setResolvedCity((prev) => prev || extractCityFromResult(res[0]));
       }
     });
   }, [mapsLoaded, editForm?._id]);
+
+  // Never let a pending debounced geocode fire after the page is gone.
+  useEffect(() => {
+    return () => {
+      if (addressGeocodeTimerRef.current) {
+        clearTimeout(addressGeocodeTimerRef.current);
+        addressGeocodeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchSize = async (u: string, idx: number) => {
@@ -1539,6 +1679,27 @@ function ClinicManagementDashboard(): ReactElement {
     setSelectedFiles([]);
     setNewDocName("");
     setNewDocFile(null);
+    // Drop the pending location edit and re-pin the saved address, so cancelling
+    // never leaves a stale pin/city that would be sent on the next save.
+    if (addressGeocodeTimerRef.current) {
+      clearTimeout(addressGeocodeTimerRef.current);
+      addressGeocodeTimerRef.current = null;
+    }
+    setIsLocating(false);
+    setPickedCoords(null);
+    setResolvedCity("");
+    setLocationDirty(false);
+    const restoredAddress = String(stateSnapshot?.editForm?.address || "").trim();
+    if (restoredAddress && mapsLoaded && window.google?.maps) {
+      const geocoder = getAddressGeocoder();
+      if (geocoder) {
+        geocoder.geocode({ address: restoredAddress }, (res, status) => {
+          if (status === "OK" && res && res[0]) {
+            applyResolvedLocation(res[0], { keepAddressText: true });
+          }
+        });
+      }
+    }
     toast.success("Changes cancelled");
   };
 
@@ -1645,6 +1806,11 @@ function ClinicManagementDashboard(): ReactElement {
       const baseClinic = clinics[0] || ({} as any);
       const safeName = (editForm.name ?? baseClinic.name ?? "").trim();
       const safeAddress = (editForm.address ?? baseClinic.address ?? "").trim();
+      // Location resolved from the address field / map pin. Sent to the API so
+      // the saved coordinates and the public URL city follow the new location.
+      const latitude = locationDirty && pickedCoords ? pickedCoords.lat : undefined;
+      const longitude = locationDirty && pickedCoords ? pickedCoords.lng : undefined;
+      const city = locationDirty ? (resolvedCity || "").trim() : "";
       const filesFromEdit = (editForm.photos || []).filter(
         (p: any) => p instanceof File,
       ) as File[];
@@ -1680,10 +1846,15 @@ function ClinicManagementDashboard(): ReactElement {
       const hasFiles =
         mediaFilesToUpload.length > 0 || otherFilesToUpload.length > 0;
       const hasDocFiles = documentFilesToUpload.length > 0;
+      // Populated from the API response when the location change moved the URL.
+      let urlSync: any = null;
       if (hasFiles || hasDocFiles) {
         const form = new FormData();
         form.append("name", safeName);
         form.append("address", safeAddress);
+        if (typeof latitude === "number") form.append("latitude", String(latitude));
+        if (typeof longitude === "number") form.append("longitude", String(longitude));
+        if (city) form.append("city", city);
         const slugToSave = (generalInfo.slug || editForm.slug || "").trim();
         if (slugToSave) form.append("slug", slugToSave);
         form.append("tagline", (generalInfo.tagline || "").trim());
@@ -1734,6 +1905,7 @@ function ClinicManagementDashboard(): ReactElement {
             toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
+          urlSync = response.data;
         } catch (err: any) {
           const missing = err?.response?.data?.missingFields as
             | string[]
@@ -1766,6 +1938,9 @@ function ClinicManagementDashboard(): ReactElement {
         const cleanUpdateData = {
           name: safeName,
           address: safeAddress,
+          ...(typeof latitude === "number" && { latitude }),
+          ...(typeof longitude === "number" && { longitude }),
+          ...(city && { city }),
           ...(generalInfo.slug && { slug: generalInfo.slug.trim() }),
           tagline: (generalInfo.tagline || "").trim(),
           description: (generalInfo.description || "").trim(),
@@ -1805,6 +1980,7 @@ function ClinicManagementDashboard(): ReactElement {
             toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
+          urlSync = response.data;
         } catch (err: any) {
           const missing = err?.response?.data?.missingFields as
             | string[]
@@ -1830,6 +2006,15 @@ function ClinicManagementDashboard(): ReactElement {
       console.log("🔔 About to show success toast");
       toast.success("Clinic updated successfully", { id: "clinic-update" });
       console.log("🔔 Success toast shown");
+      // The URL is driven by the clinic city, so a location move regenerates it.
+      if (urlSync?.slug_updated) {
+        toast.success(urlSync.url_message || "Clinic link updated for your new location", {
+          id: "clinic-url",
+          duration: 6000,
+        });
+      }
+      // The saved location is now the reference point again.
+      setLocationDirty(false);
       // Sync currency to global context after successful save
       setGlobalCurrency(clinicCurrency);
       // Reset logo and cover file states
@@ -3250,28 +3435,70 @@ function ClinicManagementDashboard(): ReactElement {
                         value={editForm.address || ""}
                         disabled={fieldDisabled}
                         readOnly={fieldDisabled}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, address: e.target.value })
-                        }
+                        onChange={(e) => handleAddressChange(e.target.value)}
                         placeholder="Enter clinic address"
                       />
                       <button
                         type="button"
                         onClick={locateOnMap}
-                        disabled={fieldDisabled}
+                        disabled={fieldDisabled || isLocating}
                         className={`px-3 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-xs sm:text-sm font-medium whitespace-nowrap self-end sm:self-auto ${fieldDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
-                        Locate on Map
+                        {isLocating ? "Locating…" : "Locate on Map"}
                       </button>
                     </div>
+                    <p className="text-xs text-gray-500">
+                      Typing a new location pins it on the map, and the map is
+                      clickable too. Your clinic link is based on this city, so it
+                      updates automatically when you save a new one.
+                    </p>
+                    {(() => {
+                      // Preview of the public URL for the pending location. Only
+                      // shown when the resolved city differs from the saved one.
+                      const clinicName = (
+                        editForm.name ||
+                        (clinics[0] as any)?.name ||
+                        ""
+                      ).trim();
+                      const savedCity = String(
+                        (clinics[0] as any)?.address || "",
+                      )
+                        .split(",")[0]
+                        .trim();
+                      const pendingCity = resolvedCity;
+                      if (
+                        !locationDirty ||
+                        !clinicName ||
+                        !pendingCity ||
+                        pendingCity === savedCity
+                      )
+                        return null;
+                      const previewUrl = `${
+                        process.env.NEXT_PUBLIC_BASE_URL || "https://zeva360.com"
+                      }/clinics/${slugify(`${clinicName} ${pendingCity}`)}`;
+                      return (
+                        <div className="p-3 rounded-lg border-2 bg-blue-50 border-blue-200">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">
+                            🔗 Your clinic link will become:
+                          </p>
+                          <p className="text-xs text-[#00b480] break-all font-mono">
+                            {previewUrl}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Applies after you save. Old links keep working.
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <div className="rounded-xl border border-gray-200 overflow-hidden">
                       {mapsLoaded ? (
                         <GoogleMap
                           mapContainerStyle={{ width: "100%", height: "260px" }}
                           center={mapCenter}
                           zoom={14}
+                          onClick={handleLocationMapClick}
                         >
-                          <Marker position={mapCenter} />
+                          <Marker position={pickedCoords || mapCenter} />
                         </GoogleMap>
                       ) : (
                         <div className="p-6 bg-teal-50 text-center text-teal-700">

@@ -75,6 +75,9 @@ const ClinicSchema = new mongoose.Schema(
       index: true 
     },
     slugLocked: { type: Boolean, default: false }, // Lock slug once approved
+    // Older slugs retired when the clinic location changed. Kept so previously
+    // shared / indexed URLs can 301-redirect to the current one instead of 404ing.
+    previousSlugs: { type: [String], default: [] },
     otpWhatsAppNumber: { type: String, default: null },
     otpEmail: { type: String, default: null },
     listingVisibility: {

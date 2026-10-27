@@ -1,10 +1,10 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+  import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import { Toaster, toast } from "react-hot-toast";
-import { Loader2, Edit2, Trash2, CheckCircle, AlertCircle, Package, ChevronDown, X, Calendar, Search, User, Users, Plus, Save, Stethoscope, Percent, Clock, Star, Wrench } from "lucide-react";
+import { Loader2, Edit2, Trash2, CheckCircle, AlertCircle, Package, ChevronDown, X, Calendar, Search, User, Users, Plus, Save, Stethoscope, Percent, Clock, Star, Wrench, ArrowRight } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 
@@ -73,6 +73,14 @@ function getPackageStatus(pkg) {
   return 'Active';
 }
 
+// Time-based greeting for the overview header
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function ServicesSetupPage() {
   // Permission states
   const [permissions, setPermissions] = useState({
@@ -84,6 +92,7 @@ function ServicesSetupPage() {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   // Multi-token role detection — checks all stored token types
   const getUserInfo = useCallback(() => {
@@ -132,6 +141,8 @@ function ServicesSetupPage() {
       setHasAgentToken(!!agentTok);
     };
     syncTokens();
+    // Detect role once on mount for overview visibility gating
+    setUserRole(getUserRole());
     window.addEventListener("storage", syncTokens);
     return () => window.removeEventListener("storage", syncTokens);
   }, []);
@@ -408,10 +419,21 @@ function ServicesSetupPage() {
     };
   }, [isAgentRoute, getUserRole]);
 
-  const [activeTab, setActiveTab] = useState("services");
+  const [activeTab, setActiveTab] = useState("overview");
+  const isClinicRole = userRole === "clinic" || userRole === "admin";
+
+  // Non-clinic roles should never see the overview tab — redirect to services
+  useEffect(() => {
+    if (permissionsLoaded && !isClinicRole && activeTab === "overview") {
+      setActiveTab("services");
+    }
+  }, [permissionsLoaded, isClinicRole, activeTab]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState('INR');
+  const [clinicName, setClinicName] = useState("");
+  // Guards one-time initial data load (all tabs' data is needed for counts + overview)
+  const [dataInitialized, setDataInitialized] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
 
@@ -434,6 +456,8 @@ function ServicesSetupPage() {
 
   // Search states
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
+  const [serviceStatusFilter, setServiceStatusFilter] = useState("all"); // all | active | inactive
+  const [serviceViewMode, setServiceViewMode] = useState("list"); // list | grid
   const [membershipSearchTerm, setMembershipSearchTerm] = useState("");
   const [packageSearchTerm, setPackageSearchTerm] = useState("");
 
@@ -518,6 +542,9 @@ function ServicesSetupPage() {
         const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
+        }
+        if (res.data.success && res.data.clinic?.name) {
+          setClinicName(res.data.clinic.name);
         }
       } catch (e) {
         console.error('Error fetching clinic currency:', e);
@@ -666,13 +693,44 @@ function ServicesSetupPage() {
 
 
 
+  const loadMemberships = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      setMessage({ type: "error", text: "Authentication required. Please log in again." });
+      return;
+    }
+    try {
+      const res = await axios.get("/api/clinic/memberships", { headers });
+      if (res.data.success) {
+        setMemberships(res.data.memberships || []);
+      } else {
+        const errorMsg = res.data.message || "Failed to load memberships";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      const status = error.response?.status;
+      if (status !== 401 && status !== 403) {
+        const errorMsg = error.response?.data?.message || "Failed to load memberships";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+      setMemberships([]);
+    } finally {
+      setMemLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!permissionsLoaded) return;
     // Always load departments (needed for create form even when canRead is false)
     loadDepartments();
-    // Only load services if canRead is true
-    if (permissions.canRead) {
+    // Load every catalog dataset once so tab counts and the overview are accurate
+    if (permissions.canRead && !dataInitialized) {
+      setDataInitialized(true);
       loadServices();
+      loadMemberships();
+      loadPackages();
     }
   }, [permissionsLoaded, permissions.canRead]);
 
@@ -1406,6 +1464,58 @@ function ServicesSetupPage() {
 
 
 
+  // ---- Overview derived stats (computed from the loaded catalog data) ----
+  // NOTE: these hooks must stay above the conditional Access-Denied return
+  // below, otherwise the hook order changes between renders (React error).
+  const activeServices = useMemo(() => services.filter((s) => s.isActive), [services]);
+  const departmentCount = useMemo(
+    () => new Set(services.map((s) => (s.departmentId && typeof s.departmentId === "object" ? String(s.departmentId._id) : String(s.departmentId || "unassigned")))).size,
+    [services]
+  );
+  const avgServicePrice = useMemo(() => {
+    if (services.length === 0) return 0;
+    return services.reduce((sum, s) => sum + (Number(s.price) || 0), 0) / services.length;
+  }, [services]);
+  const activePackageCount = useMemo(
+    () => packages.filter((p) => getPackageStatus(p) !== "Expired" && p.isActive !== false).length,
+    [packages]
+  );
+  const liveMembershipCount = useMemo(
+    () => memberships.filter((m) => m.isActive && !isMembershipExpired(m)).length,
+    [memberships]
+  );
+  const totalEnrolled = useMemo(
+    () => memberships.reduce((sum, m) => sum + (m.enrolledCount || 0), 0),
+    [memberships]
+  );
+
+  // Catalog quality checks shown in the "Needs attention" card
+  const discountInNameServices = useMemo(
+    () => services.filter((s) => /\b\d{1,3}\s?%\b/i.test(s.name || "")),
+    [services]
+  );
+  const noClinicPriceServices = useMemo(
+    () => services.filter((s) => s.clinicPrice === undefined || s.clinicPrice === null || s.clinicPrice === ""),
+    [services]
+  );
+  const inactiveServiceCount = services.length - activeServices.length;
+  const expiringPackages = useMemo(
+    () => packages.filter((p) => getPackageStatus(p) === "Expiring Soon"),
+    [packages]
+  );
+  const catalogIssuesTotal =
+    discountInNameServices.length + noClinicPriceServices.length + inactiveServiceCount + expiringPackages.length;
+  const catalogHealthScore = services.length === 0
+    ? 100
+    : Math.max(0, Math.min(100, Math.round(((services.length - catalogIssuesTotal) / services.length) * 100)));
+
+  const overviewTabs = [
+    ...(isClinicRole ? [{ key: "overview", label: "Overview", count: null }] : []),
+    { key: "services", label: "Services", count: services.length },
+    { key: "memberships", label: "Memberships", count: memberships.length },
+    { key: "packages", label: "Packages", count: packages.length },
+  ];
+
   // Show access denied message only if BOTH read and create are false
   if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
@@ -1483,35 +1593,23 @@ function ServicesSetupPage() {
       )}
 
       <div className="p-4 space-y-4 w-full lg:w-[95%] xl:w-[90%] mx-auto">
-        <div className="flex border-b border-gray-200 mb-2">
-          <button
-            onClick={() => setActiveTab("services")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "services"
-              ? "border-teal-500 text-teal-900 dark:text-white"
-              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
-              }`}
-          >
-            Services
-          </button>
-
-          <button
-            onClick={() => setActiveTab("memberships")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "memberships"
-              ? "border-teal-500 text-teal-900 dark:text-white"
-              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
-              }`}
-          >
-            Memberships
-          </button>
-          <button
-            onClick={() => setActiveTab("packages")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "packages"
-              ? "border-teal-500 text-teal-900 dark:text-white"
-              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
-              }`}
-          >
-            Packages
-          </button>
+        {/* Tab navigation */}
+        <div className="flex border-b border-[#E7E1D5] mb-2 overflow-x-auto scrollbar-hide">
+          {overviewTabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-5 py-3 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${activeTab === t.key
+                ? "border-[#1F1D1A] text-[#1F1D1A] font-semibold"
+                : "border-transparent text-[#6B6862] font-medium hover:text-[#1F1D1A]"
+                }`}
+            >
+              {t.label}
+              {t.count !== null && (
+                <span className="ml-2 text-xs font-normal text-[#9B968D]">{t.count}</span>
+              )}
+            </button>
+          ))}
         </div>
         <div>
           {message.text && (
@@ -1519,7 +1617,7 @@ function ServicesSetupPage() {
               className={`flex items-center gap-2 px-3 py-2 rounded border ${message.type === "error"
                 ? "bg-rose-50 text-rose-800 border-rose-200"
                 : message.type === "success"
-                  ? "bg-[#2D9AA5]/5 text-[#2D9AA5] border-[#2D9AA5]/20"
+                  ? "bg-[#F5F1E8] text-[#1F1D1A] border-[#E0D9C8]"
                   : "bg-sky-50 text-sky-800 border-sky-200"
                 }`}
             >
@@ -1529,31 +1627,292 @@ function ServicesSetupPage() {
           )}
         </div>
 
+        {activeTab === "overview" && isClinicRole && (
+          <div className="bg-[#F7F5EF] rounded-xl border border-[#E7E1D5] px-6 py-8 lg:px-10 lg:py-10">
+            {/* Greeting */}
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Overview</p>
+            <h1 className="mt-2 text-3xl lg:text-4xl font-bold text-[#1F1D1A] tracking-tight">
+              {getGreeting()}{clinicName ? `, ${clinicName}` : ""}
+            </h1>
+            <p className="mt-3 text-lg text-[#6B6862]">
+              Your catalog holds {services.length} services, {packages.length} packages and {memberships.length} membership tiers. Here is what needs a look.
+            </p>
+
+            {/* Stat tiles */}
+            <div className="mt-8 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border-t border-b border-[#E7E1D5] divide-x divide-[#E7E1D5]">
+              {[
+                { value: services.length, label: "Services", sub: `across ${departmentCount} ${departmentCount === 1 ? "department" : "departments"}` },
+                { value: activeServices.length, label: "Active services", sub: services.length > 0 ? `${((activeServices.length / services.length) * 100).toFixed(1)}% of catalog` : "No services yet" },
+                { value: avgServicePrice.toFixed(2), label: "Avg service price", sub: `${currency} · listed services` },
+                { value: packages.length, label: "Packages", sub: `${activePackageCount} active` },
+                { value: memberships.length, label: "Membership tiers", sub: `${liveMembershipCount} live` },
+                { value: totalEnrolled, label: "Members enrolled", sub: "across all tiers" },
+              ].map((tile) => (
+                <div key={tile.label} className="px-5 py-6">
+                  <div className="text-3xl font-bold text-[#1F1D1A] tracking-tight">{tile.value}</div>
+                  <div className="mt-2 text-sm font-semibold text-[#1F1D1A]">{tile.label}</div>
+                  <div className="mt-1 text-xs text-[#9B968D]">{tile.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Signal + Needs attention cards */}
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Catalog health gauge */}
+              <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Signal</p>
+                    <h2 className="mt-1 text-lg font-bold text-[#1F1D1A]">Catalog health</h2>
+                  </div>
+                  <span className="px-3 py-1 rounded-lg bg-[#F1EBDD] border border-[#E3DAC6] text-xs font-semibold text-[#6B5B37]">Based on ZEVA data</span>
+                </div>
+                {(() => {
+                  const cx = 130, cy = 130, r = 100;
+                  const score = catalogHealthScore;
+                  const arc = (aDeg) => {
+                    const rad = (aDeg * Math.PI) / 180;
+                    return `${cx + r * Math.cos(rad)} ${cy - r * Math.sin(rad)}`;
+                  };
+                  const valueAngle = 180 - (score / 100) * 180;
+                  const tickRad = (valueAngle * Math.PI) / 180;
+                  const tickInner = { x: cx + (r - 9) * Math.cos(tickRad), y: cy - (r - 9) * Math.sin(tickRad) };
+                  const tickOuter = { x: cx + (r + 9) * Math.cos(tickRad), y: cy - (r + 9) * Math.sin(tickRad) };
+                  return (
+                    <div className="mt-4 flex flex-col items-center">
+                      <svg viewBox="0 0 260 150" className="w-full max-w-[320px]">
+                        <path d={`M 30 130 A 100 100 0 0 1 230 130`} fill="none" stroke="#EDE8DD" strokeWidth="14" strokeLinecap="round" />
+                        {score > 0 && (
+                          <path d={`M 30 130 A 100 100 0 0 1 ${arc(valueAngle)}`} fill="none" stroke="#3E7A5E" strokeWidth="14" strokeLinecap="round" />
+                        )}
+                        <line x1={tickInner.x} y1={tickInner.y} x2={tickOuter.x} y2={tickOuter.y} stroke="#A98545" strokeWidth="4" strokeLinecap="round" />
+                        <text x={cx} y={122} textAnchor="middle" fontSize="44" fontWeight="700" fill="#1F1D1A">{score}</text>
+                      </svg>
+                      <div className="w-full max-w-[320px] flex justify-between text-xs text-[#9B968D] -mt-1">
+                        <span>0</span>
+                        <span>100</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <p className="mt-3 text-xs text-[#9B968D] text-center">
+                  Score drops for every catalog item flagged in “Needs attention”.
+                </p>
+              </div>
+
+              {/* Catalog items to review */}
+              <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Needs Attention</p>
+                    <h2 className="mt-1 text-lg font-bold text-[#1F1D1A]">Catalog items to review</h2>
+                  </div>
+                  <span className="px-3 py-1 rounded-lg bg-[#F1EBDD] border border-[#E3DAC6] text-xs font-semibold text-[#6B5B37]">Based on ZEVA data</span>
+                </div>
+                <div className="mt-4 border-t border-[#E7E1D5]" />
+                {catalogIssuesTotal === 0 ? (
+                  <div className="py-12 text-center">
+                    <div className="w-12 h-12 mx-auto bg-[#EAF1EC] rounded-full flex items-center justify-center mb-3">
+                      <CheckCircle className="w-6 h-6 text-[#3E7A5E]" />
+                    </div>
+                    <h3 className="text-base font-semibold text-[#1F1D1A]">Nothing needs a look</h3>
+                    <p className="text-sm text-[#6B6862] mt-1">Your catalog is clean across services, packages and memberships.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#E7E1D5]">
+                    {discountInNameServices.length > 0 && (
+                      <div className="py-5 flex items-start gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-[#1F1D1A]">{discountInNameServices.length} {discountInNameServices.length === 1 ? "service has" : "services have"} a discount written into the name</h3>
+                          {/* <div className="mt-3 space-y-2">
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Why</span><span className="text-sm text-[#6B6862]">Names like “Hydrafacial 30% 350” hide the pricing rule, so the discount can’t be tracked on its own.</span></div>
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Impact</span><span className="text-sm text-[#6B6862]">Offer reporting and margin checks undercount these services.</span></div>
+                          </div> */}
+                        </div>
+                        <button onClick={() => setActiveTab("services")} className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#D9D2C2] bg-white text-sm font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors">
+                          Review services <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {noClinicPriceServices.length > 0 && (
+                      <div className="py-5 flex items-start gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-[#1F1D1A]">{noClinicPriceServices.length} {noClinicPriceServices.length === 1 ? "service has" : "services have"} no clinic price</h3>
+                          {/* <div className="mt-3 space-y-2">
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Why</span><span className="text-sm text-[#6B6862]">Without a clinic price the listing falls back to the patient-facing rate for internal invoicing.</span></div>
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Impact</span><span className="text-sm text-[#6B6862]">Billing and margin reports may overstate revenue for these services.</span></div>
+                          </div> */}
+                        </div>
+                        <button onClick={() => setActiveTab("services")} className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#D9D2C2] bg-white text-sm font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors">
+                          Review services <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {inactiveServiceCount > 0 && (
+                      <div className="py-5 flex items-start gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-[#1F1D1A]">{inactiveServiceCount} {inactiveServiceCount === 1 ? "service is" : "services are"} inactive</h3>
+                          {/* <div className="mt-3 space-y-2">
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Why</span><span className="text-sm text-[#6B6862]">Inactive services stay in the catalog but can’t be booked or sold.</span></div>
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Impact</span><span className="text-sm text-[#6B6862]">Packages or memberships referencing them will show unavailable treatments.</span></div>
+                          </div> */}
+                        </div>
+                        <button onClick={() => setActiveTab("services")} className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#D9D2C2] bg-white text-sm font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors">
+                          Review services <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {expiringPackages.length > 0 && (
+                      <div className="py-5 flex items-start gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-[#1F1D1A]">{expiringPackages.length} {expiringPackages.length === 1 ? "package expires" : "packages expire"} within 7 days</h3>
+                          {/* <div className="mt-3 space-y-2">
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Why</span><span className="text-sm text-[#6B6862]">Patients holding these packages lose access to remaining sessions once the end date passes.</span></div>
+                            <div className="flex gap-4"><span className="text-xs font-bold uppercase tracking-wider text-[#A98545] w-16 shrink-0">Impact</span><span className="text-sm text-[#6B6862]">Unused sessions become unbilled liability and can trigger complaints.</span></div>
+                          </div> */}
+                        </div>
+                        <button onClick={() => setActiveTab("packages")} className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#D9D2C2] bg-white text-sm font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors">
+                          Review packages <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Catalog Mix + Recently Added */}
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Services by department */}
+              <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Catalog Mix</p>
+                    <h2 className="mt-1 text-lg font-bold text-[#1F1D1A]">Services by department</h2>
+                  </div>
+                  <span className="px-3 py-1 rounded-lg bg-[#F1EBDD] border border-[#E3DAC6] text-xs font-semibold text-[#6B5B37]">{services.length} services</span>
+                </div>
+
+                <div className="mt-6 space-y-5">
+                  {(() => {
+                    // Group services by department name
+                    const deptMap = {};
+                    services.forEach((s) => {
+                      let deptName = "Unassigned";
+                      if (s.departmentId && typeof s.departmentId === "object" && s.departmentId.name) {
+                        deptName = s.departmentId.name;
+                      } else {
+                        const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
+                        if (d) deptName = d.name;
+                      }
+                      deptMap[deptName] = (deptMap[deptName] || 0) + 1;
+                    });
+                    const sorted = Object.entries(deptMap).sort((a, b) => b[1] - a[1]);
+                    const barColors = ["#3E7A5E", "#A98545", "#3E7A5E", "#B5AE9F", "#B5AE9F", "#A98545", "#3E7A5E", "#B5AE9F"];
+
+                    if (sorted.length === 0) {
+                      return <p className="text-sm text-[#9B968D]">No services yet</p>;
+                    }
+                    return sorted.map(([name, count], idx) => {
+                      const pct = services.length > 0 ? ((count / services.length) * 100) : 0;
+                      const color = barColors[idx % barColors.length];
+                      return (
+                        <div key={name}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-sm font-semibold text-[#1F1D1A]">{name}</span>
+                            <span className="text-sm text-[#6B6862]">{count} · {pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-2 bg-[#EDE8DD] rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Recently added */}
+              <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Activity</p>
+                  <h2 className="mt-1 text-lg font-bold text-[#1F1D1A]">Recently added</h2>
+                </div>
+
+                <div className="mt-5 divide-y divide-[#E7E1D5]">
+                  {(() => {
+                    // Merge services + packages sorted by createdAt desc, take top 5
+                    const items = [
+                      ...services.map((s) => ({
+                        type: "Service",
+                        name: s.name,
+                        sub: (() => {
+                          let deptName = "";
+                          if (s.departmentId && typeof s.departmentId === "object" && s.departmentId.name) deptName = s.departmentId.name;
+                          else { const d = departments.find((dd) => dd._id === String(s.departmentId || "")); if (d) deptName = d.name; }
+                          return `${deptName ? deptName + " · " : ""}${getCurrencySymbol(currency)}${Number(s.price || 0).toFixed(2)}`;
+                        })(),
+                        date: s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "",
+                        createdAt: s.createdAt,
+                      })),
+                      ...packages.map((p) => ({
+                        type: "Package",
+                        name: p.name,
+                        sub: `${p.totalSessions || (p.treatments ? p.treatments.reduce((s, t) => s + (t.sessions || 0), 0) : 0)} session${(p.totalSessions || (p.treatments ? p.treatments.reduce((s, t) => s + (t.sessions || 0), 0) : 0)) === 1 ? "" : "s"} · ${getCurrencySymbol(currency)}${Number(p.totalPrice || 0).toFixed(2)}`,
+                        date: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "",
+                        createdAt: p.createdAt,
+                      })),
+                    ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 5);
+
+                    if (items.length === 0) {
+                      return <p className="text-sm text-[#9B968D] py-4">Nothing added yet</p>;
+                    }
+                    return items.map((item, idx) => (
+                      <div key={idx} className="py-4 flex items-start gap-4">
+                        <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                          item.type === "Service" ? "bg-[#E7EFE9] text-[#3E7A5E]" : "bg-[#F1EBDD] text-[#A98545]"
+                        }`}>
+                          {item.type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[#1F1D1A] truncate">{item.name}</p>
+                          <p className="text-xs text-[#9B968D] mt-0.5">{item.sub}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-[#9B968D]">{item.date}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "services" && (
           <>
             {/* Service Creation Form - Modern Healthcare UI */}
             {permissions.canCreate && (
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-transparent dark:to-transparent dark:bg-transparent border border-teal-200 rounded-xl p-4 mb-5 shadow-sm">
+              <div className="bg-gradient-to-br from-[#F7F5EF] to-[#F2EFE6] dark:from-transparent dark:to-transparent dark:bg-transparent border border-[#E3DDCE] rounded-xl p-4 mb-5 shadow-sm">
                 <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-[#1F1D1A] flex items-center justify-center shadow-sm">
                     <Wrench className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-teal-800 dark:text-white tracking-tight">Create New Service</h2>
-                    <p className="text-xs text-teal-600 dark:text-gray-300">Add a new service offering for your clinic</p>
+                    <h2 className="text-lg font-semibold text-[#1F1D1A] dark:text-white tracking-tight">Create New Service</h2>
+                    <p className="text-xs text-[#58544D] dark:text-gray-300">Add a new service offering for your clinic</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleCreateBatch} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] dark:text-gray-200 mb-1.5">
                         Department
                       </label>
                       <select
                         value={selectedDepartmentId}
                         onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                        className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                        className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                         disabled={departmentsLoading}
                         required
                       >
@@ -1569,20 +1928,20 @@ function ServicesSetupPage() {
                     {servicesBatch.map((row, idx) => (
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Service Name</label>
+                          <label className="block text-xs font-medium text-[#3F3C36] dark:text-gray-200 mb-1.5">Service Name</label>
                           <input
                             type="text"
                             value={row.name}
                             onChange={(e) => handleRowChange(idx, "name", e.target.value)}
                             placeholder="e.g., Dental Cleaning"
-                            className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                            className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs"
                             required
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Price ({getCurrencySymbol(currency)})</label>
+                          <label className="block text-xs font-medium text-[#3F3C36] dark:text-gray-200 mb-1.5">Price ({getCurrencySymbol(currency)})</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8577] font-medium text-sm">{getCurrencySymbol(currency)}</span>
                             <input
                               type="number"
                               min="0"
@@ -1590,28 +1949,28 @@ function ServicesSetupPage() {
                               value={row.price}
                               onChange={(e) => handleRowChange(idx, "price", e.target.value)}
                               placeholder="0.00"
-                              className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                              className="w-full border border-[#E3DDCE] rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs"
                               required
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Duration (Minutes)</label>
+                          <label className="block text-xs font-medium text-[#3F3C36] dark:text-gray-200 mb-1.5">Duration (Minutes)</label>
                           <input
                             type="number"
                             min="5"
                             value={row.durationMinutes}
                             onChange={(e) => handleRowChange(idx, "durationMinutes", e.target.value)}
                             placeholder="30"
-                            className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                            className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs"
                             required
                           />
                         </div>
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
-                            <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Clinic Price ({getCurrencySymbol(currency)})</label>
+                            <label className="block text-xs font-medium text-[#3F3C36] dark:text-gray-200 mb-1.5">Clinic Price ({getCurrencySymbol(currency)})</label>
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8577] font-medium text-sm">{getCurrencySymbol(currency)}</span>
                               <input
                                 type="number"
                                 min="0"
@@ -1619,7 +1978,7 @@ function ServicesSetupPage() {
                                 value={row.clinicPrice}
                                 onChange={(e) => handleRowChange(idx, "clinicPrice", e.target.value)}
                                 placeholder="0.00"
-                                className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs"
+                                className="w-full border border-[#E3DDCE] rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs"
                               />
                             </div>
                           </div>
@@ -1639,7 +1998,7 @@ function ServicesSetupPage() {
                       <button
                         type="button"
                         onClick={handleAddRow}
-                        className="px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-lg text-xs font-medium hover:bg-teal-50"
+                        className="px-3 py-2 bg-white text-[#3F3C36] border border-[#E3DDCE] rounded-lg text-xs font-medium hover:bg-[#F7F5EF]"
                       >
                         <Plus className="inline w-3 h-3 mr-1" />
                         Add Service Row
@@ -1647,7 +2006,7 @@ function ServicesSetupPage() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
+                        className="px-4 py-2 bg-[#1F1D1A] text-white text-xs font-medium rounded-lg hover:bg-[#3A362E] disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
                       >
                         {submitting ? (
                           <>
@@ -1667,340 +2026,265 @@ function ServicesSetupPage() {
               </div>
             )}
 
-            {/* Service Display Section - Modern Healthcare UI */}
+            {/* Service Display Section */}
             {shouldShowData && (
-              <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
-                      <Wrench className="w-4 h-4 text-teal-600" />
-                    </div>
+              <div className="bg-white border border-[#E7E1D5] rounded-2xl shadow-sm overflow-hidden">
+                {/* Card Header */}
+                <div className="px-6 pt-6 pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div>
-                      <h2 className="text-lg font-semibold text-teal-800 tracking-tight">Service Catalog</h2>
-                      <p className="text-xs text-teal-600">Manage your clinic's service offerings</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">Catalog</p>
+                      <h2 className="mt-1 text-lg font-bold text-[#1F1D1A]">Service catalog</h2>
+                      <p className="text-sm text-[#6B6862] mt-0.5">Manage your clinic's service offerings</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B5AE9F]" />
+                        <input
+                          type="text"
+                          placeholder="Search services..."
+                          value={serviceSearchTerm}
+                          onChange={(e) => setServiceSearchTerm(e.target.value)}
+                          className="pl-9 pr-4 py-2.5 text-sm bg-white border border-[#E3DDCE] rounded-xl focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] text-gray-700 w-full sm:w-56"
+                        />
+                      </div>
+                      <select
+                        value={filterDepartmentId}
+                        onChange={(e) => setFilterDepartmentId(e.target.value)}
+                        className="px-4 py-2.5 text-sm bg-white border border-[#E3DDCE] rounded-xl focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] text-gray-700"
+                      >
+                        <option value="">All departments</option>
+                        {departments.map((d) => (
+                          <option key={d._id} value={d._id}>{d.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {/* Service Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
-                      <input
-                        type="text"
-                        placeholder="Search services..."
-                        value={serviceSearchTerm}
-                        onChange={(e) => setServiceSearchTerm(e.target.value)}
-                        className="pl-8 pr-3 py-3.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
-                      />
-                    </div>
-                    <div className="hidden sm:block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
-                      <span className="text-xs font-bold text-teal-700">
-                        {services.length} {services.length === 1 ? 'Service' : 'Services'}
-                      </span>
-                    </div>
-                    <select
-                      value={filterDepartmentId}
-                      onChange={(e) => setFilterDepartmentId(e.target.value)}
-                      className="px-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700"
-                    >
-                      <option value="">All Departments</option>
-                      {departments.map((d) => (
-                        <option key={d._id} value={d._id}>{d.name}</option>
+
+                  {/* Filter tabs + View toggle */}
+                  <div className="mt-5 flex items-center justify-between border-b border-[#E7E1D5]">
+                    <div className="flex gap-6">
+                      {[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "inactive", label: "Inactive" }].map((f) => (
+                        <button
+                          key={f.key}
+                          onClick={() => setServiceStatusFilter(f.key)}
+                          className={`pb-2.5 text-sm border-b-2 -mb-px transition-colors ${serviceStatusFilter === f.key ? "border-[#1F1D1A] text-[#1F1D1A] font-semibold" : "border-transparent text-[#6B6862] font-medium hover:text-[#1F1D1A]"}`}
+                        >
+                          {f.label}
+                        </button>
                       ))}
-                    </select>
+                    </div>
+                    <div className="flex gap-4 pb-2.5">
+                      <button onClick={() => setServiceViewMode("list")} className={`pb-0 text-sm border-b-2 -mb-px transition-colors ${serviceViewMode === "list" ? "border-[#1F1D1A] text-[#1F1D1A] font-semibold" : "border-transparent text-[#6B6862] font-medium hover:text-[#1F1D1A]"}`}>
+                        List
+                      </button>
+                      <button onClick={() => setServiceViewMode("grid")} className={`pb-0 text-sm border-b-2 -mb-px transition-colors ${serviceViewMode === "grid" ? "border-[#1F1D1A] text-[#1F1D1A] font-semibold" : "border-transparent text-[#6B6862] font-medium hover:text-[#1F1D1A]"}`}>
+                        Grid
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-2 text-teal-600">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-xs font-medium">Loading services...</span>
-                    </div>
-                  </div>
-                ) : services.filter(service =>
-                  service.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())
-                ).length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 mx-auto bg-teal-100 rounded-full flex items-center justify-center mb-3">
-                      <Wrench className="w-6 h-6 text-teal-400" />
-                    </div>
-                    <h3 className="text-base font-medium text-gray-900 mb-1">No services found</h3>
-                    <p className="text-xs text-gray-600">Try adjusting your search criteria</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {services.filter(service =>
-                      service.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())
-                    ).map((s) => {
-                      const statusColor = s.isActive ? 'bg-[#2D9AA5]/10 text-[#2D9AA5]' : 'bg-gray-100 text-gray-800';
-                      const statusText = s.isActive ? 'Active' : 'Inactive';
+                {/* Filtered services list */}
+                {(() => {
+                  const filtered = services.filter((s) => {
+                    const matchesSearch = s.name.toLowerCase().includes(serviceSearchTerm.toLowerCase());
+                    const matchesStatus = serviceStatusFilter === "all" ? true : serviceStatusFilter === "active" ? s.isActive : !s.isActive;
+                    return matchesSearch && matchesStatus;
+                  });
 
-                      return (
-                        <div
-                          key={s._id}
-                          className={`bg-white border rounded-xl overflow-hidden transition-all hover:shadow-md ${s.isActive ? 'border-[#2D9AA5]/20 shadow-sm' : 'border-gray-200 shadow-sm'
-                            }`}
-                          style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
-                        >
-                          {/* Service Header */}
-                          <div className={`px-4 py-3 ${s.isActive ? 'bg-gradient-to-r from-[#2D9AA5]/5 to-[#2D9AA5]/10' : 'bg-gradient-to-r from-gray-50 to-slate-50'
-                            }`}>
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h3 className="text-sm font-bold text-gray-900 mb-1 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{s.name}</h3>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor} shadow-xs`}>
-                                    {statusText}
-                                  </span>
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-700 shadow-xs">
-                                    {(() => {
-                                      if (s.departmentId && typeof s.departmentId === 'object' && s.departmentId.name) {
-                                        return s.departmentId.name;
-                                      }
-                                      const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
-                                      return d ? d.name : "Unassigned";
-                                    })()}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{getCurrencySymbol(currency)}{Number(s.price || 0).toFixed(2)}</div>
-                                <div className="text-[10px] text-gray-600">{s.durationMinutes} min</div>
-                              </div>
-                            </div>
-                          </div>
+                  if (loading) {
+                    return (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#6B6862]" />
+                        <span className="ml-2 text-sm text-[#6B6862]">Loading services...</span>
+                      </div>
+                    );
+                  }
 
-                          {/* Service Details */}
-                          <div className="p-3">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="p-1.5 bg-teal-100 rounded-md">
-                                    <Package className="w-3.5 h-3.5 text-teal-600" />
-                                  </div>
-                                  <span className="text-[10px] text-gray-600 font-medium">Price</span>
-                                </div>
-                                <span className="text-xs font-medium text-gray-900">{getCurrencySymbol(currency)}{Number(s.price || 0).toFixed(2)}</span>
-                              </div>
-
-                              {s.clinicPrice !== undefined && s.clinicPrice !== null && (
-                                <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-md">
-                                      <Package className="w-3.5 h-3.5 text-teal-600" />
-                                    </div>
-                                    <span className="text-[10px] text-gray-600 font-medium">Clinic Price</span>
-                                  </div>
-                                  <span className="text-xs font-medium text-gray-900">{getCurrencySymbol(currency)}{Number(s.clinicPrice || 0).toFixed(2)}</span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="p-1.5 bg-teal-100 rounded-md">
-                                    <Clock className="w-3.5 h-3.5 text-teal-600" />
-                                  </div>
-                                  <span className="text-[10px] text-gray-600 font-medium">Duration</span>
-                                </div>
-                                <span className="text-xs font-medium text-gray-900">{s.durationMinutes} min</span>
-                              </div>
-
-                              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="p-1.5 bg-teal-100 rounded-md">
-                                    <Package className="w-3.5 h-3.5 text-teal-600" />
-                                  </div>
-                                  <span className="text-[10px] text-gray-600 font-medium">Department</span>
-                                </div>
-                                <span className="text-xs font-medium text-gray-900">
-                                  {(() => {
-                                    if (s.departmentId && typeof s.departmentId === 'object' && s.departmentId.name) {
-                                      return s.departmentId.name;
-                                    }
-                                    const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
-                                    return d ? d.name : "Unassigned";
-                                  })()}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="p-1.5 bg-teal-100 rounded-md">
-                                    <Calendar className="w-3.5 h-3.5 text-teal-600" />
-                                  </div>
-                                  <span className="text-[10px] text-gray-600 font-medium">Created</span>
-                                </div>
-                                <span className="text-xs font-medium text-gray-900">{new Date(s.createdAt).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-
-                            {/* Action Buttons - EDIT FUNCTIONALITY FULLY PRESERVED */}
-                            <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-gray-100">
-                              {editingId !== s._id ? (
-                                <>
-                                  {permissions.canUpdate && (
-                                    <button
-                                      onClick={() => {
-                                        setEditingId(s._id);
-                                        setEditingName(s.name || "");
-                                        setEditingPrice(String(s.price ?? ""));
-                                        setEditingDuration(String(s.durationMinutes ?? ""));
-                                        setEditingClinicPrice(s.clinicPrice !== undefined && s.clinicPrice !== null ? String(s.clinicPrice) : "");
-                                        setEditingDepartmentId(s.departmentId ? (typeof s.departmentId === 'object' ? String(s.departmentId._id || '') : String(s.departmentId)) : "");
-                                        setEditingActive(Boolean(s.isActive));
-                                      }}
-                                      className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-teal-100 text-teal-700 text-xs font-medium rounded-md hover:bg-teal-200 transition-colors"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                      Edit
-                                    </button>
-                                  )}
-                                  {permissions.canDelete && (
-                                    <button
-                                      onClick={() => handleDelete(s._id)}
-                                      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded-md hover:bg-red-200 transition-colors"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="space-y-3 p-3 bg-teal-50 rounded-lg border border-teal-200">
-                                  <h3 className="text-xs font-semibold text-teal-800 mb-2">Edit Service</h3>
-
-                                  <div className="space-y-2">
-                                    <div>
-                                      <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                        Name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={editingName}
-                                        onChange={(e) => setEditingName(e.target.value)}
-                                        className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                                        style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
-                                        autoFocus
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                        Price ({getCurrencySymbol(currency)})
-                                      </label>
-                                      <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">{getCurrencySymbol(currency)}</span>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          value={editingPrice}
-                                          onChange={(e) => setEditingPrice(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg pl-6 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                                          style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                        Duration (min)
-                                      </label>
-                                      <input
-                                        type="number"
-                                        min="5"
-                                        value={editingDuration}
-                                        onChange={(e) => setEditingDuration(e.target.value)}
-                                        className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                                        style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                        Department
-                                      </label>
-                                      <select
-                                        value={editingDepartmentId}
-                                        onChange={(e) => setEditingDepartmentId(e.target.value)}
-                                        className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                                      >
-                                        <option value="">Unassigned</option>
-                                        {departments.map((d) => (
-                                          <option key={d._id} value={d._id}>{d.name}</option>
-                                        ))}
-                                      </select>
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-[10px] font-medium text-teal-700 mb-1">
-                                        Clinic Price ({getCurrencySymbol(currency)})
-                                      </label>
-                                      <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-xs">{getCurrencySymbol(currency)}</span>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          value={editingClinicPrice}
-                                          onChange={(e) => setEditingClinicPrice(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg pl-6 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between pt-2">
-                                      <span className="text-[10px] font-medium text-teal-700">Status:</span>
-                                      <select
-                                        value={editingActive ? "active" : "inactive"}
-                                        onChange={(e) => setEditingActive(e.target.value === "active")}
-                                        className="border border-teal-200 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 dark:bg-white dark:text-gray-900"
-                                        style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
-                                      >
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                      </select>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 pt-3">
-                                    <button
-                                      onClick={handleUpdate}
-                                      disabled={updating}
-                                      className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-teal-600 text-white text-xs font-medium rounded-md hover:bg-teal-700 disabled:opacity-60 transition-colors"
-                                    >
-                                      {updating ? (
-                                        <>
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                          Saving...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Save className="w-3 h-3" />
-                                          Save
-                                        </>
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingId(null);
-                                        setEditingName("");
-                                        setEditingPrice("");
-                                        setEditingDuration("");
-                                        setEditingActive(true);
-                                      }}
-                                      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-200 transition-colors"
-                                    >
-                                      <X className="w-3 h-3" />
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <div className="w-12 h-12 mx-auto bg-[#F1EBDD] rounded-full flex items-center justify-center mb-3">
+                          <Wrench className="w-6 h-6 text-[#B5AE9F]" />
                         </div>
-                      );
-                    })}
+                        <h3 className="text-base font-semibold text-[#1F1D1A] mb-1">No services found</h3>
+                        <p className="text-sm text-[#6B6862]">Try adjusting your search or filter criteria</p>
+                      </div>
+                    );
+                  }
+
+                  // LIST VIEW (table)
+                  if (serviceViewMode === "list") {
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-t border-[#E7E1D5] bg-[#FAF8F4]">
+                              <th className="text-left px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Service</th>
+                              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Department</th>
+                              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Duration</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Price</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Clinic Price</th>
+                              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Created</th>
+                              <th className="text-right px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#6B6862]">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E7E1D5]">
+                            {filtered.map((s) => {
+                              const deptName = (() => {
+                                if (s.departmentId && typeof s.departmentId === "object" && s.departmentId.name) return s.departmentId.name;
+                                const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
+                                return d ? d.name : "—";
+                              })();
+                              return (
+                                <tr key={s._id} className="hover:bg-[#FAF8F4] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <p className="font-semibold text-[#1F1D1A]">{s.name}</p>
+                                    <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${s.isActive ? "bg-[#E7EFE9] text-[#3E7A5E]" : "bg-gray-100 text-gray-600"}`}>
+                                      {s.isActive ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4 text-[#6B6862]">{deptName}</td>
+                                  <td className="px-4 py-4 text-[#6B6862]">{s.durationMinutes} min</td>
+                                  <td className="px-4 py-4 text-right font-semibold text-[#1F1D1A]">{getCurrencySymbol(currency)} {Number(s.price || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-4 text-right text-[#6B6862]">{s.clinicPrice != null && s.clinicPrice !== "" ? `${getCurrencySymbol(currency)} ${Number(s.clinicPrice).toFixed(2)}` : "—"}</td>
+                                  <td className="px-4 py-4 text-[#6B6862]">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "—"}</td>
+                                  <td className="px-6 py-4 text-right">
+                                    <div className="inline-flex items-center gap-2">
+                                      {permissions.canUpdate && editingId !== s._id && (
+                                        <button
+                                          onClick={() => {
+                                            setEditingId(s._id);
+                                            setEditingName(s.name || "");
+                                            setEditingPrice(String(s.price ?? ""));
+                                            setEditingDuration(String(s.durationMinutes ?? ""));
+                                            setEditingClinicPrice(s.clinicPrice !== undefined && s.clinicPrice !== null ? String(s.clinicPrice) : "");
+                                            setEditingDepartmentId(s.departmentId ? (typeof s.departmentId === "object" ? String(s.departmentId._id || "") : String(s.departmentId)) : "");
+                                            setEditingActive(Boolean(s.isActive));
+                                          }}
+                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#D9D2C2] rounded-lg text-xs font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors"
+                                        >
+                                          <Edit2 className="w-3 h-3" /> Edit
+                                        </button>
+                                      )}
+                                      {permissions.canDelete && (
+                                        <button
+                                          onClick={() => handleDelete(s._id)}
+                                          className="inline-flex items-center justify-center w-8 h-8 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+
+                  // GRID VIEW (cards)
+                  return (
+                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {filtered.map((s) => {
+                        const deptName = (() => {
+                          if (s.departmentId && typeof s.departmentId === "object" && s.departmentId.name) return s.departmentId.name;
+                          const d = departments.find((dd) => dd._id === String(s.departmentId || ""));
+                          return d ? d.name : "Unassigned";
+                        })();
+                        return (
+                          <div key={s._id} className="border border-[#E7E1D5] rounded-xl p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-start justify-between mb-2">
+                              <h3 className="text-sm font-bold text-[#1F1D1A]">{s.name}</h3>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${s.isActive ? "bg-[#E7EFE9] text-[#3E7A5E]" : "bg-gray-100 text-gray-600"}`}>
+                                {s.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <div className="space-y-1.5 text-xs text-[#6B6862]">
+                              <div className="flex justify-between"><span>Department</span><span className="font-medium text-[#1F1D1A]">{deptName}</span></div>
+                              <div className="flex justify-between"><span>Duration</span><span className="font-medium text-[#1F1D1A]">{s.durationMinutes} min</span></div>
+                              <div className="flex justify-between"><span>Price</span><span className="font-medium text-[#1F1D1A]">{getCurrencySymbol(currency)}{Number(s.price || 0).toFixed(2)}</span></div>
+                              <div className="flex justify-between"><span>Clinic Price</span><span className="font-medium text-[#1F1D1A]">{s.clinicPrice != null && s.clinicPrice !== "" ? getCurrencySymbol(currency) + Number(s.clinicPrice).toFixed(2) : "—"}</span></div>
+                              <div className="flex justify-between"><span>Created</span><span className="font-medium text-[#1F1D1A]">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "—"}</span></div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#E7E1D5]">
+                              {permissions.canUpdate && (
+                                <button
+                                  onClick={() => {
+                                    setEditingId(s._id);
+                                    setEditingName(s.name || "");
+                                    setEditingPrice(String(s.price ?? ""));
+                                    setEditingDuration(String(s.durationMinutes ?? ""));
+                                    setEditingClinicPrice(s.clinicPrice !== undefined && s.clinicPrice !== null ? String(s.clinicPrice) : "");
+                                    setEditingDepartmentId(s.departmentId ? (typeof s.departmentId === "object" ? String(s.departmentId._id || "") : String(s.departmentId)) : "");
+                                    setEditingActive(Boolean(s.isActive));
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 border border-[#D9D2C2] rounded-lg text-xs font-semibold text-[#1F1D1A] hover:bg-[#F1EBDD] transition-colors"
+                                >
+                                  <Edit2 className="w-3 h-3" /> Edit
+                                </button>
+                              )}
+                              {permissions.canDelete && (
+                                <button onClick={() => handleDelete(s._id)} className="flex items-center justify-center w-8 h-8 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Inline Edit Panel (shown below table when editing) */}
+                {editingId && (
+                  <div className="border-t border-[#E7E1D5] p-6 bg-[#FAF8F4]">
+                    <h3 className="text-sm font-bold text-[#1F1D1A] mb-4">Edit Service</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Name</label>
+                        <input type="text" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white" autoFocus />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Price ({getCurrencySymbol(currency)})</label>
+                        <input type="number" min="0" step="0.01" value={editingPrice} onChange={(e) => setEditingPrice(e.target.value)} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Duration (min)</label>
+                        <input type="number" min="5" value={editingDuration} onChange={(e) => setEditingDuration(e.target.value)} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Department</label>
+                        <select value={editingDepartmentId} onChange={(e) => setEditingDepartmentId(e.target.value)} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white">
+                          <option value="">Unassigned</option>
+                          {departments.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Clinic Price ({getCurrencySymbol(currency)})</label>
+                        <input type="number" min="0" step="0.01" value={editingClinicPrice} onChange={(e) => setEditingClinicPrice(e.target.value)} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#6B6862] mb-1">Status</label>
+                        <select value={editingActive ? "active" : "inactive"} onChange={(e) => setEditingActive(e.target.value === "active")} className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white">
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-5">
+                      <button onClick={handleUpdate} disabled={updating} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1F1D1A] text-white text-sm font-medium rounded-lg hover:bg-[#3A362E] disabled:opacity-60 transition-colors">
+                        {updating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><Save className="w-3.5 h-3.5" /> Save Changes</>}
+                      </button>
+                      <button onClick={() => { setEditingId(null); setEditingName(""); setEditingPrice(""); setEditingDuration(""); setEditingActive(true); }} className="px-4 py-2 border border-[#D9D2C2] rounded-lg text-sm font-medium text-[#6B6862] hover:bg-[#F1EBDD] transition-colors">
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2011,20 +2295,20 @@ function ServicesSetupPage() {
           <>
             {/* Membership Creation Form - Compact Healthcare UI */}
             {permissions.canCreate && (
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-4 mb-5 shadow-sm">
+              <div className="bg-gradient-to-br from-[#F7F5EF] to-[#F2EFE6] border border-[#E3DDCE] rounded-xl p-4 mb-5 shadow-sm">
                 <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-[#1F1D1A] flex items-center justify-center shadow-sm">
                     <User className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-teal-800 tracking-tight">Create New Membership</h2>
-                    <p className="text-xs text-teal-600">Set up membership plans for your patients</p>
+                    <h2 className="text-lg font-semibold text-[#1F1D1A] tracking-tight">Create New Membership</h2>
+                    <p className="text-xs text-[#58544D]">Set up membership plans for your patients</p>
                   </div>
                 </div>
                 <form onSubmit={handleCreateMembership} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] mb-1.5">
                         Membership Name
                       </label>
                       <input
@@ -2032,16 +2316,16 @@ function ServicesSetupPage() {
                         value={memName}
                         onChange={(e) => setMemName(e.target.value)}
                         placeholder="e.g., Premium Annual Plan"
-                        className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                        className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] mb-1.5">
                         Price ({getCurrencySymbol(currency)})
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8577] font-medium text-sm">{getCurrencySymbol(currency)}</span>
                         <input
                           type="number"
                           min="0"
@@ -2049,13 +2333,13 @@ function ServicesSetupPage() {
                           value={memPrice}
                           onChange={(e) => setMemPrice(e.target.value)}
                           placeholder="0.00"
-                          className="w-full border border-teal-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                          className="w-full border border-[#E3DDCE] rounded-lg pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                           required
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] mb-1.5">
                         Duration (Months)
                       </label>
                       <input
@@ -2064,7 +2348,7 @@ function ServicesSetupPage() {
                         value={memDurationMonths}
                         onChange={(e) => setMemDurationMonths(e.target.value)}
                         placeholder="12"
-                        className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                        className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                         required
                       />
                     </div>
@@ -2072,7 +2356,7 @@ function ServicesSetupPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] mb-1.5">
                         Free Consultations
                       </label>
                       <input
@@ -2081,11 +2365,11 @@ function ServicesSetupPage() {
                         value={memFreeConsultations}
                         onChange={(e) => setMemFreeConsultations(e.target.value)}
                         placeholder="0 (0 = unlimited)"
-                        className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                        className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-[#3F3C36] mb-1.5">
                         Discount Percentage
                       </label>
                       <div className="relative">
@@ -2097,13 +2381,13 @@ function ServicesSetupPage() {
                           value={memDiscountPercentage}
                           onChange={(e) => setMemDiscountPercentage(e.target.value)}
                           placeholder="0.0"
-                          className="w-full border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                          className="w-full border border-[#E3DDCE] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C8577] font-medium text-sm">%</span>
                       </div>
                     </div>
                     <div className="flex items-end">
-                      <label className="flex items-center gap-2 text-xs font-medium text-teal-700 cursor-pointer">
+                      <label className="flex items-center gap-2 text-xs font-medium text-[#3F3C36] cursor-pointer">
                         <div className="relative">
                           <input
                             type="checkbox"
@@ -2111,7 +2395,7 @@ function ServicesSetupPage() {
                             onChange={(e) => setMemPriorityBooking(e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 rounded-full transition-colors ${memPriorityBooking ? 'bg-teal-600' : 'bg-gray-300'}`}>
+                          <div className={`w-9 h-5 rounded-full transition-colors ${memPriorityBooking ? 'bg-[#1F1D1A]' : 'bg-gray-300'}`}>
                             <div className={`absolute w-3 h-3 bg-white rounded-full shadow-xs transform transition-transform ${memPriorityBooking ? 'translate-x-5' : 'translate-x-1'} top-1`}></div>
                           </div>
                         </div>
@@ -2124,7 +2408,7 @@ function ServicesSetupPage() {
                     <button
                       type="submit"
                       disabled={memSubmitting}
-                      className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
+                      className="px-4 py-2 bg-[#1F1D1A] text-white text-xs font-medium rounded-lg hover:bg-[#3A362E] disabled:opacity-60 transition-all shadow-sm flex items-center gap-1.5"
                     >
                       {memSubmitting ? (
                         <>
@@ -2145,15 +2429,15 @@ function ServicesSetupPage() {
 
             {/* Membership Display Section - Compact Healthcare UI */}
             {shouldShowData && (
-              <div className="bg-white border border-teal-200 rounded-xl p-4 shadow-sm">
+              <div className="bg-white border border-[#E3DDCE] rounded-xl p-4 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
-                      <Users className="w-4 h-4 text-teal-600" />
+                    <div className="w-8 h-8 rounded-lg bg-[#F1EBDD] flex items-center justify-center">
+                      <Users className="w-4 h-4 text-[#58544D]" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-teal-800 tracking-tight">Membership Plans</h2>
-                      <p className="text-xs text-teal-600">Manage your clinic's membership offerings</p>
+                      <h2 className="text-lg font-semibold text-[#1F1D1A] tracking-tight">Membership Plans</h2>
+                      <p className="text-xs text-[#58544D]">Manage your clinic's membership offerings</p>
                     </div>
                   </div>
 
@@ -2161,19 +2445,19 @@ function ServicesSetupPage() {
                   <div className="flex flex-wrap gap-2">
                     {/* Membership Search Bar */}
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B5AE9F]" />
                       <input
                         type="text"
                         placeholder="Search memberships..."
                         value={membershipSearchTerm}
                         onChange={(e) => setMembershipSearchTerm(e.target.value)}
-                        className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
+                        className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] text-gray-700 w-full sm:w-64"
                       />
                     </div>
                     <select
                       value={memFilter}
                       onChange={(e) => setMemFilter(e.target.value)}
-                      className="px-3 py-1.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 dark:bg-white dark:text-gray-900"
+                      className="px-3 py-1.5 text-xs font-medium bg-white border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] text-gray-700 dark:bg-white dark:text-gray-900"
                     >
                       <option value="all">All Memberships</option>
                       <option value="active">Active</option>
@@ -2189,15 +2473,15 @@ function ServicesSetupPage() {
 
                 {memLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-2 text-teal-600">
+                    <div className="flex items-center gap-2 text-[#58544D]">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-xs font-medium">Loading memberships...</span>
                     </div>
                   </div>
                 ) : memberships.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="w-12 h-12 mx-auto bg-teal-100 rounded-full flex items-center justify-center mb-3">
-                      <Users className="w-6 h-6 text-teal-400" />
+                    <div className="w-12 h-12 mx-auto bg-[#F1EBDD] rounded-full flex items-center justify-center mb-3">
+                      <Users className="w-6 h-6 text-[#B5AE9F]" />
                     </div>
                     <h3 className="text-base font-medium text-gray-900 mb-1">No memberships created yet</h3>
                     <p className="text-xs text-gray-600">Create your first membership plan to get started</p>
@@ -2285,8 +2569,8 @@ function ServicesSetupPage() {
                       if (filteredMemberships.length === 0) {
                         return (
                           <div key="no-results" className="col-span-full text-center py-8">
-                            <div className="w-12 h-12 mx-auto bg-[#2D9AA5]/10 rounded-full flex items-center justify-center mb-3">
-                              <Users className="w-6 h-6 text-[#2D9AA5]/60" />
+                            <div className="w-12 h-12 mx-auto bg-[#F1EBDD] rounded-full flex items-center justify-center mb-3">
+                              <Users className="w-6 h-6 text-[#A98545]" />
                             </div>
                             <h3 className="text-base font-medium text-gray-900 mb-1">No memberships found</h3>
                             <p className="text-xs text-gray-600">Try changing your filter criteria</p>
@@ -2296,19 +2580,19 @@ function ServicesSetupPage() {
                       return filteredMemberships.map((m) => {
                         const isExpired = isMembershipExpired(m);
                         const isActive = m.isActive && !isExpired;
-                        const statusColor = isActive ? 'bg-[#2D9AA5]/10 text-[#2D9AA5]' : isExpired ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800';
+                        const statusColor = isActive ? 'bg-[#E7EFE9] text-[#3E7A5E]' : isExpired ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800';
                         const statusText = isActive ? 'Active' : isExpired ? 'Expired' : 'Inactive';
 
                         return (
                           <div
                             key={m._id}
-                            className={`bg-white border rounded-xl overflow-hidden transition-all hover:shadow-md ${isActive ? 'border-[#2D9AA5]/20 shadow-sm' :
+                            className={`bg-white border rounded-xl overflow-hidden transition-all hover:shadow-md ${isActive ? 'border-[#E0D9C8] shadow-sm' :
                               isExpired ? 'border-red-200 bg-red-50 shadow-sm' : 'border-gray-200 shadow-sm'
                               }`}
                             style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                           >
                             {/* Membership Header */}
-                            <div className={`px-4 py-3 ${isActive ? 'bg-gradient-to-r from-teal-50 to-cyan-50' :
+                            <div className={`px-4 py-3 ${isActive ? 'bg-gradient-to-r from-[#F7F5EF] to-[#F2EFE6]' :
                               isExpired ? 'bg-gradient-to-r from-red-50 to-pink-50' : 'bg-gradient-to-r from-gray-50 to-slate-50'
                               }`}>
                               <div className="flex items-start justify-between">
@@ -2327,7 +2611,7 @@ function ServicesSetupPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-lg font-semibold text-teal-700 tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{getCurrencySymbol(currency)}{Number(m.price || 0).toFixed(2)}</div>
+                                  <div className="text-lg font-semibold text-[#3F3C36] tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>{getCurrencySymbol(currency)}{Number(m.price || 0).toFixed(2)}</div>
                                   <div className="text-[10px] text-gray-600">{m.durationMonths} months</div>
                                 </div>
                               </div>
@@ -2338,8 +2622,8 @@ function ServicesSetupPage() {
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                   <div className="flex items-center gap-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-md">
-                                      <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                                    <div className="p-1.5 bg-[#F1EBDD] rounded-md">
+                                      <Calendar className="w-3.5 h-3.5 text-[#58544D]" />
                                     </div>
                                     <span className="text-[10px] text-gray-600 font-medium">Duration</span>
                                   </div>
@@ -2348,8 +2632,8 @@ function ServicesSetupPage() {
 
                                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                   <div className="flex items-center gap-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-md">
-                                      <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+                                    <div className="p-1.5 bg-[#F1EBDD] rounded-md">
+                                      <Stethoscope className="w-3.5 h-3.5 text-[#58544D]" />
                                     </div>
                                     <span className="text-[10px] text-gray-600 font-medium">Free Consultations</span>
                                   </div>
@@ -2360,8 +2644,8 @@ function ServicesSetupPage() {
 
                                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                   <div className="flex items-center gap-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-md">
-                                      <Percent className="w-3.5 h-3.5 text-teal-600" />
+                                    <div className="p-1.5 bg-[#F1EBDD] rounded-md">
+                                      <Percent className="w-3.5 h-3.5 text-[#58544D]" />
                                     </div>
                                     <span className="text-[10px] text-gray-600 font-medium">Discount</span>
                                   </div>
@@ -2370,12 +2654,12 @@ function ServicesSetupPage() {
 
                                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                   <div className="flex items-center gap-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-md">
-                                      <Clock className="w-3.5 h-3.5 text-teal-600" />
+                                    <div className="p-1.5 bg-[#F1EBDD] rounded-md">
+                                      <Clock className="w-3.5 h-3.5 text-[#58544D]" />
                                     </div>
                                     <span className="text-[10px] text-gray-600 font-medium">Priority</span>
                                   </div>
-                                  <span className={`text-xs font-medium ${m.benefits?.priorityBooking ? 'text-teal-600' : 'text-gray-400'}`}>
+                                  <span className={`text-xs font-medium ${m.benefits?.priorityBooking ? 'text-[#58544D]' : 'text-gray-400'}`}>
                                     {m.benefits?.priorityBooking ? 'Yes' : 'No'}
                                   </span>
                                 </div>
@@ -2397,7 +2681,7 @@ function ServicesSetupPage() {
                                           setMemEditingPriorityBooking(Boolean(m.benefits?.priorityBooking));
                                           setMemEditingActive(Boolean(m.isActive));
                                         }}
-                                        className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#2D9AA5]/10 text-[#2D9AA5] text-xs font-medium rounded-md hover:bg-[#2D9AA5]/20 transition-colors"
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#F1EBDD] text-[#1F1D1A] text-xs font-medium rounded-md hover:bg-[#E3DAC6] transition-colors"
                                       >
                                         <Edit2 className="w-3 h-3" />
                                         Edit
@@ -2413,35 +2697,35 @@ function ServicesSetupPage() {
                                     )}
                                   </>
                                 ) : (
-                                  <div className="space-y-3 p-3 bg-[#2D9AA5]/5 rounded-lg border border-[#2D9AA5]/20">
-                                    <h3 className="text-xs font-semibold text-[#2D9AA5] mb-2">Edit Membership</h3>
+                                  <div className="space-y-3 p-3 bg-[#F5F1E8] rounded-lg border border-[#E0D9C8]">
+                                    <h3 className="text-xs font-semibold text-[#1F1D1A] mb-2">Edit Membership</h3>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       <div>
-                                        <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                        <label className="block text-[10px] font-medium text-[#3F3C36] mb-1">
                                           Name
                                         </label>
                                         <input
                                           type="text"
                                           value={memEditingName}
                                           onChange={(e) => setMemEditingName(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                          className="w-full border border-[#E3DDCE] rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                        <label className="block text-[10px] font-medium text-[#3F3C36] mb-1">
                                           Price
                                         </label>
                                         <div className="relative">
-                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#2D9AA5]/70 font-medium text-xs">{getCurrencySymbol(currency)}</span>
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#A98545] font-medium text-xs">{getCurrencySymbol(currency)}</span>
                                           <input
                                             type="number"
                                             min="0"
                                             step="0.01"
                                             value={memEditingPrice}
                                             onChange={(e) => setMemEditingPrice(e.target.value)}
-                                            className="w-full border border-teal-200 rounded-lg pl-6 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                            className="w-full border border-[#E3DDCE] rounded-lg pl-6 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                             style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                           />
                                         </div>
@@ -2450,7 +2734,7 @@ function ServicesSetupPage() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                       <div>
-                                        <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                        <label className="block text-[10px] font-medium text-[#3F3C36] mb-1">
                                           Duration (Months)
                                         </label>
                                         <input
@@ -2458,12 +2742,12 @@ function ServicesSetupPage() {
                                           min="1"
                                           value={memEditingDurationMonths}
                                           onChange={(e) => setMemEditingDurationMonths(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                          className="w-full border border-[#E3DDCE] rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                        <label className="block text-[10px] font-medium text-[#3F3C36] mb-1">
                                           Free Cons
                                         </label>
                                         <input
@@ -2471,12 +2755,12 @@ function ServicesSetupPage() {
                                           min="0"
                                           value={memEditingFreeConsultations}
                                           onChange={(e) => setMemEditingFreeConsultations(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                          className="w-full border border-[#E3DDCE] rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] font-medium text-teal-700 mb-1">
+                                        <label className="block text-[10px] font-medium text-[#3F3C36] mb-1">
                                           Discount %
                                         </label>
                                         <input
@@ -2486,19 +2770,19 @@ function ServicesSetupPage() {
                                           step="0.1"
                                           value={memEditingDiscountPercentage}
                                           onChange={(e) => setMemEditingDiscountPercentage(e.target.value)}
-                                          className="w-full border border-teal-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 hover:border-teal-300 transition-all shadow-xs dark:bg-white dark:text-gray-900"
+                                          className="w-full border border-[#E3DDCE] rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 hover:border-[#C9C2B1] transition-all shadow-xs dark:bg-white dark:text-gray-900"
                                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                         />
                                       </div>
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2">
-                                      <label className="flex items-center gap-2 text-[10px] font-medium text-teal-700">
+                                      <label className="flex items-center gap-2 text-[10px] font-medium text-[#3F3C36]">
                                         <input
                                           type="checkbox"
                                           checked={memEditingPriorityBooking}
                                           onChange={(e) => setMemEditingPriorityBooking(e.target.checked)}
-                                          className="w-3 h-3 text-teal-600 rounded focus:ring-teal-500"
+                                          className="w-3 h-3 text-[#58544D] rounded focus:ring-[#A98545]"
                                         />
                                         Priority
                                       </label>
@@ -2507,7 +2791,7 @@ function ServicesSetupPage() {
                                         <select
                                           value={memEditingActive ? "active" : "inactive"}
                                           onChange={(e) => setMemEditingActive(e.target.value === "active")}
-                                          className="border border-teal-200 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 dark:bg-white dark:text-gray-900"
+                                          className="border border-[#E3DDCE] rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white text-gray-900 dark:bg-white dark:text-gray-900"
                                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
                                         >
                                           <option value="active">Active</option>
@@ -2520,7 +2804,7 @@ function ServicesSetupPage() {
                                       <button
                                         onClick={handleUpdateMembership}
                                         disabled={memUpdating}
-                                        className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-teal-600 text-white text-xs font-medium rounded-md hover:bg-teal-700 disabled:opacity-60 transition-colors"
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#1F1D1A] text-white text-xs font-medium rounded-md hover:bg-[#3A362E] disabled:opacity-60 transition-colors"
                                       >
                                         {memUpdating ? (
                                           <>
@@ -2567,14 +2851,14 @@ function ServicesSetupPage() {
         {activeTab === "packages" && (
           <>
             {permissions.canCreate && (
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-5 mb-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#F7F5EF] to-[#F2EFE6] border border-[#E3DDCE] rounded-xl p-5 mb-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center shadow-md">
+                  <div className="w-10 h-10 rounded-lg bg-[#1F1D1A] flex items-center justify-center shadow-md">
                     <Package className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-teal-800">Create New Package</h2>
-                    <p className="text-xs text-teal-600">Define package details and allocate treatments</p>
+                    <h2 className="text-lg font-bold text-[#1F1D1A]">Create New Package</h2>
+                    <p className="text-xs text-[#58544D]">Define package details and allocate treatments</p>
                   </div>
                 </div>
 
@@ -2582,20 +2866,20 @@ function ServicesSetupPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Package Name</label>
+                        <label className="block text-xs font-semibold text-[#3F3C36] mb-1.5">Package Name</label>
                         <div className="relative">
                           <input
                             type="text"
                             value={pkgName}
                             onChange={(e) => setPkgName(e.target.value)}
                             placeholder="Enter package name"
-                            className="w-full px-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                            className="w-full px-3 py-2.5 text-sm border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-teal-700 mb-1.5">Total Package Price</label>
+                        <label className="block text-xs font-semibold text-[#3F3C36] mb-1.5">Total Package Price</label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base">{getCurrencySymbol(currency)}</span>
                           <input
@@ -2605,78 +2889,78 @@ function ServicesSetupPage() {
                             value={pkgPrice}
                             onChange={(e) => setPkgPrice(e.target.value)}
                             placeholder=""
-                            className="w-full pl-8 pr-3 py-2.5 text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                            className="w-full pl-8 pr-3 py-2.5 text-sm border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Validity (Months)</label>
+                          <label className="block text-[10px] sm:text-xs font-semibold text-[#3F3C36] mb-1 sm:mb-1.5">Validity (Months)</label>
                           <input
                             type="number"
                             min="0"
                             value={pkgValidityInMonths}
                             onChange={(e) => setPkgValidityInMonths(e.target.value)}
                             placeholder="e.g. 12"
-                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all placeholder:text-[10px] sm:placeholder:text-sm"
+                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all placeholder:text-[10px] sm:placeholder:text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">Start Date</label>
+                          <label className="block text-[10px] sm:text-xs font-semibold text-[#3F3C36] mb-1 sm:mb-1.5">Start Date</label>
                           <input
                             type="date"
                             value={pkgStartDate}
                             onChange={(e) => setPkgStartDate(e.target.value)}
-                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
+                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 shadow-sm transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-teal-700 mb-1 sm:mb-1.5">End Date</label>
+                          <label className="block text-[10px] sm:text-xs font-semibold text-[#3F3C36] mb-1 sm:mb-1.5">End Date</label>
                           <input
                             type="date"
                             value={pkgEndDate}
                             readOnly
-                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-teal-200 rounded-lg bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                            className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm border border-[#E3DDCE] rounded-lg bg-[#F7F5EF] border-[#E3DDCE] text-[#3F3C36] cursor-not-allowed shadow-sm transition-all"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Treatment Selection Card */}
-                    <div className="bg-white border border-teal-200 rounded-lg p-4 shadow-sm">
+                    <div className="bg-white border border-[#E3DDCE] rounded-lg p-4 shadow-sm">
                       <div className="mb-3">
-                        <h3 className="font-semibold text-teal-700 mb-1">Select Treatments</h3>
-                        <p className="text-xs text-teal-600">Choose treatments to include in this package</p>
+                        <h3 className="font-semibold text-[#3F3C36] mb-1">Select Treatments</h3>
+                        <p className="text-xs text-[#58544D]">Choose treatments to include in this package</p>
                       </div>
 
                       <div className="relative treatment-dropdown-container">
                         <button
                           type="button"
                           onClick={() => setTreatmentDropdownOpen(!treatmentDropdownOpen)}
-                          className="w-full flex items-center justify-between px-3 py-2.5 bg-teal-50 border border-teal-200 rounded-md text-sm text-slate-700 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-white dark:border-slate-600 dark:text-slate-900 transition-all"
+                          className="w-full flex items-center justify-between px-3 py-2.5 bg-[#F7F5EF] border border-[#E3DDCE] rounded-md text-sm text-slate-700 hover:bg-[#F1EBDD] focus:outline-none focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] dark:bg-white dark:border-slate-600 dark:text-slate-900 transition-all"
                         >
-                          <span className="text-teal-700 font-medium dark:text-slate-900">
+                          <span className="text-[#3F3C36] font-medium dark:text-slate-900">
                             {selectedTreatments.length > 0
                               ? `${selectedTreatments.length} treatment(s) selected`
                               : "Select treatments to add..."}
                           </span>
-                          <ChevronDown className={`w-4 h-4 text-teal-500 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 text-[#8C8577] transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {treatmentDropdownOpen && (
-                          <div className="absolute z-20 w-full mt-1.5 bg-white border border-teal-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                          <div className="absolute z-20 w-full mt-1.5 bg-white border border-[#E3DDCE] rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
                             {/* Search Input */}
-                            <div className="p-2 border-b border-teal-100 sticky top-0 bg-white">
+                            <div className="p-2 border-b border-[#EAE4D6] sticky top-0 bg-white">
                               <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B5AE9F]" />
                                 <input
                                   type="text"
                                   placeholder="Search treatments..."
                                   value={treatmentSearchQuery}
                                   onChange={(e) => setTreatmentSearchQuery(e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-teal-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                                  className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-[#E3DDCE] rounded-md focus:outline-none focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                                   autoFocus
                                 />
                               </div>
@@ -2700,19 +2984,19 @@ function ServicesSetupPage() {
                                               setTreatmentSearchQuery(""); // Clear search after selection
                                             }}
                                             className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-all ${isSelected
-                                              ? "bg-teal-50 text-teal-800 font-medium border border-teal-200"
-                                              : "text-teal-700 hover:bg-teal-50 border border-transparent"
+                                              ? "bg-[#F7F5EF] text-[#1F1D1A] font-medium border border-[#E3DDCE]"
+                                              : "text-[#3F3C36] hover:bg-[#F7F5EF] border border-transparent"
                                               }`}
                                           >
                                             <div className="flex items-center justify-between">
                                               <span>
                                                 {treatment.name}
                                                 {treatment.type === "sub" && (
-                                                  <span className="text-[10px] text-teal-500 ml-1">({treatment.mainTreatment})</span>
+                                                  <span className="text-[10px] text-[#8C8577] ml-1">({treatment.mainTreatment})</span>
                                                 )}
                                               </span>
                                               {isSelected && (
-                                                <span className="text-teal-600 text-xs">✓</span>
+                                                <span className="text-[#58544D] text-xs">✓</span>
                                               )}
                                             </div>
                                           </button>
@@ -2731,7 +3015,7 @@ function ServicesSetupPage() {
 
                                 if (filteredTreatments.length === 0) {
                                   return (
-                                    <div className="p-3 text-center text-xs text-teal-500">
+                                    <div className="p-3 text-center text-xs text-[#8C8577]">
                                       No treatments found matching "{treatmentSearchQuery}"
                                     </div>
                                   );
@@ -2758,7 +3042,7 @@ function ServicesSetupPage() {
                                             <span>
                                               {treatment.name}
                                               {treatment.type === "sub" && treatment.mainTreatment && (
-                                                <span className="text-[10px] text-teal-500 ml-1">({treatment.mainTreatment})</span>
+                                                <span className="text-[10px] text-[#8C8577] ml-1">({treatment.mainTreatment})</span>
                                               )}
                                             </span>
                                             {isSelected && (
@@ -2782,8 +3066,8 @@ function ServicesSetupPage() {
                   {selectedTreatments.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-teal-700 text-sm">Selected Treatments</h3>
-                        <span className="px-2.5 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs font-medium">
+                        <h3 className="font-semibold text-[#3F3C36] text-sm">Selected Treatments</h3>
+                        <span className="px-2.5 py-0.5 bg-[#F1EBDD] text-[#3F3C36] rounded-full text-xs font-medium">
                           {selectedTreatments.length} treatment{selectedTreatments.length !== 1 ? 's' : ''}
                         </span>
                       </div>
@@ -2797,10 +3081,10 @@ function ServicesSetupPage() {
                           return (
                             <div
                               key={selectedTreatment.treatmentSlug}
-                              className="bg-white border border-teal-200 rounded-lg p-3 shadow-sm transition-all"
+                              className="bg-white border border-[#E3DDCE] rounded-lg p-3 shadow-sm transition-all"
                             >
                               <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-semibold text-teal-700 text-xs">
+                                <h4 className="font-semibold text-[#3F3C36] text-xs">
                                   {selectedTreatment.treatmentName}
                                 </h4>
                                 <button
@@ -2819,23 +3103,23 @@ function ServicesSetupPage() {
 
                               <div className="grid grid-cols-3 gap-2">
                                 <div className="space-y-0.5">
-                                  <label className="block text-[10px] text-teal-600 font-medium">Price</label>
+                                  <label className="block text-[10px] text-[#58544D] font-medium">Price</label>
                                   <div className="relative">
-                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-teal-500 text-xs">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[#8C8577] text-xs">{getCurrencySymbol(currency)}</span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={selectedTreatment.allocatedPrice || ""}
                                       onChange={(e) => handleAllocatedPriceChange(selectedTreatment.treatmentSlug, e.target.value)}
-                                      className="w-full pl-5 pr-1.5 py-1.5 text-xs font-medium border border-teal-200 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-teal-50 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                                      className="w-full pl-5 pr-1.5 py-1.5 text-xs font-medium border border-[#E3DDCE] rounded-md focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-[#F7F5EF] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                                       placeholder="0.00"
                                     />
                                   </div>
                                 </div>
 
                                 <div className="space-y-0.5">
-                                  <label className="block text-[10px] text-teal-600 font-medium">Sess</label>
+                                  <label className="block text-[10px] text-[#58544D] font-medium">Sess</label>
                                   <input
                                     type="number"
                                     min="1"
@@ -2844,14 +3128,14 @@ function ServicesSetupPage() {
                                       const value = parseInt(e.target.value) || 1;
                                       handleSessionChange(selectedTreatment.treatmentSlug, value);
                                     }}
-                                    className="w-full px-1.5 py-1.5 text-xs font-medium text-center border border-teal-200 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-teal-50 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                                    className="w-full px-1.5 py-1.5 text-xs font-medium text-center border border-[#E3DDCE] rounded-md focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-[#F7F5EF] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                                     placeholder="1"
                                   />
                                 </div>
 
                                 <div className="space-y-0.5">
-                                  <label className="block text-[10px] text-teal-600 font-medium">/Sess</label>
-                                  <div className="px-1.5 py-1.5 text-xs font-bold text-center bg-teal-100 rounded-md text-teal-700 border border-teal-200 dark:bg-white dark:border-slate-600 dark:text-slate-900">
+                                  <label className="block text-[10px] text-[#58544D] font-medium">/Sess</label>
+                                  <div className="px-1.5 py-1.5 text-xs font-bold text-center bg-[#F1EBDD] rounded-md text-[#3F3C36] border border-[#E3DDCE] dark:bg-white dark:border-slate-600 dark:text-slate-900">
                                     {getCurrencySymbol(currency)}{sessionPrice.toFixed(2)}
                                   </div>
                                 </div>
@@ -2862,21 +3146,21 @@ function ServicesSetupPage() {
                       </div>
 
                       {/* Price Validation Summary Card */}
-                      <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-3">
+                      <div className="bg-gradient-to-r from-[#F7F5EF] to-[#F2EFE6] border border-[#E3DDCE] rounded-lg p-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="text-center p-2 bg-white rounded-md border border-teal-200">
-                            <p className="text-[10px] text-teal-600 font-medium">Package Price</p>
-                            <p className="font-bold text-sm text-teal-700">{getCurrencySymbol(currency)}{parseFloat(pkgPrice) || 0}</p>
+                          <div className="text-center p-2 bg-white rounded-md border border-[#E3DDCE]">
+                            <p className="text-[10px] text-[#58544D] font-medium">Package Price</p>
+                            <p className="font-bold text-sm text-[#3F3C36]">{getCurrencySymbol(currency)}{parseFloat(pkgPrice) || 0}</p>
                           </div>
-                          <div className="text-center p-2 bg-white rounded-md border border-teal-200">
-                            <p className="text-[10px] text-teal-600 font-medium">Allocated Total</p>
-                            <p className="font-bold text-sm text-teal-700">
+                          <div className="text-center p-2 bg-white rounded-md border border-[#E3DDCE]">
+                            <p className="text-[10px] text-[#58544D] font-medium">Allocated Total</p>
+                            <p className="font-bold text-sm text-[#3F3C36]">
                               {getCurrencySymbol(currency)}{selectedTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0).toFixed(2)}
                             </p>
                           </div>
-                          <div className="text-center p-2 bg-white rounded-md border border-teal-200">
-                            <p className="text-[10px] text-teal-600 font-medium">Remaining</p>
-                            <p className={`font-bold text-sm ${Math.abs((parseFloat(pkgPrice) || 0) - selectedTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)) < 0.01 ? 'text-teal-600' : 'text-amber-600'}`}>
+                          <div className="text-center p-2 bg-white rounded-md border border-[#E3DDCE]">
+                            <p className="text-[10px] text-[#58544D] font-medium">Remaining</p>
+                            <p className={`font-bold text-sm ${Math.abs((parseFloat(pkgPrice) || 0) - selectedTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)) < 0.01 ? 'text-[#58544D]' : 'text-amber-600'}`}>
                               {getCurrencySymbol(currency)}{((parseFloat(pkgPrice) || 0) - selectedTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)).toFixed(2)}
                             </p>
                           </div>
@@ -2889,7 +3173,7 @@ function ServicesSetupPage() {
                     <button
                       type="submit"
                       disabled={pkgSubmitting}
-                      className="w-full py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-semibold rounded-lg hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-md text-sm"
+                      className="w-full py-3 bg-[#1F1D1A] text-white font-semibold rounded-lg hover:bg-[#3A362E] disabled:opacity-60 transition-all shadow-md text-sm"
                     >
                       {pkgSubmitting ? (
                         <>
@@ -2907,28 +3191,28 @@ function ServicesSetupPage() {
               <div className="mt-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center shadow-md">
+                    <div className="w-10 h-10 rounded-lg bg-[#1F1D1A] flex items-center justify-center shadow-md">
                       <Package className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-teal-800">All Packages</h2>
-                      <p className="text-xs text-teal-600">Manage your existing packages</p>
+                      <h2 className="text-xl font-bold text-[#1F1D1A]">All Packages</h2>
+                      <p className="text-xs text-[#58544D]">Manage your existing packages</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {/* Package Search Bar */}
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-400" />
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B5AE9F]" />
                       <input
                         type="text"
                         placeholder="Search packages..."
                         value={packageSearchTerm}
                         onChange={(e) => setPackageSearchTerm(e.target.value)}
-                        className="pl-8 pr-3 py-3.5 text-xs font-medium bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 w-full sm:w-64"
+                        className="pl-8 pr-3 py-3.5 text-xs font-medium bg-white border border-[#E3DDCE] rounded-lg focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] text-gray-700 w-full sm:w-64"
                       />
                     </div>
-                    <div className="px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg border border-teal-200">
-                      <span className="text-xs font-bold text-teal-700">
+                    <div className="px-3 py-1.5 bg-gradient-to-r from-[#F1EBDD] to-[#EDE5D3] rounded-lg border border-[#E3DDCE]">
+                      <span className="text-xs font-bold text-[#3F3C36]">
                         {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
                       </span>
                     </div>
@@ -2936,7 +3220,7 @@ function ServicesSetupPage() {
                 </div>
 
                 {pkgLoading ? (
-                  <div className="flex items-center justify-center py-12 text-teal-600">
+                  <div className="flex items-center justify-center py-12 text-[#58544D]">
                     <div className="text-center">
                       <Loader2 className="w-6 h-6 mr-2 animate-spin mx-auto mb-2" />
                       <span className="text-sm font-medium">Loading packages...</span>
@@ -2946,13 +3230,13 @@ function ServicesSetupPage() {
                   pkg.name.toLowerCase().includes(packageSearchTerm.toLowerCase())
                 ).length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
-                      <Package className="w-8 h-8 text-teal-600" />
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#F1EBDD] flex items-center justify-center">
+                      <Package className="w-8 h-8 text-[#58544D]" />
                     </div>
                     <p className="text-base font-semibold text-gray-900 mb-1">No packages found</p>
                     <p className="text-sm text-gray-600 mb-4">Try adjusting your search criteria</p>
-                    <div className="inline-block px-3 py-1.5 bg-gradient-to-r from-teal-100 to-cyan-100 rounded-lg">
-                      <span className="text-xs text-teal-700 font-medium">Start building your service packages today!</span>
+                    <div className="inline-block px-3 py-1.5 bg-gradient-to-r from-[#F1EBDD] to-[#EDE5D3] rounded-lg">
+                      <span className="text-xs text-[#3F3C36] font-medium">Start building your service packages today!</span>
                     </div>
                   </div>
                 ) : (
@@ -2962,20 +3246,20 @@ function ServicesSetupPage() {
                     ).map((pkg) => (
                       <div
                         key={pkg._id}
-                        className="bg-white border border-teal-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-teal-300 transition-all duration-200"
+                        className="bg-white border border-[#E3DDCE] rounded-xl p-3 shadow-sm hover:shadow-md hover:border-[#C9C2B1] transition-all duration-200"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-[#1F1D1A] flex items-center justify-center flex-shrink-0">
                               <Package className="w-5 h-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-bold text-teal-800 truncate">{pkg.name}</h3>
+                              <h3 className="text-sm font-bold text-[#1F1D1A] truncate">{pkg.name}</h3>
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium mt-1 ${getPackageStatus(pkg) === 'Expired'
                                 ? 'bg-red-100 text-red-800'
                                 : getPackageStatus(pkg) === 'Expiring Soon'
                                   ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-teal-100 text-teal-800'
+                                  : 'bg-[#F1EBDD] text-[#1F1D1A]'
                                 }`}>
                                 {getPackageStatus(pkg)}
                               </span>
@@ -2985,7 +3269,7 @@ function ServicesSetupPage() {
                             {permissions.canUpdate && (
                               <button
                                 onClick={() => openEditModal(pkg)}
-                                className="p-1.5 text-teal-600 hover:bg-teal-100 rounded-md transition-colors"
+                                className="p-1.5 text-[#58544D] hover:bg-[#F1EBDD] rounded-md transition-colors"
                                 title="Edit package"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -3006,17 +3290,17 @@ function ServicesSetupPage() {
                         <div className="space-y-2">
                           {/* Package Stats */}
                           <div className="grid grid-cols-3 gap-1.5">
-                            <div className="bg-teal-50 rounded p-2 border border-teal-200">
-                              <p className="text-[10px] text-teal-600 font-medium">Total</p>
-                              <p className="text-xs font-bold text-teal-700">{getCurrencySymbol(currency)}{parseFloat(pkg.totalPrice).toFixed(2)}</p>
+                            <div className="bg-[#F7F5EF] rounded p-2 border border-[#E3DDCE]">
+                              <p className="text-[10px] text-[#58544D] font-medium">Total</p>
+                              <p className="text-xs font-bold text-[#3F3C36]">{getCurrencySymbol(currency)}{parseFloat(pkg.totalPrice).toFixed(2)}</p>
                             </div>
-                            <div className="bg-teal-50 rounded p-2 border border-teal-200">
-                              <p className="text-[10px] text-teal-600 font-medium">Sessions</p>
-                              <p className="text-xs font-bold text-teal-700">{pkg.totalSessions || pkg.treatments.reduce((sum, t) => sum + (t.sessions || 0), 0)}</p>
+                            <div className="bg-[#F7F5EF] rounded p-2 border border-[#E3DDCE]">
+                              <p className="text-[10px] text-[#58544D] font-medium">Sessions</p>
+                              <p className="text-xs font-bold text-[#3F3C36]">{pkg.totalSessions || pkg.treatments.reduce((sum, t) => sum + (t.sessions || 0), 0)}</p>
                             </div>
-                            <div className="bg-teal-50 rounded p-2 border border-teal-200">
-                              <p className="text-[10px] text-teal-600 font-medium">Avg/Session</p>
-                              <p className="text-xs font-bold text-teal-700">
+                            <div className="bg-[#F7F5EF] rounded p-2 border border-[#E3DDCE]">
+                              <p className="text-[10px] text-[#58544D] font-medium">Avg/Session</p>
+                              <p className="text-xs font-bold text-[#3F3C36]">
                                 {getCurrencySymbol(currency)}{pkg.sessionPrice ? parseFloat(pkg.sessionPrice).toFixed(2) : (pkg.totalPrice / (pkg.totalSessions || pkg.treatments.reduce((sum, t) => sum + (t.sessions || 0), 0))).toFixed(2)}
                               </p>
                             </div>
@@ -3024,23 +3308,23 @@ function ServicesSetupPage() {
 
                           {/* Validity Info */}
                           {(pkg.validityInMonths || pkg.startDate || pkg.endDate) && (
-                            <div className="bg-teal-50 rounded p-2 border border-teal-200">
+                            <div className="bg-[#F7F5EF] rounded p-2 border border-[#E3DDCE]">
                               <div className="flex items-center justify-between mb-1">
-                                <p className="text-[10px] text-teal-600 font-medium flex items-center gap-1">
+                                <p className="text-[10px] text-[#58544D] font-medium flex items-center gap-1">
                                   <Clock className="w-2.5 h-2.5" />
                                   Validity: {pkg.validityInMonths || 0} Months
                                 </p>
                               </div>
                               <div className="grid grid-cols-2 gap-2 mt-1">
                                 <div>
-                                  <p className="text-[9px] text-teal-500">Start</p>
-                                  <p className="text-[10px] font-bold text-teal-700 truncate">
+                                  <p className="text-[9px] text-[#8C8577]">Start</p>
+                                  <p className="text-[10px] font-bold text-[#3F3C36] truncate">
                                     {pkg.startDate ? new Date(pkg.startDate).toLocaleDateString() : '-'}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-[9px] text-teal-500">End</p>
-                                  <p className="text-[10px] font-bold text-teal-700 truncate">
+                                  <p className="text-[9px] text-[#8C8577]">End</p>
+                                  <p className="text-[10px] font-bold text-[#3F3C36] truncate">
                                     {pkg.endDate ? new Date(pkg.endDate).toLocaleDateString() : '-'}
                                   </p>
                                 </div>
@@ -3050,18 +3334,18 @@ function ServicesSetupPage() {
 
                           {/* Treatments */}
                           <div>
-                            <p className="text-[10px] text-teal-600 font-medium mb-1">Treatments</p>
+                            <p className="text-[10px] text-[#58544D] font-medium mb-1">Treatments</p>
                             <div className="space-y-1 max-h-24 overflow-y-auto">
                               {pkg.treatments && pkg.treatments.length > 0 && pkg.treatments.slice(0, 3).map((treatment, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-teal-50 border border-teal-200 rounded p-1.5">
-                                  <span className="text-xs font-medium text-teal-700 truncate flex-1 mr-1">{treatment.treatmentName || treatment.name}</span>
-                                  <div className="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded">
+                                <div key={idx} className="flex justify-between items-center bg-[#F7F5EF] border border-[#E3DDCE] rounded p-1.5">
+                                  <span className="text-xs font-medium text-[#3F3C36] truncate flex-1 mr-1">{treatment.treatmentName || treatment.name}</span>
+                                  <div className="text-[9px] bg-[#F1EBDD] text-[#1F1D1A] px-1.5 py-0.5 rounded">
                                     {treatment.sessions || 1} x {getCurrencySymbol(currency)}{((treatment.allocatedPrice || 0) / (treatment.sessions || 1)).toFixed(2)}
                                   </div>
                                 </div>
                               ))}
                               {pkg.treatments && pkg.treatments.length > 3 && (
-                                <div className="text-[10px] text-teal-600 font-medium text-center pt-0.5">
+                                <div className="text-[10px] text-[#58544D] font-medium text-center pt-0.5">
                                   +{pkg.treatments.length - 3} more
                                 </div>
                               )}
@@ -3099,20 +3383,20 @@ function ServicesSetupPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50">
+            <div className="px-6 py-4 border-b border-[#E3DDCE] bg-gradient-to-r from-[#F7F5EF] to-[#F2EFE6]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 rounded-xl bg-[#1F1D1A] flex items-center justify-center shadow-lg">
                     <Package className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-teal-800">Edit Package</h2>
-                    <p className="text-sm text-teal-600 font-medium">Update package details and treatment allocations</p>
+                    <h2 className="text-xl font-bold text-[#1F1D1A]">Edit Package</h2>
+                    <p className="text-sm text-[#58544D] font-medium">Update package details and treatment allocations</p>
                   </div>
                 </div>
                 <button
                   onClick={closeEditModal}
-                  className="p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-100 rounded-xl transition-all duration-200"
+                  className="p-2 text-[#58544D] hover:text-[#3F3C36] hover:bg-[#F1EBDD] rounded-xl transition-all duration-200"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3124,7 +3408,7 @@ function ServicesSetupPage() {
               {/* Package Name & Price */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-sm font-semibold text-[#3F3C36] mb-2">
                     Package Name
                   </label>
                   <input
@@ -3132,15 +3416,15 @@ function ServicesSetupPage() {
                     value={pkgEditingName}
                     onChange={(e) => setPkgEditingName(e.target.value)}
                     placeholder="Enter package name"
-                    className="w-full border border-teal-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-[#E3DDCE] rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white hover:border-[#C9C2B1] transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-teal-700 mb-2">
+                  <label className="block text-sm font-semibold text-[#3F3C36] mb-2">
                     Total Price
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500 font-bold text-base">{getCurrencySymbol(currency)}</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8C8577] font-bold text-base">{getCurrencySymbol(currency)}</span>
                     <input
                       type="number"
                       step="0.01"
@@ -3148,7 +3432,7 @@ function ServicesSetupPage() {
                       value={pkgEditingPrice}
                       onChange={(e) => setPkgEditingPrice(e.target.value)}
                       placeholder="0.00"
-                      className="w-full border border-teal-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                      className="w-full border border-[#E3DDCE] rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white hover:border-[#C9C2B1] transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                     />
                   </div>
                 </div>
@@ -3157,7 +3441,7 @@ function ServicesSetupPage() {
               {/* Validity & Dates */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-[#3F3C36] mb-1.5 sm:mb-2">
                     Validity (Months)
                   </label>
                   <input
@@ -3166,64 +3450,64 @@ function ServicesSetupPage() {
                     value={pkgEditingValidityInMonths}
                     onChange={(e) => setPkgEditingValidityInMonths(e.target.value)}
                     placeholder="e.g. 12"
-                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm"
+                    className="w-full border border-[#E3DDCE] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white hover:border-[#C9C2B1] transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-[#3F3C36] mb-1.5 sm:mb-2">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingStartDate}
                     onChange={(e) => setPkgEditingStartDate(e.target.value)}
-                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white hover:border-teal-300 transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                    className="w-full border border-[#E3DDCE] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-white hover:border-[#C9C2B1] transition-all shadow-sm dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-teal-700 mb-1.5 sm:mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-[#3F3C36] mb-1.5 sm:mb-2">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={pkgEditingEndDate}
                     readOnly
-                    className="w-full border border-teal-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-teal-50 border-teal-200 text-teal-700 cursor-not-allowed shadow-sm transition-all"
+                    className="w-full border border-[#E3DDCE] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#F7F5EF] border-[#E3DDCE] text-[#3F3C36] cursor-not-allowed shadow-sm transition-all"
                   />
                 </div>
               </div>
 
               {/* Treatment Selection Dropdown */}
               <div>
-                <label className="block text-sm font-semibold text-[#2D9AA5] mb-2">
+                <label className="block text-sm font-semibold text-[#1F1D1A] mb-2">
                   Select Treatments
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setPkgEditTreatmentDropdownOpen(!pkgEditTreatmentDropdownOpen)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 border border-teal-200 rounded-xl text-sm text-teal-700 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all shadow-sm"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-[#F7F5EF] border border-[#E3DDCE] rounded-xl text-sm text-[#3F3C36] hover:bg-[#F1EBDD] focus:outline-none focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] transition-all shadow-sm"
                   >
-                    <span className="text-teal-600 dark:text-teal-700">
+                    <span className="text-[#58544D] dark:text-[#3F3C36]">
                       {pkgEditTreatments.length > 0
                         ? `${pkgEditTreatments.length} treatment(s) selected`
                         : "Select treatments to add..."}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-teal-500 transition-transform ${pkgEditTreatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-[#8C8577] transition-transform ${pkgEditTreatmentDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {pkgEditTreatmentDropdownOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-teal-200 rounded-lg shadow-lg">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-[#E3DDCE] rounded-lg shadow-lg">
                       {/* Search */}
-                      <div className="p-2 border-b border-teal-100">
+                      <div className="p-2 border-b border-[#EAE4D6]">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8577]" />
                           <input
                             type="text"
                             value={pkgEditTreatmentSearchQuery}
                             onChange={(e) => setPkgEditTreatmentSearchQuery(e.target.value)}
                             placeholder="Search treatments..."
-                            className="w-full pl-9 pr-3 py-2 text-sm border border-teal-200 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-[#E3DDCE] rounded-md focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                             autoFocus
                           />
                         </div>
@@ -3246,19 +3530,19 @@ function ServicesSetupPage() {
                                         setPkgEditTreatmentSearchQuery("");
                                       }}
                                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${isSelected
-                                        ? "bg-teal-100 text-teal-700 font-medium border border-teal-200"
-                                        : "text-teal-700 hover:bg-teal-100"
+                                        ? "bg-[#F1EBDD] text-[#3F3C36] font-medium border border-[#E3DDCE]"
+                                        : "text-[#3F3C36] hover:bg-[#F1EBDD]"
                                         }`}
                                     >
                                       <div className="flex items-center justify-between">
                                         <span>
                                           {treatment.name}
                                           {treatment.type === "sub" && (
-                                            <span className="text-xs text-teal-500 ml-1">({treatment.mainTreatment})</span>
+                                            <span className="text-xs text-[#8C8577] ml-1">({treatment.mainTreatment})</span>
                                           )}
                                         </span>
                                         {isSelected && (
-                                          <span className="text-teal-600 text-xs">✓</span>
+                                          <span className="text-[#58544D] text-xs">✓</span>
                                         )}
                                       </div>
                                     </button>
@@ -3275,7 +3559,7 @@ function ServicesSetupPage() {
 
                           if (filteredTreatments.length === 0) {
                             return (
-                              <div className="p-4 text-center text-sm text-teal-500">
+                              <div className="p-4 text-center text-sm text-[#8C8577]">
                                 No treatments found matching "{pkgEditTreatmentSearchQuery}"
                               </div>
                             );
@@ -3294,8 +3578,8 @@ function ServicesSetupPage() {
                                       setPkgEditTreatmentSearchQuery("");
                                     }}
                                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${isSelected
-                                      ? "bg-teal-50 text-teal-700 font-medium"
-                                      : "text-teal-700 hover:bg-teal-50"
+                                      ? "bg-[#F7F5EF] text-[#3F3C36] font-medium"
+                                      : "text-[#3F3C36] hover:bg-[#F7F5EF]"
                                       }`}
                                   >
                                     <div className="flex items-center justify-between">
@@ -3303,7 +3587,7 @@ function ServicesSetupPage() {
                                         {treatment.name}
                                       </span>
                                       {isSelected && (
-                                        <span className="text-teal-600 text-xs">✓</span>
+                                        <span className="text-[#58544D] text-xs">✓</span>
                                       )}
                                     </div>
                                   </button>
@@ -3322,8 +3606,8 @@ function ServicesSetupPage() {
               {pkgEditTreatments.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-teal-700 text-sm">Selected Treatments</h3>
-                    <span className="px-2.5 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs font-medium">
+                    <h3 className="font-semibold text-[#3F3C36] text-sm">Selected Treatments</h3>
+                    <span className="px-2.5 py-0.5 bg-[#F1EBDD] text-[#3F3C36] rounded-full text-xs font-medium">
                       {pkgEditTreatments.length} treatment{pkgEditTreatments.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -3335,10 +3619,10 @@ function ServicesSetupPage() {
                       return (
                         <div
                           key={selectedTreatment.treatmentSlug}
-                          className="bg-white border border-teal-200 rounded-lg p-3 shadow-sm transition-all"
+                          className="bg-white border border-[#E3DDCE] rounded-lg p-3 shadow-sm transition-all"
                         >
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-teal-700 text-xs">
+                            <h4 className="font-semibold text-[#3F3C36] text-xs">
                               {selectedTreatment.treatmentName}
                             </h4>
                             <button
@@ -3352,23 +3636,23 @@ function ServicesSetupPage() {
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div className="space-y-0.5">
-                              <label className="block text-[10px] text-teal-600 font-medium">Price</label>
+                              <label className="block text-[10px] text-[#58544D] font-medium">Price</label>
                               <div className="relative">
-                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-teal-500 text-xs">{getCurrencySymbol(currency)}</span>
+                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[#8C8577] text-xs">{getCurrencySymbol(currency)}</span>
                                 <input
                                   type="number"
                                   min="0"
                                   step="0.01"
                                   value={selectedTreatment.allocatedPrice || ""}
                                   onChange={(e) => handleEditAllocatedPriceChange(selectedTreatment.treatmentSlug, e.target.value)}
-                                  className="w-full pl-5 pr-1.5 py-1.5 text-xs font-medium border border-teal-200 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-teal-50 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                                  className="w-full pl-5 pr-1.5 py-1.5 text-xs font-medium border border-[#E3DDCE] rounded-md focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-[#F7F5EF] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                                   placeholder="0.00"
                                 />
                               </div>
                             </div>
 
                             <div className="space-y-0.5">
-                              <label className="block text-[10px] text-teal-600 font-medium">Sess</label>
+                              <label className="block text-[10px] text-[#58544D] font-medium">Sess</label>
                               <input
                                 type="number"
                                 min="1"
@@ -3377,14 +3661,14 @@ function ServicesSetupPage() {
                                   const value = parseInt(e.target.value) || 1;
                                   handleEditSessionChange(selectedTreatment.treatmentSlug, value);
                                 }}
-                                className="w-full px-1.5 py-1.5 text-xs font-medium text-center border border-teal-200 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-teal-50 dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
+                                className="w-full px-1.5 py-1.5 text-xs font-medium text-center border border-[#E3DDCE] rounded-md focus:ring-2 focus:ring-[#A98545] focus:border-[#A98545] bg-[#F7F5EF] dark:bg-white dark:border-slate-600 dark:text-slate-900 dark:placeholder-slate-400"
                                 placeholder="1"
                               />
                             </div>
 
                             <div className="space-y-0.5">
-                              <label className="block text-[10px] text-teal-600 font-medium">/Sess</label>
-                              <div className="px-1.5 py-1.5 text-xs font-bold text-center bg-teal-100 rounded-md text-teal-700 border border-teal-200 dark:bg-white dark:border-slate-600 dark:text-slate-900">
+                              <label className="block text-[10px] text-[#58544D] font-medium">/Sess</label>
+                              <div className="px-1.5 py-1.5 text-xs font-bold text-center bg-[#F1EBDD] rounded-md text-[#3F3C36] border border-[#E3DDCE] dark:bg-white dark:border-slate-600 dark:text-slate-900">
                                 {getCurrencySymbol(currency)}{sessionPrice.toFixed(2)}
                               </div>
                             </div>
@@ -3395,20 +3679,20 @@ function ServicesSetupPage() {
                   </div>
 
                   {/* Price Validation Summary */}
-                  <div className="mt-3 p-3 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
+                  <div className="mt-3 p-3 bg-gradient-to-r from-[#F7F5EF] to-[#F2EFE6] rounded-lg border border-[#E3DDCE]">
                     <div className="flex justify-between text-sm">
-                      <span className="text-teal-700 font-semibold">Package Price:</span>
-                      <span className="font-semibold text-teal-700">{getCurrencySymbol(currency)}{parseFloat(pkgEditingPrice) || 0}</span>
+                      <span className="text-[#3F3C36] font-semibold">Package Price:</span>
+                      <span className="font-semibold text-[#3F3C36]">{getCurrencySymbol(currency)}{parseFloat(pkgEditingPrice) || 0}</span>
                     </div>
                     <div className="flex justify-between text-sm mt-1">
-                      <span className="text-teal-700 font-semibold">Allocated Total:</span>
-                      <span className="font-semibold text-teal-700">
+                      <span className="text-[#3F3C36] font-semibold">Allocated Total:</span>
+                      <span className="font-semibold text-[#3F3C36]">
                         {getCurrencySymbol(currency)}{pkgEditTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm mt-1 border-t border-gray-200 pt-1">
-                      <span className="text-teal-700 font-semibold">Remaining:</span>
-                      <span className={`font-semibold ${Math.abs((parseFloat(pkgEditingPrice) || 0) - pkgEditTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)) < 0.01 ? 'text-teal-600' : 'text-amber-600'}`}>
+                      <span className="text-[#3F3C36] font-semibold">Remaining:</span>
+                      <span className={`font-semibold ${Math.abs((parseFloat(pkgEditingPrice) || 0) - pkgEditTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)) < 0.01 ? 'text-[#58544D]' : 'text-amber-600'}`}>
                         {getCurrencySymbol(currency)}{((parseFloat(pkgEditingPrice) || 0) - pkgEditTreatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0)).toFixed(2)}
                       </span>
                     </div>
@@ -3418,17 +3702,17 @@ function ServicesSetupPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-[#E3DDCE] bg-gradient-to-r from-[#F7F5EF] to-[#F2EFE6] flex justify-end gap-3">
               <button
                 onClick={closeEditModal}
-                className="px-5 py-2.5 bg-white border border-teal-300 text-teal-700 text-sm font-medium rounded-xl hover:bg-teal-100 hover:border-teal-400 transition-all duration-200 shadow-sm"
+                className="px-5 py-2.5 bg-white border border-[#C9C2B1] text-[#3F3C36] text-sm font-medium rounded-xl hover:bg-[#F1EBDD] hover:border-[#B5AE9F] transition-all duration-200 shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdatePackage}
                 disabled={pkgUpdating}
-                className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-sm font-medium rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:opacity-60 transition-all shadow-md hover:shadow-lg"
+                className="px-5 py-2.5 bg-[#1F1D1A] text-white text-sm font-medium rounded-xl hover:bg-[#3A362E] disabled:opacity-60 transition-all shadow-md hover:shadow-lg"
               >
                 {pkgUpdating ? (
                   <span className="flex items-center gap-2">

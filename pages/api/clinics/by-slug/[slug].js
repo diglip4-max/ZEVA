@@ -53,6 +53,15 @@ export default async function handler(req, res) {
     }
 
     if (!clinic) {
+      // The clinic may have relocated and had its URL re-derived, in which case
+      // this slug is retired but was previously shared / indexed. Permanently
+      // redirect to the current slug so old links keep working (301 passes SEO
+      // authority to the new URL instead of dead-ending).
+      const relocated = await Clinic.findOne({ previousSlugs: slug });
+      if (relocated && relocated.slug && relocated.isApproved) {
+        return res.redirect(301, `/api/clinics/by-slug/${relocated.slug}`);
+      }
+
       return res.status(404).json({
         success: false,
         message: `Clinic not found with slug: ${slug}`,

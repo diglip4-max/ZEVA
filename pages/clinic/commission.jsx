@@ -11,6 +11,8 @@ import {
   X,
   Check,
   CircleDollarSign,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 
 const TOKEN_PRIORITY = [
@@ -102,7 +104,7 @@ function ClinicCommissionPage() {
     canDelete: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-  const [source, setSource] = useState("referral");
+  const [source, setSource] = useState("overview");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState("INR");
@@ -122,6 +124,14 @@ function ClinicCommissionPage() {
   const [newExpenses, setNewExpenses] = useState([{ name: "", price: "" }]);
   const [addExpenseLoading, setAddExpenseLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [overviewFrom, setOverviewFrom] = useState("");
+  const [overviewTo, setOverviewTo] = useState("");
+  const [overviewStats, setOverviewStats] = useState({ earned: 0, paid: 0, count: 0, pendingCount: 0, pendingEarned: 0, approvedEarned: 0, approvedCount: 0, deductions: 0 });
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [commissionRows, setCommissionRows] = useState([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  // Overview summary is restricted to the clinic owner (hidden for agent/doctorStaff/staff/doctor)
+  const isClinic = getUserRole() === "clinic";
 
   // Filter main items by search query
   const filteredMainItems = items.filter((row) => {
@@ -405,6 +415,8 @@ function ClinicCommissionPage() {
     if (!permissionsLoaded || !permissions.canRead) return;
     const headers = getAuthHeaders();
     if (!headers) return;
+    // Overview is a summary view only — no ledger fetch needed
+    if (source === "overview") return;
     setLoading(true);
     try {
       const res = await axios.get("/api/clinic/commissions/summary", {
@@ -422,6 +434,95 @@ function ClinicCommissionPage() {
       setLoading(false);
     }
   }, [source, showToast, permissionsLoaded, permissions.canRead]);
+
+  // Overview aggregates the "Earned" column across all three sources
+  const loadOverview = useCallback(async () => {
+    if (!permissionsLoaded || !permissions.canRead) return;
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    setOverviewLoading(true);
+    try {
+      const rangeParams = {};
+      if (overviewFrom) rangeParams.startDate = overviewFrom;
+      if (overviewTo) rangeParams.endDate = overviewTo;
+      const sources = ["referral", "staff", "product"];
+      const [responses, monthlyRes] = await Promise.all([
+        Promise.all(
+          sources.map((s) =>
+            axios.get("/api/clinic/commissions/summary", {
+              params: { ...rangeParams, source: s },
+              headers,
+            })
+          )
+        ),
+        axios.get("/api/clinic/commissions/summary", {
+          // Month chart intentionally ignores the date filter and aggregates all sources
+          params: { source: "all", groupBy: "month" },
+          headers,
+        }),
+      ]);
+      let earned = 0;
+      let paid = 0;
+      let count = 0;
+      let pendingCount = 0;
+      let pendingEarned = 0;
+      let approvedEarned = 0;
+      let approvedCount = 0;
+      let deductions = 0;
+      responses.forEach((r) => {
+        if (r.data && r.data.success) {
+          (r.data.items || []).forEach((it) => {
+            earned += Number(it.totalEarned || 0);
+            paid += Number(it.totalPaid || 0);
+            count += Number(it.count || 0);
+            pendingCount += Number(it.pendingCount || 0);
+            pendingEarned += Number(it.pendingEarnedAmount || 0);
+            approvedEarned += Number(it.approvedEarnedAmount || 0);
+            approvedCount += Number(it.approvedCount || 0);
+            deductions += Number(it.deductionsAmount || 0);
+          });
+        }
+      });
+      setOverviewStats({
+        earned,
+        paid,
+        count,
+        pendingCount,
+        pendingEarned,
+        approvedEarned,
+        approvedCount,
+        deductions,
+      });
+      if (monthlyRes.data && monthlyRes.data.success) {
+        setMonthlyData(monthlyRes.data.items || []);
+      }
+      // Keep per-person rows (referrer + doctor/staff + product) for the Signals section
+      const personRows = [];
+      responses.forEach((r, i) => {
+        if (r.data && r.data.success) {
+          (r.data.items || []).forEach((it) => {
+            personRows.push({ ...it, rowSource: sources[i] });
+          });
+        }
+      });
+      setCommissionRows(personRows);
+    } catch (err) {
+      console.error("Error loading commission overview:", err);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [permissionsLoaded, permissions.canRead, overviewFrom, overviewTo]);
+
+  useEffect(() => {
+    if (isClinic && source === "overview") loadOverview();
+  }, [isClinic, source, loadOverview]);
+
+  // Non-clinic roles must never land on the overview tab — default them to the ledger
+  useEffect(() => {
+    if (!isClinic && source === "overview") {
+      setSource("referral");
+    }
+  }, [isClinic, source]);
 
   useEffect(() => {
     if (!permissionsLoaded || !permissions.canRead) return;
@@ -781,6 +882,361 @@ function ClinicCommissionPage() {
         </div>
       )}
       <div className="max-w-9xl mx-auto">
+        {/* Source tabs — Overview is a summary view; others show the ledger table */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+          {isClinic && (
+            <button
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "overview" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border border-gray-300 hover:bg-teal-50"}`}
+              onClick={() => setSource("overview")}
+            >
+              Overview
+            </button>
+          )}
+          <button
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "referral" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border border-gray-300 hover:bg-teal-50"}`}
+            onClick={() => setSource("referral")}
+          >
+            Referral
+          </button>
+          <button
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "staff" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border dark:text-gray-700 border-gray-300 hover:bg-teal-50"}`}
+            onClick={() => setSource("staff")}
+          >
+            Doctor/Staff
+          </button>
+          <button
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "product" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+            onClick={() => setSource("product")}
+          >
+            Product
+          </button>
+        </div>
+
+        {isClinic && source === "overview" && (
+        <div className="bg-[#F7F5EF] rounded-xl border border-[#E7E1D5] px-6 py-8 lg:px-10 lg:py-10 mb-6">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#A98545]">
+                Finance · Commissions
+              </p>
+              <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-[#1F1D1A]">
+                Commission Tracker
+              </h1>
+              <p className="mt-2 text-sm text-[#6B6862] max-w-2xl">
+                Referral, doctor/staff and product commissions — review invoices,
+                deduct expenses, then final-approve.
+              </p>
+            </div>
+
+            {/* Date range + refresh */}
+            <div className="flex flex-nowrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-[#6B6862]">From</label>
+                <input
+                  type="date"
+                  value={overviewFrom}
+                  max={overviewTo || undefined}
+                  onChange={(e) => setOverviewFrom(e.target.value)}
+                  className="text-sm text-[#1F1D1A] border border-[#D9D2C2] bg-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#A98545]/30 focus:border-[#A98545]"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-[#6B6862]">To</label>
+                <input
+                  type="date"
+                  value={overviewTo}
+                  min={overviewFrom || undefined}
+                  onChange={(e) => setOverviewTo(e.target.value)}
+                  className="text-sm text-[#1F1D1A] border border-[#D9D2C2] bg-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#A98545]/30 focus:border-[#A98545]"
+                />
+              </div>
+              {/* <span className="inline-flex items-center gap-1.5 text-xs text-[#6B5B37] bg-[#F1EBDD] border border-[#E3DAC6] rounded-full px-2.5 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#A98545]" />
+                Sample data
+              </span> */}
+              <button className="inline-flex items-center gap-2 text-sm font-medium text-[#1F1D1A] border border-[#D9D2C2] bg-white rounded-lg px-3 py-1.5 hover:bg-[#FAF8F4] transition-colors">
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Stat tiles */}
+          <div className="mt-8 grid w-full grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 bg-white border border-[#E7E1D5] rounded-xl overflow-hidden divide-x divide-y xl:divide-y-0 divide-[#E7E1D5]">
+            {(() => {
+              const sym = getCurrencySymbol(currency);
+              const fmt = (n) => {
+                const v = Number(n || 0);
+                return `${sym} ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              };
+              const earnedRate =
+                overviewStats.paid > 0
+                  ? (overviewStats.earned / overviewStats.paid) * 100
+                  : 0;
+              return [
+                { label: "Commission earned", value: overviewLoading ? "…" : fmt(overviewStats.earned), sub: "Referral · Doctor/Staff · Product", accent: "text-[#1F1D1A]" },
+                { label: "Revenue base", value: overviewLoading ? "…" : fmt(overviewStats.paid), sub: "132 paid invoices", accent: "text-[#1F1D1A]" },
+                { label: "Pending approval", value: overviewLoading ? "…" : fmt(overviewStats.pendingEarned), sub: `${overviewStats.pendingCount} invoice${overviewStats.pendingCount === 1 ? "" : "s"} waiting`, accent: "text-[#A98545]" },
+                { label: "Approved", value: overviewLoading ? "…" : fmt(overviewStats.approvedEarned), sub: `${overviewStats.approvedCount} invoice${overviewStats.approvedCount === 1 ? "" : "s"} approved`, accent: "text-[#1F1D1A]" },
+                { label: "Deductions", value: overviewLoading ? "…" : fmt(overviewStats.deductions), sub: "Bank deduction + referral deducted", accent: "text-[#1F1D1A]" },
+                { label: "Effective rate", value: overviewLoading ? "…" : `${earnedRate.toFixed(2)}%`, sub: "Commission ÷ revenue", accent: "text-[#1F1D1A]" },
+              ].map((s) => (
+                <div key={s.label} className="px-3 py-4 sm:px-4 sm:py-5 min-w-0">
+                  <p className="text-xs font-medium text-[#9B968D] break-words">{s.label}</p>
+                  <p className={`mt-2 text-base sm:text-lg xl:text-xl font-bold leading-tight tabular-nums break-words ${s.accent}`}>{s.value}</p>
+                  <p className="mt-1.5 text-xs text-[#6B6862] break-words">{s.sub}</p>
+                </div>
+              ));
+            })()}
+          </div>
+
+          {/* Top row: Approval progress + Referral chart */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Approval progress gauge */}
+            <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-[#1F1D1A]">Approval progress</h3>
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#6B6862] border border-[#E7E1D5] rounded-full px-2 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3E7A5E]" />Based on ZEVA data
+                </span>
+              </div>
+              {(() => {
+                const sym = getCurrencySymbol(currency);
+                const fmtAmt = (n) =>
+                  `${sym} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const approvedPct =
+                  overviewStats.earned > 0
+                    ? Math.max(0, Math.min(100, (overviewStats.approvedEarned / overviewStats.earned) * 100))
+                    : 0;
+                const arcLen = (approvedPct / 100) * 314.159;
+                return (
+                  <>
+                    <div className="mt-4 relative">
+                      <svg viewBox="0 0 260 150" className="w-full h-auto">
+                        <path d="M 30 130 A 100 100 0 0 1 230 130" fill="none" stroke="#EDE8DD" strokeWidth="16" strokeLinecap="round" />
+                        <path d="M 30 130 A 100 100 0 0 1 230 130" fill="none" stroke="#3E7A5E" strokeWidth="16" strokeLinecap="round" strokeDasharray={`${arcLen} 314.159`} />
+                        <text x="130" y="118" textAnchor="middle" fontSize="36" fontWeight="700" fill="#1F1D1A">{approvedPct.toFixed(0)}%</text>
+                      </svg>
+                      <p className="text-center text-sm text-[#6B6862] -mt-2">of earned commission approved</p>
+                      <div className="flex items-center justify-between text-xs text-[#9B968D] mt-1 px-1">
+                        <span>0</span>
+                        <span>100</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-5 text-sm">
+                      <span className="inline-flex items-center gap-2 text-[#1F1D1A]">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-[#3E7A5E]" />{fmtAmt(overviewStats.approvedEarned)}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-[#1F1D1A]">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-[#A98545]" />{fmtAmt(overviewStats.pendingEarned)} pending
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Commission by month (all sources) */}
+            <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-[#1F1D1A]">Commission by month</h3>
+                <div className="flex items-center gap-3 text-xs text-[#6B6862]">
+                  <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#3E7A5E]" />Approved</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#A98545]" />Pending</span>
+                </div>
+              </div>
+              {(() => {
+                const sym = getCurrencySymbol(currency);
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const fmtFull = (n) =>
+                  `${sym} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const dataMap = {};
+                (monthlyData || []).forEach((d) => {
+                  dataMap[String(d.month)] = {
+                    approved: Number(d.approved || 0),
+                    pending: Number(d.pending || 0),
+                  };
+                });
+                if (Object.keys(dataMap).length === 0) {
+                  return (
+                    <div className="mt-5 h-52 flex items-center justify-center text-sm text-[#9B968D]">
+                      No commission data for this range
+                    </div>
+                  );
+                }
+                // Fixed Jan–Dec axis for the current year
+                const currentYear = new Date().getFullYear();
+                const rows = [];
+                for (let m = 1; m <= 12; m++) {
+                  const k = `${currentYear}-${String(m).padStart(2, "0")}`;
+                  const v = dataMap[k] || { approved: 0, pending: 0 };
+                  rows.push({ label: monthNames[m - 1], approved: v.approved, pending: v.pending });
+                }
+                const rawMax = Math.max(1, ...rows.flatMap((r) => [r.approved, r.pending]));
+                const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)));
+                const max = Math.ceil(rawMax / magnitude) * magnitude;
+                const fmtCompact = (n) =>
+                  n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(Math.round(n));
+                const ticks = [1, 0.75, 0.5, 0.25, 0].map((t) => fmtCompact(max * t));
+                return (
+                  <div className="mt-5 flex gap-2">
+                    {/* Y axis */}
+                    <div className="flex flex-col justify-between h-52 shrink-0 w-8 text-right text-[10px] text-[#9B968D]">
+                      {ticks.map((t, i) => (
+                        <span key={i}>{t}</span>
+                      ))}
+                    </div>
+                    {/* Plot area */}
+                    <div className="flex-1">
+                      <div className="relative h-52">
+                        {/* gridlines */}
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                          {[0, 1, 2, 3, 4].map((g) => (
+                            <div key={g} className="border-t border-[#EDE8DD]" />
+                          ))}
+                        </div>
+                        {/* bars */}
+                        <div className="absolute inset-0 flex items-end gap-1.5">
+                          {rows.map((b, i) => (
+                            <div key={i} className="group relative flex-1 flex items-end justify-center gap-0.5 h-full">
+                              {/* hover tooltip (only shown on hover) */}
+                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block whitespace-nowrap rounded-md bg-[#1F1D1A] text-white text-[10px] px-2 py-1 shadow-lg z-10">
+                                <div className="font-semibold">{b.label}</div>
+                                <div className="text-[#8FBFA6]">Approved {fmtFull(b.approved)}</div>
+                                <div className="text-[#D8B97A]">Pending {fmtFull(b.pending)}</div>
+                              </div>
+                              <div
+                                className="w-1/2 max-w-[12px] rounded-t bg-[#3E7A5E]"
+                                style={{ height: `${(b.approved / max) * 100}%` }}
+                              />
+                              <div
+                                className="w-1/2 max-w-[12px] rounded-t bg-[#A98545]"
+                                style={{ height: `${(b.pending / max) * 100}%` }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* X axis labels */}
+                      <div className="flex gap-1.5 mt-1.5">
+                        {rows.map((b, i) => (
+                          <div key={i} className="flex-1 text-center text-[10px] text-[#9B968D]">{b.label}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Signals — full-width row */}
+          <div className="mt-6">
+            <div className="bg-white border border-[#E7E1D5] rounded-2xl p-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-[#1F1D1A]">Signals</h3>
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#6B6862] border border-[#E7E1D5] rounded-full px-2 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3E7A5E]" />Based on ZEVA data
+                </span>
+              </div>
+              <div className="mt-4 space-y-5">
+                {(() => {
+                  const sym = getCurrencySymbol(currency);
+                  const fmtAmt = (n) =>
+                    `${sym} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  // Person label: just the resolved name (no role suffix)
+                  const personLabel = (r) => r.name || "Anonymous";
+                  const rows = (commissionRows || []).filter(
+                    (r) => Number(r.totalEarned || 0) > 0
+                  );
+                  if (rows.length === 0) {
+                    return (
+                      <p className="text-sm text-[#9B968D]">No commission signals yet for this range.</p>
+                    );
+                  }
+                  const grandTotal = rows.reduce((s, r) => s + Number(r.totalEarned || 0), 0);
+                  const signals = [];
+                  // 1) Top earner: person with the highest commission across all sources
+                  const top = [...rows].sort(
+                    (a, b) => Number(b.totalEarned || 0) - Number(a.totalEarned || 0)
+                  )[0];
+                  const share = grandTotal > 0 ? (Number(top.totalEarned || 0) / grandTotal) * 100 : 0;
+                  signals.push({
+                    title: `${personLabel(top)} has the highest commission — ${fmtAmt(top.totalEarned)} earned`,
+                    why: `${top.count || 0} invoice${top.count === 1 ? "" : "s"} at ${top.percent || 0}% commission drive this payout.`,
+                    impact: Number(top.pendingEarnedAmount || 0) > 0
+                      ? `${fmtAmt(top.pendingEarnedAmount)} of their earnings still awaits approval.`
+                      : `${fmtAmt(top.approvedEarnedAmount || top.totalEarned)} fully approved and ready for cash-out.`,
+                    action: "Open ledger",
+                  });
+                  // 2) Highest submission backlog: person with the most isSubmitted:false invoices
+                  const now = Date.now();
+                  const daysPending = (d) => {
+                    if (!d) return null;
+                    const t = new Date(d).getTime();
+                    if (Number.isNaN(t)) return null;
+                    return Math.max(0, Math.floor((now - t) / 86400000));
+                  };
+                  // Rank every referrer / doctor / staff / agent by their unsubmitted
+                  // (isSubmitted:false) invoice count and surface the highest one.
+                  const unsubmitted = rows.filter(
+                    (r) => Number(r.pendingCount || 0) > 0
+                  );
+                  const mostPending = [...unsubmitted].sort(
+                    (a, b) => Number(b.pendingCount || 0) - Number(a.pendingCount || 0)
+                  )[0];
+                  if (mostPending) {
+                    const days = daysPending(mostPending.oldestPendingDate);
+                    signals.push({
+                      title: `${personLabel(mostPending)} has the most invoices awaiting approval — ${mostPending.pendingCount} unsubmitted`,
+                      why: days != null
+                        ? `Oldest has waited ${days} day${days === 1 ? "" : "s"} and is still not marked as submitted.`
+                        : `${mostPending.pendingCount} invoice(s) at ${mostPending.percent || 0}% commission are not yet ticked as submitted.`,
+                      impact: `${fmtAmt(mostPending.pendingEarnedAmount)} held from payout until submission.`,
+                      action: "Approve backlog",
+                    });
+                  }
+                  // 3) Lowest earner: person with the least commission earned across all sources
+                  if (rows.length >= 2) {
+                    const lowest = [...rows].sort(
+                      (a, b) => Number(a.totalEarned || 0) - Number(b.totalEarned || 0)
+                    )[0];
+                    const lowShare = grandTotal > 0 ? (Number(lowest.totalEarned || 0) / grandTotal) * 100 : 0;
+                    signals.push({
+                      title: `${personLabel(lowest)} has the lowest commission earned — ${fmtAmt(lowest.totalEarned)}`,
+                      why: `${lowest.count || 0} invoice${lowest.count === 1 ? "" : "s"} at ${lowest.percent || 0}% contribute just ${lowShare.toFixed(0)}% of all commissions.`,
+                      impact: Number(lowest.pendingEarnedAmount || 0) > 0
+                        ? `${fmtAmt(lowest.pendingEarnedAmount)} still unsubmitted and pending release.`
+                        : `${fmtAmt(lowest.approvedEarnedAmount || lowest.totalEarned)} earned in this range.`,
+                      action: "Open ledger",
+                    });
+                  }
+                  return signals.map((sig, idx) => (
+                    <div key={idx} className={idx > 0 ? "pt-5 border-t border-[#EDE8DD]" : ""}>
+                      <div className="flex items-start gap-2">
+                        <span className="mt-1.5 w-2 h-2 rounded-full bg-[#A98545] shrink-0" />
+                        <p className="text-sm font-semibold text-[#1F1D1A]">{sig.title}</p>
+                      </div>
+                      <div className="mt-2 space-y-1 pl-4">
+                        <p className="text-xs text-[#6B6862]"><span className="font-bold text-[#9B968D] uppercase tracking-wide mr-2">Why</span>{sig.why}</p>
+                        <p className="text-xs text-[#6B6862]"><span className="font-bold text-[#9B968D] uppercase tracking-wide mr-2">Impact</span>{sig.impact}</p>
+                      </div>
+                      <div className="mt-2.5 pl-4 flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-[#6B6862] border border-[#E7E1D5] rounded-full px-2 py-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#3E7A5E]" />Based on ZEVA data
+                        </span>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {source !== "overview" && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
@@ -824,38 +1280,7 @@ function ClinicCommissionPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <button
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "referral" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border border-gray-300 hover:bg-teal-50"}`}
-              onClick={() => {
-                if (source !== "referral") {
-                  setSource("referral");
-                }
-              }}
-            >
-              Referral
-            </button>
-            <button
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "staff" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border dark:text-gray-700 border-gray-300 hover:bg-teal-50"}`}
-              onClick={() => {
-                if (source !== "staff") {
-                  setSource("staff");
-                }
-              }}
-            >
-              Doctor/Staff
-            </button>
-            <button
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "product" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
-              onClick={() => {
-                if (source !== "product") {
-                  setSource("product");
-                }
-              }}
-            >
-              Product
-            </button>
-          </div>
+          {/* Source tabs moved above the content area */}
 
           {loading ? (
             <div className="text-sm text-teal-600 dark:text-teal-600">
@@ -969,6 +1394,7 @@ function ClinicCommissionPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Modal Popup */}
         {showModal && (

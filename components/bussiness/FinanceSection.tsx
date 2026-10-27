@@ -66,9 +66,11 @@ type FinanceCardProps = {
   // price: string;
   items: string[];
   delayMs?: number;
+  // Cards that are already live hide the teaser CTA.
+  showCta?: boolean;
 };
 
-function FinanceCard({ icon, title, subtitle, items, delayMs = 0 }: FinanceCardProps): ReactElement {
+function FinanceCard({ icon, title, subtitle, items, delayMs = 0, showCta = true }: FinanceCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -110,6 +112,7 @@ function FinanceCard({ icon, title, subtitle, items, delayMs = 0 }: FinanceCardP
           ))}
         </ul>
 
+        {showCta && (
         <button
           type="button"
           className={[
@@ -119,6 +122,7 @@ function FinanceCard({ icon, title, subtitle, items, delayMs = 0 }: FinanceCardP
         >
       Coming Soon 
         </button>
+        )}
       </div>
     </div>
   );
@@ -144,6 +148,7 @@ export default function FinanceSection(): ReactElement {
           <div className="mt-10 grid justify-items-center gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
             <FinanceCard
               delayMs={0}
+              showCta={false}
               icon={<DocIcon className="h-6 w-6" />}
               title="Billing & Invoices"
               subtitle="Professional invoicing"
@@ -154,6 +159,7 @@ export default function FinanceSection(): ReactElement {
 
             <FinanceCard
               delayMs={80}
+              showCta={false}
               icon={<ClockIcon className="h-6 w-6" />}
               title="VAT & Tax Filing"
               subtitle="Stay compliant"
@@ -163,6 +169,7 @@ export default function FinanceSection(): ReactElement {
 
             <FinanceCard
               delayMs={160}
+              showCta={false}
               icon={<DocIcon className="h-6 w-6" />}
               title="Reports & Analytics"
               subtitle="Real-time insights"
@@ -172,6 +179,7 @@ export default function FinanceSection(): ReactElement {
 
             <FinanceCard
               delayMs={240}
+              showCta={false}
               icon={<BankIcon className="h-6 w-6" />}
               title="Clinic Financing"
               subtitle="Flexible payment options"
@@ -181,6 +189,7 @@ export default function FinanceSection(): ReactElement {
 
             <FinanceCard
               delayMs={320}
+              showCta={false}
               icon={<DocIcon className="h-6 w-6" />}
               title="Compliance Center"
               subtitle="Policies & documentation"
@@ -190,6 +199,7 @@ export default function FinanceSection(): ReactElement {
 
             <FinanceCard
               delayMs={400}
+              showCta={false}
               icon={<ChartIcon className="h-6 w-6" />}
               title="Revenue Optimization"
               subtitle="Increase margins"

@@ -7,6 +7,7 @@ import User from '../../../models/Users';
 import Treatment from '../../../models/Treatment';
 import ClinicPermission from '../../../models/ClinicPermission';
 import ClinicNavigationItem from '../../../models/ClinicNavigationItem';
+import { approveClinicSeo } from '../../../lib/clinicApprovalSeoService';
 
 
 // Disable default body parsing
@@ -256,7 +257,7 @@ export default async function handler(req, res) {
     }
 
     // Create clinic
-    const clinic = await Clinic.create({
+    let clinic = await Clinic.create({
       owner: user._id,
       name,
       address,
@@ -265,9 +266,13 @@ export default async function handler(req, res) {
       timings: finalTimings,
       photos: clinicPhotoPath ? [clinicPhotoPath] : [],
       licenseDocumentUrl: licensePath || null,
+      // Store the location picked on the map (falls back to 0,0 when unset).
       location: {
         type: 'Point',
-        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+        coordinates: [
+          Number.isFinite(parseFloat(longitude)) ? parseFloat(longitude) : 0,
+          Number.isFinite(parseFloat(latitude)) ? parseFloat(latitude) : 0,
+        ],
       },
       registeredAt: new Date(), // Set trial start time for new users
     });
@@ -374,9 +379,31 @@ export default async function handler(req, res) {
       // Continue even if permission creation fails - clinic is still created
     }
 
+    // ✅ Generate + lock the SEO slug (name + city) and run the SEO pipeline.
+    // Clinics are auto-approved on registration (Clinic.isApproved defaults to true),
+    // so they never pass through /admin/AdminClinicApproval — this mirrors the
+    // admin approval flow (shared via lib/clinicApprovalSeoService) so every
+    // clinic gets its permanent city-based URL right after registration.
+    // Non-fatal: registration must succeed even if slug/SEO fails.
+    try {
+      const seo = await approveClinicSeo(clinic._id);
+      if (seo.slugGenerated && seo.finalClinic?.slug) {
+        clinic = seo.finalClinic;
+        slugPreview = clinic.slug;
+        slugPreviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://zeva360.com'}/clinics/${clinic.slug}`;
+        slugUserMessage = '🔒 Your clinic link is now permanent and cannot be changed to protect SEO rankings.';
+        console.log(`✅ Slug generated and locked for clinic ${clinic._id}: ${clinic.slug}`);
+      } else {
+        console.warn(`⚠️ Slug generation did not complete for clinic ${clinic._id} (non-fatal)`);
+      }
+    } catch (seoError) {
+      console.error('❌ Slug/SEO pipeline error after registration (non-fatal):', seoError.message);
+    }
+
     return res.status(200).json({ 
       message: 'Clinic saved', 
       clinic,
+      slug_locked: !!(clinic.slug && clinic.slugLocked),
       slug_preview: slugPreview ? {
         slug: slugPreview,
         url: slugPreviewUrl,

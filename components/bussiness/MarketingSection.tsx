@@ -77,9 +77,10 @@ type MarketingCardProps = {
   // price: string;
   items: string[];
   delayMs?: number;
+  hideComingSoon?: boolean;
 };
 
-function MarketingCard({ icon, title, subtitle, items, delayMs = 0 }: MarketingCardProps): ReactElement {
+function MarketingCard({ icon, title, subtitle, items, delayMs = 0, hideComingSoon = false }: MarketingCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -112,15 +113,17 @@ function MarketingCard({ icon, title, subtitle, items, delayMs = 0 }: MarketingC
           ))}
         </ul>
 
-        <button
-          type="button"
-          className={[
-            "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-pink-600 bg-pink-600 text-gray-900 hover:bg-pink-600 hover:text-white",
-          ].join(" ")}
-        >
-          Coming Soon 
-        </button>
+        {!hideComingSoon && (
+          <button
+            type="button"
+            className={[
+              "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
+              "border-pink-600 bg-pink-600 text-gray-900 hover:bg-pink-600 hover:text-white",
+            ].join(" ")}
+          >
+            Coming Soon 
+          </button>
+        )}
       </div>
     </div>
   );
@@ -146,6 +149,7 @@ export default function MarketingSection(): ReactElement {
           <div className="mt-10 grid justify-items-center gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
             <MarketingCard
               delayMs={0}
+              hideComingSoon
               icon={<ShareIcon className="h-6 w-6" />}
               title="Social Media Tools"
               subtitle="Grow online presence"
@@ -155,6 +159,7 @@ export default function MarketingSection(): ReactElement {
 
             <MarketingCard
               delayMs={80}
+              hideComingSoon
               icon={<SearchIcon className="h-6 w-6" />}
               title="SEO & Local Listings"
               subtitle="Get found locally"
@@ -164,6 +169,7 @@ export default function MarketingSection(): ReactElement {
 
             <MarketingCard
               delayMs={160}
+              hideComingSoon
               icon={<StarIcon className="h-6 w-6" />}
               title="Reviews & Reputation"
               subtitle="Build trust at scale"
@@ -173,6 +179,7 @@ export default function MarketingSection(): ReactElement {
 
             <MarketingCard
               delayMs={240}
+              hideComingSoon
               icon={<MegaphoneIcon className="h-6 w-6" />}
               title="Campaign Manager"
               subtitle="Launch promotions"
@@ -182,6 +189,7 @@ export default function MarketingSection(): ReactElement {
 
             <MarketingCard
               delayMs={320}
+              hideComingSoon
               icon={<LinkIcon className="h-6 w-6" />}
               title="Referral Program"
               subtitle="Grow via partners"

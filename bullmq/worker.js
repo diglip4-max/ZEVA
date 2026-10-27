@@ -80,6 +80,18 @@ import { simpleParser } from "mailparser";
 import { uploadMedia } from "../services/upload.js";
 import { NotificationLog } from "../models/notification/NotificationLog.js";
 
+// --- Sort mapping entries by numeric key extracted from the placeholder token ---
+// WhatsApp fills {{n}} strictly by array position (params[n-1]).
+// variableMappings keys may be "1" or "{{1}}" — extract the number so the
+// resulting array always aligns with the template's placeholder numbering,
+// regardless of MongoDB insertion order.
+const sortMappingsByIndex = (entries) =>
+  entries.sort(([a], [b]) => {
+    const numA = parseInt(String(a).replace(/\D/g, ""), 10) || 0;
+    const numB = parseInt(String(b).replace(/\D/g, ""), 10) || 0;
+    return numA - numB;
+  });
+
 // --- Helper to add listeners to all workers ---
 const addWorkerListeners = (worker, queueName) => {
   // ✅ Add this listener to see if worker receives jobs at all
@@ -949,12 +961,12 @@ export const sendWhatsappActionWorker = new Worker(
       // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
       if (headerVariableMappings) {
-        headerParameters = Object.entries(headerVariableMappings).map(
-          ([key, value]) => ({
-            type: "text",
-            text: value,
-          }),
-        );
+        headerParameters = sortMappingsByIndex(
+          Object.entries(headerVariableMappings),
+        ).map(([key, value]) => ({
+          type: "text",
+          text: value,
+        }));
       }
       let buttonParameters = [];
       if (buttonVariableMappings) {
@@ -968,12 +980,12 @@ export const sendWhatsappActionWorker = new Worker(
       }
       let bodyParameters = [];
       if (variableMappings) {
-        bodyParameters = Object.entries(variableMappings).map(
-          ([key, value]) => ({
-            type: "text",
-            text: value,
-          }),
-        );
+        bodyParameters = sortMappingsByIndex(
+          Object.entries(variableMappings),
+        ).map(([key, value]) => ({
+          type: "text",
+          text: value,
+        }));
       }
 
       // TODO: conversation finding and msg sending functionality
@@ -2342,12 +2354,12 @@ const scheduleWhatsappCampaignWorker = new Worker(
             // Make an array of header, button and body parameters for whatsapp message
             let headerParameters = [];
             if (headerVariableMappings) {
-              headerParameters = Object.entries(headerVariableMappings).map(
-                ([key, value]) => ({
-                  type: "text",
-                  text: value,
-                }),
-              );
+              headerParameters = sortMappingsByIndex(
+                Object.entries(headerVariableMappings),
+              ).map(([key, value]) => ({
+                type: "text",
+                text: value,
+              }));
             }
             let buttonParameters = [];
             if (buttonVariableMappings) {
@@ -2361,12 +2373,12 @@ const scheduleWhatsappCampaignWorker = new Worker(
             }
             let bodyParameters = [];
             if (variableMappings) {
-              bodyParameters = Object.entries(variableMappings).map(
-                ([key, value]) => ({
-                  type: "text",
-                  text: value,
-                }),
-              );
+              bodyParameters = sortMappingsByIndex(
+                Object.entries(variableMappings),
+              ).map(([key, value]) => ({
+                type: "text",
+                text: value,
+              }));
             }
 
             // check status is optOut or not if optOut then don't send message to this contact
@@ -3180,12 +3192,12 @@ export const notificationWorker = new Worker(
       // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
       if (headerVariableMappings) {
-        headerParameters = Object.entries(headerVariableMappings).map(
-          ([key, value]) => ({
-            type: "text",
-            text: value,
-          }),
-        );
+        headerParameters = sortMappingsByIndex(
+          Object.entries(headerVariableMappings),
+        ).map(([key, value]) => ({
+          type: "text",
+          text: value,
+        }));
       }
       let buttonParameters = [];
       if (buttonVariableMappings) {
@@ -3199,12 +3211,12 @@ export const notificationWorker = new Worker(
       }
       let bodyParameters = [];
       if (variableMappings) {
-        bodyParameters = Object.entries(variableMappings).map(
-          ([key, value]) => ({
-            type: "text",
-            text: value,
-          }),
-        );
+        bodyParameters = sortMappingsByIndex(
+          Object.entries(variableMappings),
+        ).map(([key, value]) => ({
+          type: "text",
+          text: value,
+        }));
       }
 
       const lead = await Lead.findById(leadId);
