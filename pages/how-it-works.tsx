@@ -286,7 +286,7 @@ const HowItWorks: React.FC = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
-                  href="/clinic/findclinic"
+                  href="/findclinic"
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-600 text-white px-8 py-4 rounded-full font-semibold hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
                 >
                   Find Clinics

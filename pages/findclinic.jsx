@@ -18,7 +18,7 @@ import {
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
-import AuthModal from "../../components/AuthModal";
+import AuthModal from "../components/AuthModal";
 import Image from "next/image";
 import { HeartPulse} from "lucide-react";
 
@@ -1121,7 +1121,7 @@ export default function Home() {
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content="ZEVA Healthcare Directory" />
                 <meta name="twitter:description" content="Find trusted Ayurveda clinics and medical professionals with transparent pricing and verified reviews." />
-                <link rel="canonical" href="https://zevahealthcare.com/clinic/findclinic" />
+                <link rel="canonical" href="https://zevahealthcare.com/findclinic" />
                 {/* Schema Markup - Search Health Center WebPage */}
                 <script
                     type="application/ld+json"
@@ -1130,7 +1130,7 @@ export default function Home() {
                             "@context": "https://schema.org",
                             "@type": "MedicalWebPage",
                             "name": "Search Health Center",
-                            "url": "https://zeva360.com/clinic/findclinic",
+                            "url": "https://zeva360.com/findclinic",
                             "description": "Find verified healthcare centers and clinics near you with ZEVA. Search by location, specialty, or clinic name to access authentic treatments, transparent pricing, and patient reviews.",
                             "publisher": {
                                 "@type": "Organization",

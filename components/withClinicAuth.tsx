@@ -76,7 +76,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           let user = getStored('clinicUser');
 
           if (!token) {
-            router.replace('/clinic/login-clinic');
+            router.replace('/login-clinic');
             setLoading(false);
             return;
           }
@@ -93,7 +93,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
               });
             } catch (decodeError) {
               console.error('Error decoding token:', decodeError);
-              router.replace('/clinic/login-clinic');
+              router.replace('/login-clinic');
               setLoading(false);
               return;
             }
@@ -118,17 +118,17 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             if (data.trialExpired) {
               toast.error(errorMessage);
               setTimeout(() => {
-                router.replace('/clinic/login-clinic?trialExpired=true');
+                router.replace('/login-clinic?trialExpired=true');
               }, 2000);
             } else if (data.message === 'Token expired') {
               alert('Session expired. Please login again.');
               setTimeout(() => {
-                router.replace('/clinic/login-clinic');
+                router.replace('/login-clinic');
               }, 4000);
             } else {
               toast.error(errorMessage);
               console.error('Clinic auth error:', errorMessage, data);
-              router.replace('/clinic/login-clinic');
+              router.replace('/login-clinic');
             }
             setLoading(false);
             return;
@@ -141,7 +141,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             setIsAuthorized(true);
           } else {
             toast.error('Access denied: Invalid user role');
-            router.replace('/clinic/login-clinic');
+            router.replace('/login-clinic');
           }
         } catch (err) {
           console.error('Auth error:', err);
@@ -150,7 +150,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             router.pathname;
           if (!isAgentPortalRoute(pathname)) {
             setTimeout(() => {
-              router.replace('/clinic/login-clinic');
+              router.replace('/login-clinic');
             }, 3000);
           }
         } finally {

@@ -22,7 +22,7 @@ const HomeSearchSection = () => {
       }
 
       try {
-        const res = await fetch(`/api/doctor/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`);
         const data = await res.json();
         if (data.treatments && Array.isArray(data.treatments) && data.treatments.length > 0) {
           // API returns array of objects with { type: 'treatment' | 'subcategory', value: string }
@@ -88,9 +88,9 @@ const HomeSearchSection = () => {
     if (location) query.location = toSlug(location);
 
     if (activeTab === "clinic") {
-      router.push({ pathname: "/clinic/findclinic", query });
+      router.push({ pathname: "/findclinic", query });
     } else {
-      router.push({ pathname: "/doctor/search", query });
+      router.push({ pathname: "/search", query });
     }
   };
 
@@ -282,7 +282,7 @@ const HomeSearchSection = () => {
           </button>
 
           <button
-            onClick={() => router.push("/clinic/findclinic")}
+            onClick={() => router.push("/findclinic")}
             className="border-2 border-blue-700 text-blue-700 px-5 py-3 rounded-2xl text-lg font-medium hover:bg-blue-50 transition"
           >
             Explore Clinics

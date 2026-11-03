@@ -65,7 +65,7 @@ export default function withDoctorAuth<P extends object>(
             console.warn('Missing token or user data. Token:', !!token, 'User:', !!user);
             toast.error('Please login to continue');
             clearStorage();
-            router.replace('/doctor/login');
+            router.replace('/login');
           }
           setIsLoading(false);
           return;
@@ -99,7 +99,7 @@ export default function withDoctorAuth<P extends object>(
                 toast.error(errorMessage);
               }
               clearStorage();
-              router.replace('/doctor/login');
+              router.replace('/login');
             }
             setIsLoading(false);
           }
@@ -108,7 +108,7 @@ export default function withDoctorAuth<P extends object>(
           if (!isAgentRoute) {
             toast.error('Network error. Please check your connection.');
             clearStorage();
-            router.replace('/doctor/login');
+            router.replace('/login');
           }
           setIsLoading(false);
         }

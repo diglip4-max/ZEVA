@@ -5,7 +5,7 @@ import React from "react";
 import type { KeyboardEvent } from "react";
 import Layout from "@/components/Layout";
 import { GoogleMap, Marker } from "@react-google-maps/api";
-import { auth } from "../../lib/firebase";
+import { auth } from "../lib/firebase";
 import {
   isSignInWithEmailLink,
   signInWithEmailLink,

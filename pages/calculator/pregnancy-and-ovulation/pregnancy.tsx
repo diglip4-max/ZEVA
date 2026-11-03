@@ -893,7 +893,7 @@ const ZevaPregnancyCalculator: PageWithLayout = () => {
                     <span>Download Report</span>
                   </button>
                   
-                  <Link href="/doctor/search" className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-xl font-semibold hover:from-rose-600 hover:to-rose-600 transition-all flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105">
+                  <Link href="/search" className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-xl font-semibold hover:from-rose-600 hover:to-rose-600 transition-all flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105">
                     <Stethoscope className="w-5 h-5" />
                     <span>Consult Doctor</span>
                   </Link>

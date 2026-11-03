@@ -54,7 +54,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
       localStorage.removeItem('doctorUser');
       sessionStorage.removeItem('doctorToken');
       sessionStorage.removeItem('doctorEmailForReset');
-      window.location.href = '/doctor/login';
+      window.location.href = '/login';
     }
   };
 

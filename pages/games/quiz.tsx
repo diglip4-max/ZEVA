@@ -703,7 +703,7 @@ function HealthQuiz() {
                   Find experienced doctors and specialists for personalized healthcare consultations.
                 </p>
                 <button
-                  onClick={() => window.open('/doctor/search', '_blank')}
+                  onClick={() => window.open('/search', '_blank')}
                   className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center"
                 >
                   Search Doctors <ArrowRight className="w-4 h-4 ml-2" />
@@ -856,7 +856,7 @@ function HealthQuiz() {
                   Find Clinics Nearby
                 </button>
                 <button
-                  onClick={() => window.open('/doctor/search', '_blank')}
+                  onClick={() => window.open('/search', '_blank')}
                   className="bg-white/20 backdrop-blur-sm rounded-lg p-3 hover:bg-white/30 transition-colors flex items-center justify-center"
                 >
                   <Stethoscope className="w-4 h-4 mr-2" />

@@ -135,7 +135,7 @@ const Telemedicine: React.FC = () => {
                     <ArrowRight className="w-5 h-5" />
                   </button>
                   <Link
-                    href="/doctor/search"
+                    href="/search"
                     className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-full font-semibold hover:bg-white/20 transition-colors border border-white/20"
                   >
                     Find Doctors
@@ -308,13 +308,13 @@ const Telemedicine: React.FC = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
-                  href="/doctor/search"
+                  href="/search"
                   className="inline-flex items-center gap-2 bg-white text-indigo-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors"
                 >
                   Search Doctors
                 </Link>
                 <Link
-                  href="/clinic/findclinic"
+                  href="/findclinic"
                   className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-8 py-3 rounded-full font-semibold hover:bg-white/20 transition-colors border border-white/20"
                 >
                   Find Clinics

@@ -201,7 +201,7 @@ export default function ClinicForgotPassword() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Remember your password?{' '}
-                <Link href="/clinic/login-clinic" className="text-emerald-600 hover:text-emerald-500 font-medium ml-1">
+                <Link href="/login-clinic" className="text-emerald-600 hover:text-emerald-500 font-medium ml-1">
                   Sign in instead
                 </Link>
               </div>

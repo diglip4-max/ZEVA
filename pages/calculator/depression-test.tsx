@@ -159,7 +159,7 @@ function DepressionTest() {
   };
 
   const redirectToDoctorSearch = () => {
-    window.location.href = '/doctor/search';
+    window.location.href = '/search';
   };
 
   const restartTest = () => {

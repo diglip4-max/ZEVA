@@ -408,7 +408,7 @@ export default function ClinicDetail() {
 
                 return (
                   <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
-                    <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white group">
+                    <div className="photo-overlay relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white group">
                       <Image
                         src={currentSrc}
                         alt={`${clinic.name} - Photo ${safeIndex + 1}`}

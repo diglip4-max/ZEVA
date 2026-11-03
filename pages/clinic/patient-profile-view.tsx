@@ -13790,7 +13790,7 @@ function PatientProfileView({
           (window.location.pathname.startsWith("/staff/") ||
             window.location.pathname.startsWith("/agent/"));
         if (!onAgentPortal) {
-          router.push("/clinic/login-clinic");
+          router.push("/login-clinic");
         }
         return;
       }
@@ -13804,7 +13804,7 @@ function PatientProfileView({
               (window.location.pathname.startsWith("/staff/") ||
                 window.location.pathname.startsWith("/agent/"));
             if (!onAgentPortal) {
-              router.push("/clinic/login-clinic");
+              router.push("/login-clinic");
             }
           }
           return { data: { success: false, patient: null } };

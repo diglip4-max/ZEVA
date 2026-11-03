@@ -4,7 +4,7 @@ import Clinic from "../../../models/Clinic";
 import DoctorProfile from "../../../models/DoctorProfile";
 import User from "../../../models/Users";
 
-// Keep image URLs consistent with `/clinic/findclinic` normalization
+// Keep image URLs consistent with `/findclinic` normalization
 const normalizeImageUrl = (imagePath) => {
   if (!imagePath) return "";
 

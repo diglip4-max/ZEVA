@@ -70,7 +70,7 @@ export default function AuthActionPage() {
           // Handle email verification
           try {
             await applyActionCode(auth, oobCode);
-            router.push('/clinic/login-clinic?verified=true');
+            router.push('/login-clinic?verified=true');
           } catch (err: any) {
             console.error('Error applying action code:', err);
             setError(err.message || 'Invalid or expired verification link.');

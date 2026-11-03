@@ -119,8 +119,8 @@ export default async function handler(req, res) {
 
       // Update fields if provided
       if (insuranceProvider !== undefined) claim.insuranceProvider = insuranceProvider.trim();
-      if (policyNumber !== undefined) claim.policyNumber = policyNumber.trim();
-      if (expiryDate !== undefined) claim.expiryDate = new Date(expiryDate);
+      if (policyNumber !== undefined) claim.policyNumber = (policyNumber || "").trim();
+      if (expiryDate !== undefined) claim.expiryDate = expiryDate ? new Date(expiryDate) : null;
       if (insuranceCardFile !== undefined) claim.insuranceCardFile = insuranceCardFile;
       if (tableOfBenefitsFile !== undefined) claim.tableOfBenefitsFile = tableOfBenefitsFile;
       if (departmentId !== undefined) claim.departmentId = departmentId || null;

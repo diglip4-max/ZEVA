@@ -90,14 +90,14 @@ export default function BussinessLandingPage(): ReactElement {
                 {isDashboardDropdownOpen && (
                   <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg border border-gray-200 z-50">
                     <Link
-                      href="/clinic/login-clinic"
+                      href="/login-clinic"
                       onClick={() => setIsDashboardDropdownOpen(false)}
                       className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                     >
                       Health Center
                     </Link>
                     <Link
-                      href="/doctor/login"
+                      href="/login"
                       onClick={() => setIsDashboardDropdownOpen(false)}
                       className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                     >
@@ -132,14 +132,14 @@ export default function BussinessLandingPage(): ReactElement {
                 {isRegisterDropdownOpen && (
                   <div className="absolute right-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 z-50">
                     <Link
-                      href="/clinic/register-clinic"
+                      href="/register-clinic"
                       onClick={() => setIsRegisterDropdownOpen(false)}
                       className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                     >
                       Health Center
                     </Link>
                     <Link
-                      href="/doctor/doctor-register"
+                      href="/doctor-register"
                       onClick={() => setIsRegisterDropdownOpen(false)}
                       className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                     >

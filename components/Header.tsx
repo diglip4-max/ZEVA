@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
+import { useClinicTheme } from "../context/ClinicThemeContext";
 import AuthModal from "../components/AuthModal";
-import { Menu, X, ChevronDown, User, LogOut } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut, Moon, Sun } from 'lucide-react';
 
 const Header = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const router = useRouter();
+  // Public-site theme (light/dark). Clinic & doctor areas keep their own theme handling.
+  const { toggleSiteTheme, resolvedTheme, isSiteThemeRoute } = useClinicTheme();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -71,10 +74,10 @@ const Header = () => {
 
             {/* CENTER NAV - Visible only on large desktop */}
             <nav className="hidden xl:flex xl:items-center gap-2 xl:gap-4 text-xs sm:text-sm text-gray-700">
-              <Link href="/clinic/findclinic" className="hover:text-blue-600 px-2 py-1">
+              <Link href="/findclinic" className="hover:text-blue-600 px-2 py-1">
                 Find Clinics
               </Link>
-              <Link href="/doctor/search" className="hover:text-blue-600 px-2 py-1">
+              <Link href="/search" className="hover:text-blue-600 px-2 py-1">
                 Find Doctors
               </Link>
               <Link href="/about" className="hover:text-blue-600 px-2 py-1">
@@ -153,6 +156,22 @@ const Header = () => {
                 </div>
               )}
 
+              {/* DARK / LIGHT MODE TOGGLE - only on public-site pages */}
+              {isSiteThemeRoute && (
+                <button
+                  onClick={toggleSiteTheme}
+                  className="p-1.5 sm:p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                  aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
+                  title={`${resolvedTheme === "dark" ? "Dark" : "Light"} mode`}
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Sun className="w-5 h-5" />
+                  ) : (
+                    <Moon className="w-5 h-5" />
+                  )}
+                </button>
+              )}
+
               {/* HAMBURGER MENU BUTTON - Visible on mobile, tablet, and laptop (under 1280px) */}
               <button
                 onClick={toggleMenu}
@@ -201,8 +220,8 @@ const Header = () => {
     <nav className="flex flex-col py-3 px-4 space-y-1 max-h-[70vh] overflow-y-auto">
       {(() => {
         const menuItems = [
-        { href: "/clinic/findclinic", icon: "🏥", label: "Find Clinics" },
-        { href: "/doctor/search", icon: "👨‍⚕️", label: "Find Doctors" },
+        { href: "/findclinic", icon: "🏥", label: "Find Clinics" },
+        { href: "/search", icon: "👨‍⚕️", label: "Find Doctors" },
         { href: "/about", icon: "ℹ️", label: "About" },
         { href: "/job-listings", icon: "💼", label: "Jobs" },
         { href: "/blogs/viewBlogs", icon: "📰", label: "Blogs" },

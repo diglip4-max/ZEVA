@@ -18,11 +18,11 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import AuthModal from "../../components/AuthModal";
+import AuthModal from "../components/AuthModal";
 import dayjs from "dayjs";
 import Image from "next/image";
 import { Stethoscope } from "lucide-react";
-import { normalizeImagePath } from "../../lib/utils";
+import { normalizeImagePath } from "../lib/utils";
 
 interface Doctor {
   _id: string;
@@ -360,7 +360,7 @@ export default function FindDoctor() {
         setLoading(true);
         setDoctors([]);
         axios
-          .get("/api/doctor/searchByTreatment", { params: { treatment: treatmentText } })
+          .get("/api/searchByTreatment", { params: { treatment: treatmentText } })
           .then((res) => {
             const docs = Array.isArray(res.data?.doctors) ? res.data.doctors : [];
             setDoctors(docs);
@@ -534,7 +534,7 @@ export default function FindDoctor() {
     }
 
     try {
-      const response = await axios.get(`/api/doctor/search?q=${q}`);
+      const response = await axios.get(`/api/search?q=${q}`);
       // API returns array of objects with { type: 'treatment' | 'subcategory', value: string }
       if (response.data.treatments && Array.isArray(response.data.treatments)) {
         // Handle both old format (strings) and new format (objects)
@@ -1181,7 +1181,7 @@ export default function FindDoctor() {
           name="twitter:description"
           content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
         />
-        <link rel="canonical" href="https://zeva360.com/doctor/search" />
+        <link rel="canonical" href="https://zeva360.com/search" />
         {/* Schema Markup - Search Doctor Directory */}
         <script
           type="application/ld+json"
@@ -1190,7 +1190,7 @@ export default function FindDoctor() {
               "@context": "https://schema.org",
               "@type": "MedicalWebPage",
               "name": "Search Doctor Directory",
-              "url": "https://zeva360.com/doctor/search",
+              "url": "https://zeva360.com/search",
               "description": "Find verified Ayurveda doctors and medical specialists near you with ZEVA. Search by specialty, doctor name, or location to access authentic treatments, transparent consultation fees, and real patient reviews.",
               "publisher": {
                 "@type": "Organization",
@@ -1302,7 +1302,7 @@ export default function FindDoctor() {
                         }
                         
                         // Search doctors by treatment directly from DoctorProfile (no location required)
-                        const res = await axios.get("/api/doctor/searchByTreatment", {
+                        const res = await axios.get("/api/searchByTreatment", {
                           params: { treatment: specialty },
                         });
 
@@ -1426,7 +1426,7 @@ export default function FindDoctor() {
                                   setLoading(true);
                                   setDoctors([]);
                                   
-                                  const res = await axios.get("/api/doctor/searchByTreatment", {
+                                  const res = await axios.get("/api/searchByTreatment", {
                                     params: { treatment: treatmentValue },
                                   });
 
@@ -1587,7 +1587,7 @@ export default function FindDoctor() {
                                   setLoading(true);
                                   setDoctors([]);
                                   
-                                  const res = await axios.get("/api/doctor/searchByTreatment", {
+                                  const res = await axios.get("/api/searchByTreatment", {
                                     params: { treatment: treatmentValue },
                                   });
 

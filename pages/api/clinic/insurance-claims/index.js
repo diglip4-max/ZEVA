@@ -197,16 +197,6 @@ export default async function handler(req, res) {
           .status(400)
           .json({ success: false, message: "Insurance Provider is required" });
       }
-      if (!policyNumber) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Policy Number is required" });
-      }
-      if (!expiryDate) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Expiry Date is required" });
-      }
       if (!doctorId) {
         return res
           .status(400)
@@ -293,8 +283,8 @@ export default async function handler(req, res) {
         createdByName: creatorName,
         createdByRole: user.role || "",
         insuranceProvider: insuranceProvider.trim(),
-        policyNumber: policyNumber.trim(),
-        expiryDate: new Date(expiryDate),
+        policyNumber: (policyNumber || "").trim(),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
         insuranceCardFile: insuranceCardFile || "",
         tableOfBenefitsFile: tableOfBenefitsFile || "",
         emriFrontPhoto: emriFrontPhoto || "",

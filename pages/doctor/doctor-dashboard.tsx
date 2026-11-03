@@ -367,7 +367,7 @@ const DoctorDashboard: NextPageWithLayout = () => {
             
             // Redirect to login after 1-2 seconds
             setTimeout(() => {
-              router.push('/doctor/login');
+              router.push('/login');
             }, 1500);
           }
         }

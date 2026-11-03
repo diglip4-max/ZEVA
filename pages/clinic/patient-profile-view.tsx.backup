@@ -11306,7 +11306,7 @@ function PatientProfileView() {
       setLoading(true);
       const headers = getAuthHeaders();
       if (!headers) {
-        router.push('/clinic/login-clinic');
+        router.push('/login-clinic');
         return;
       }
 

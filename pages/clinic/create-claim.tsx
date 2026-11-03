@@ -13,6 +13,7 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 import { useCurrency } from '@/context/CurrencyContext';
+import usePaymentMethod from '../../hooks/usePaymentMethod';
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 
@@ -125,6 +126,15 @@ const STEPS = [
 function CreateClaimPage() {
   // const router = useRouter();
   const { currency } = useCurrency();
+
+  // Dynamic (clinic-configured) payment methods appended to the Payment Method
+  // dropdown in the Payment Details step, right below the static options.
+  const { paymentMethods: dynamicPaymentMethods, loading: dynamicPaymentMethodsLoading } = usePaymentMethod();
+  const STATIC_PAYMENT_METHODS = ["Cash", "Card", "UPI", "Bank Transfer", "Cheque", "Multiple"];
+  const activeDynamicPaymentMethods = (dynamicPaymentMethods || [])
+    .filter((pm: any) => pm.status === 'active' && (pm.name || pm.uniqueName))
+    .map((pm: any) => ({ ...pm, label: String(pm.name || pm.uniqueName) }))
+    .filter((pm: any) => !STATIC_PAYMENT_METHODS.includes(pm.label));
 
   // Modal & step state
   const [modalOpen, setModalOpen] = useState(false);
@@ -979,7 +989,7 @@ function CreateClaimPage() {
   };
 
   const canProceedStep1 = !!selectedPatient;
-  const canProceedStep2 = insuranceForm.insuranceProvider && insuranceForm.policyNumber && insuranceForm.expiryDate;
+  const canProceedStep2 = insuranceForm.insuranceProvider;
   const canProceedStep4 = claimSourceForm.doctorId && claimSourceForm.departmentId;
   const canProceedStep5 = (() => {
     if (!paymentForm.claimAmount || parseFloat(paymentForm.claimAmount) <= 0) return false;
@@ -1462,11 +1472,11 @@ function CreateClaimPage() {
                       <input type="text" value={insuranceForm.insuranceProvider} onChange={(e) => setInsuranceForm((p: any) => ({ ...p, insuranceProvider: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900" placeholder="Provider name" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Policy Number</label>
                       <input type="text" value={insuranceForm.policyNumber} onChange={(e) => setInsuranceForm((p: any) => ({ ...p, policyNumber: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900" placeholder="Policy number" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Expiry Date</label>
                       <input type="date" value={insuranceForm.expiryDate} onChange={(e) => setInsuranceForm((p: any) => ({ ...p, expiryDate: e.target.value }))} min={new Date().toISOString().split('T')[0]} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900" />
                     </div>
                     <div>
@@ -1744,12 +1754,16 @@ function CreateClaimPage() {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
                           <select value={paymentForm.paymentMethod} onChange={(e) => setPaymentForm((p: any) => ({ ...p, paymentMethod: e.target.value, paymentMethods: e.target.value !== "Multiple" ? [] : p.paymentMethods }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white">
-                            <option value="">Select Method</option>
+                            <option value="">{dynamicPaymentMethodsLoading ? 'Loading Methods...' : 'Select Method'}</option>
                             <option value="Cash">Cash</option>
                             <option value="Card">Card</option>
                             <option value="UPI">UPI</option>
                             <option value="Bank Transfer">Bank Transfer</option>
                             <option value="Cheque">Cheque</option>
+                            {/* Dynamic payment methods configured by the clinic */}
+                            {activeDynamicPaymentMethods.map((dm: any) => (
+                              <option key={dm._id} value={dm.label}>{dm.label}</option>
+                            ))}
                             <option value="Multiple">Multiple</option>
                           </select>
                         </div>

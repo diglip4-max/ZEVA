@@ -112,7 +112,7 @@ const Records: React.FC = () => {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
               <Link
-                href="/clinic/findclinic"
+                href="/findclinic"
                 className="inline-flex items-center justify-center px-6 py-3 bg-teal-600 text-white rounded-md font-semibold hover:bg-teal-700 transition"
               >
                 Find Clinics

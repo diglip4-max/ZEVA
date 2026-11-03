@@ -22,8 +22,8 @@ const footerSections = [
   {
     title: "For Users",
     links: [
-      { label: "Find Clinics", href: "/clinic/findclinic" },
-      { label: "Find Doctors", href: "/doctor/search" },
+      { label: "Find Clinics", href: "/findclinic" },
+      { label: "Find Doctors", href: "/search" },
       { label: "Book Appointment", href: "/clinic/appointment-landing" },
       { label: "Telemedicine", href: "/telemedicine" },
       { label: "Insurance", href: "/insurance" },
@@ -33,8 +33,8 @@ const footerSections = [
   {
     title: "For Businesses",
     links: [
-      { label: "List Your Clinic", href: "/clinic/findclinic" },
-      { label: "For Doctors", href: "/doctor/search" },
+      { label: "List Your Clinic", href: "/findclinic" },
+      { label: "For Doctors", href: "/search" },
       // { label: "For Hospitals", href: "/hospitals" },
       // { label: "Business Solutions", href: "/solutions" },
       // { label: "Partner Program", href: "/partners" },

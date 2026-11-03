@@ -21,7 +21,7 @@ const FindCarePage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <Link
-                href="/clinic/findclinic"
+                href="/findclinic"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 <div className="text-gray-900 font-semibold">Explore clinics</div>
@@ -31,7 +31,7 @@ const FindCarePage: React.FC = () => {
               </Link>
 
               <Link
-                href="/doctor/search"
+                href="/search"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 <div className="text-gray-900 font-semibold">Search doctors</div>

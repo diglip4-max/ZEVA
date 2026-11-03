@@ -34,13 +34,13 @@ const CARDS: PlatformCard[] = [
   {
     title: "Find Clinics ",
     description: "Discover verified healthcare providers",
-    href: "/clinic/findclinic",
+    href: "/findclinic",
     Icon: MapPin,
   },
   {
     title: "Find Doctors",
     description:"Access qualified doctors providing reliable and expert medical care",
-    href: "/doctor/search",
+    href: "/search",
     Icon: ShieldCheck,
   },
   // image.png

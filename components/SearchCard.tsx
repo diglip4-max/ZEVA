@@ -38,7 +38,7 @@ const cardData: {
   { 
     type: "doctor", 
     label: "Search Doctor", 
-    route: "/doctor/search", 
+    route: "/search", 
     icon: Stethoscope,
     gradient: "from-[#2D9AA5]/90 to-[#1e7278]/90",
     description: "Connect with healthcare professionals",

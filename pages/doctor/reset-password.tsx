@@ -194,7 +194,7 @@ export default function ResetDoctorPasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Remember your password?{' '}
-              <Link href="/doctor/login" className="text-green-600 hover:text-green-500 font-medium ml-1">
+              <Link href="/login" className="text-green-600 hover:text-green-500 font-medium ml-1">
                 Sign in instead
               </Link>
             </div>
@@ -215,7 +215,7 @@ export default function ResetDoctorPasswordPage() {
               <h3 className="text-xl font-bold text-gray-900 mb-2">Password Reset Successfully!</h3>
               <p className="text-gray-600 mb-6">Your password has been updated. You can now sign in with your new password.</p>
               <button
-                onClick={() => router.push('/doctor/login')}
+                onClick={() => router.push('/login')}
                 className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-lg"
               >
                 Continue to Login

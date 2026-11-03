@@ -131,7 +131,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     sessionStorage.removeItem('clinicTrialInfo');
     sessionStorage.removeItem('resetEmail');
     sessionStorage.removeItem('clinicEmailForReset');
-    window.location.href = '/clinic/login-clinic';
+    window.location.href = '/login-clinic';
   };
 
   useEffect(() => {

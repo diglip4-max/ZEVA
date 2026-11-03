@@ -36,12 +36,12 @@ const InsuranceClaimSchema = new mongoose.Schema(
     },
     policyNumber: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
     expiryDate: {
       type: Date,
-      required: true,
+      default: null,
     },
     insuranceCardFile: {
       type: String,
@@ -85,14 +85,15 @@ const InsuranceClaimSchema = new mongoose.Schema(
       trim: true,
     },
     // Payment method chosen during the create-plan flow
+    // (static options plus dynamic clinic-configured payment methods, so no enum)
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque", "Multiple", ""],
       default: "",
+      trim: true,
     },
     // Multiple payment methods with amounts (used when paymentMethod is "Multiple")
     paymentMethods: [{
-      method: { type: String, enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque"], required: true },
+      method: { type: String, required: true, trim: true },
       amount: { type: Number, required: true, min: 0 },
     }],
     // Diagnosis text recorded during the create-plan flow

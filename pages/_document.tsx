@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import { DOCTOR_APP_PAGE_SEGMENTS } from '../config/siteThemeRoutes';
 
 export default function Document() {
   return (
@@ -46,9 +47,9 @@ export default function Document() {
                   var root = document.documentElement;
                   var path = window.location.pathname;
                   var publicClinicRoutes = [
-                    '/clinic/findclinic',
-                    '/clinic/login-clinic',
-                    '/clinic/register-clinic',
+                    '/findclinic',
+                    '/login-clinic',
+                    '/register-clinic',
                     '/clinic/forgot-password',
                     '/clinic/reset-password',
                     '/clinic/review-form',
@@ -60,8 +61,20 @@ export default function Document() {
                   var isPublicClinicRoute = publicClinicRoutes.some(function(route) {
                     return path === route || path.indexOf(route + '/') === 0;
                   });
-                  var isDashboardRoute = (path.indexOf('/clinic') === 0 || path.indexOf('/staff') === 0) && !isPublicClinicRoute;
-                  if (isDashboardRoute && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches))) {
+                  var isDashboardRoute = (path === '/clinic' || path.indexOf('/clinic/') === 0 || path === '/staff' || path.indexOf('/staff/') === 0) && !isPublicClinicRoute;
+                  var siteTheme = localStorage.getItem('siteTheme') || 'light';
+                  var appScoped = ['/clinic', '/doctor', '/staff', '/agent', '/admin'];
+                  var isAppScopedRoute = appScoped.some(function(prefix) {
+                    return path === prefix || path.indexOf(prefix + '/') === 0;
+                  });
+                  // Public doctor profile (/doctor/<slug>) uses the site header, so it follows the site theme
+                  var doctorAppPages = ${JSON.stringify(DOCTOR_APP_PAGE_SEGMENTS)};
+                  var segments = path.split('/').filter(Boolean);
+                  var isPublicDoctorProfile = segments.length === 2 && segments[0] === 'doctor' && doctorAppPages.indexOf(segments[1]) === -1;
+                  if (isPublicDoctorProfile) isAppScopedRoute = false;
+                  var isSiteThemeRoute = !isDashboardRoute && !isAppScopedRoute;
+                  var activeTheme = isDashboardRoute ? theme : (isSiteThemeRoute ? siteTheme : 'light');
+                  if (activeTheme === 'dark' || (activeTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                     root.classList.add('dark');
                     root.style.colorScheme = 'dark';
                   } else {

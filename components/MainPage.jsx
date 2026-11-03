@@ -89,7 +89,7 @@ const ZevaHealthPlatform = () => {
                                 <div className="flex flex-col sm:flex-row gap-3">
                                     <button
                                         type="button"
-                                        onClick={() => router.push('/doctor/search')}
+                                        onClick={() => router.push('/search')}
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:-translate-y-0.5 transition"
                                     >
                                         <Search className="w-4 h-4" />
@@ -98,7 +98,7 @@ const ZevaHealthPlatform = () => {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => router.push('/clinic/findclinic')}
+                                        onClick={() => router.push('/findclinic')}
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow hover:border-gray-300 hover:-translate-y-0.5 transition"
                                     >
                                         <Heart className="w-4 h-4 text-blue-500" />
@@ -160,7 +160,7 @@ const ZevaHealthPlatform = () => {
 
                         <div className="grid sm:grid-cols-2 gap-4 text-sm">
                             <button
-                                onClick={() => router.push('/clinic/findclinic')}
+                                onClick={() => router.push('/findclinic')}
                                 className="flex items-center justify-between rounded-2xl border border-white/60 bg-white/90 px-4 py-3 text-left shadow hover:-translate-y-0.5 transition"
                             >
                                 <div>
@@ -170,7 +170,7 @@ const ZevaHealthPlatform = () => {
                                 <ArrowRight className="w-4 h-4 text-gray-400" />
                             </button>
                             <button
-                                onClick={() => router.push('/doctor/search')}
+                                onClick={() => router.push('/search')}
                                 className="flex items-center justify-between rounded-2xl border border-white/60 bg-white/90 px-4 py-3 text-left shadow hover:-translate-y-0.5 transition"
                             >
                                 <div>
