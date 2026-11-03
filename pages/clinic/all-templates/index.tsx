@@ -587,7 +587,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
     return (
       <span
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${bg} ${color}`}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 whitespace-nowrap ${bg} ${color}`}
       >
         {icon}
         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -609,7 +609,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
     return (
       <span
-        className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+        className={`inline-block max-w-full truncate px-2.5 py-1 rounded-full text-xs font-medium border ${
           colors[category] || "bg-gray-50 text-gray-700"
         }`}
       >
@@ -724,11 +724,11 @@ const TemplatesPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               Templates
             </h1>
@@ -736,7 +736,7 @@ const TemplatesPage: NextPageWithLayout = () => {
               Manage your communication templates
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {permissions.canCreate && (
               <button
                 onClick={handleSyncTemplates}
@@ -761,12 +761,12 @@ const TemplatesPage: NextPageWithLayout = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+      <div className="mb-6 sm:mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Templates</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
+              <p className="text-xs sm:text-sm text-gray-600">Total Templates</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-1">
                 {templates.length}
               </p>
             </div>
@@ -776,11 +776,11 @@ const TemplatesPage: NextPageWithLayout = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Approved Templates</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
+              <p className="text-xs sm:text-sm text-gray-600">Approved Templates</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-1">
                 {templates.filter((t) => t.status === "approved").length}
               </p>
             </div>
@@ -790,11 +790,11 @@ const TemplatesPage: NextPageWithLayout = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Pending Approval</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
+              <p className="text-xs sm:text-sm text-gray-600">Pending Approval</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-1">
                 {templates.filter((t) => t.status === "pending").length}
               </p>
             </div>
@@ -804,11 +804,11 @@ const TemplatesPage: NextPageWithLayout = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">WhatsApp Templates</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
+              <p className="text-xs sm:text-sm text-gray-600">WhatsApp Templates</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-1">
                 {templates.filter((t) => t.templateType === "whatsapp").length}
               </p>
             </div>
@@ -820,8 +820,8 @@ const TemplatesPage: NextPageWithLayout = () => {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="bg-white rounded-xl p-3 sm:p-4 mb-6 shadow-sm border border-gray-200">
+        <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -857,12 +857,12 @@ const TemplatesPage: NextPageWithLayout = () => {
 
         <div className="flex flex-wrap gap-3 mt-4">
           {/* Type Filter */}
-          <div>
+          <div className="min-w-0 flex-1 sm:flex-none">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Type
             </label>
             <select
-              className="bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
@@ -874,12 +874,12 @@ const TemplatesPage: NextPageWithLayout = () => {
           </div>
 
           {/* Status Filter */}
-          <div>
+          <div className="min-w-0 flex-1 sm:flex-none">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
             </label>
             <select
-              className="bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
@@ -895,36 +895,42 @@ const TemplatesPage: NextPageWithLayout = () => {
 
       {/* Templates Grid/List */}
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+        <div className="grid gap-4 sm:gap-6 grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))]">
           {templates?.map((template) => (
             <div
               key={template._id}
-              className="flex flex-col justify-between bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              className="flex flex-col justify-between min-w-0 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
             >
-              <div>
+              <div className="min-w-0">
                 {/* Template Header */}
-                <div className="p-4 border-b border-gray-100">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg">
+                <div className="p-4 border-b border-gray-100 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="shrink-0 p-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg">
                         {getTemplateTypeIcon(template.templateType)}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 truncate">
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          className="font-semibold text-gray-800 truncate"
+                          title={template.name}
+                        >
                           {template.name}
                         </h3>
-                        <p className="text-xs text-gray-500">
+                        <p
+                          className="text-xs text-gray-500 truncate"
+                          title={`ID: ${template.templateId || "N/A"}`}
+                        >
                           ID: {template.templateId || "N/A"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center shrink-0">
                       {getStatusBadge(template.status)}
                     </div>
                   </div>
 
                   {/* Category and Language */}
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
                     {template.category && getCategoryBadge(template.category)}
                     {template?.language && (
                       <span className="text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded">
@@ -935,8 +941,8 @@ const TemplatesPage: NextPageWithLayout = () => {
                 </div>
 
                 {/* Template Content Preview */}
-                <div className="p-4">
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">
+                <div className="p-4 min-w-0">
+                  <p className="text-sm text-gray-600 line-clamp-3 break-words mb-3">
                     {template.content}
                   </p>
 
@@ -989,11 +995,11 @@ const TemplatesPage: NextPageWithLayout = () => {
 
               {/* Template Footer */}
               <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                <div className="flex justify-between items-center">
-                  <div className="text-xs text-gray-500">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-gray-500 truncate min-w-0">
                     Updated {formatDate(template.updatedAt)}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                     {permissions.canUpdate && (
                       <button
                         onClick={() =>
@@ -1035,8 +1041,8 @@ const TemplatesPage: NextPageWithLayout = () => {
         </div>
       ) : (
         /* List View */
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-[860px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1071,7 +1077,7 @@ const TemplatesPage: NextPageWithLayout = () => {
                         <div className="text-base font-medium text-gray-800">
                           {template.name}
                         </div>
-                        <div className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-md">
+                        <div className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-xs sm:max-w-md">
                           {template.content}
                         </div>
                       </div>
@@ -1137,7 +1143,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
       {/* Empty State */}
       {templates?.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-12 text-center">
           <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
             <FileText className="h-8 w-8 text-gray-400" />
           </div>
@@ -1206,17 +1212,17 @@ const TemplatesPage: NextPageWithLayout = () => {
             <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col h-full">
               {/* Header */}
               <div
-                className={`bg-gradient-to-r ${previewTemplate?.templateType === "whatsapp" ? "from-green-600 to-green-700" : previewTemplate?.templateType === "sms" ? "from-blue-600 to-blue-700" : previewTemplate?.templateType === "email" ? "from-red-600 to-red-700" : ""} text-white px-6 py-4 flex justify-between items-center`}
+                className={`bg-gradient-to-r ${previewTemplate?.templateType === "whatsapp" ? "from-green-600 to-green-700" : previewTemplate?.templateType === "sms" ? "from-blue-600 to-blue-700" : previewTemplate?.templateType === "email" ? "from-red-600 to-red-700" : ""} text-white px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-2`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white backdrop-blur-sm rounded-lg">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="p-2 bg-white backdrop-blur-sm rounded-lg shrink-0">
                     {getTemplateTypeIcon(previewTemplate.templateType)}
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">
+                  <div className="min-w-0">
+                    <h3 className="text-lg sm:text-xl font-bold text-white truncate">
                       {previewTemplate.name}
                     </h3>
-                    <p className="text-white/80 text-sm">
+                    <p className="text-white/80 text-xs sm:text-sm truncate">
                       Preview Template •{" "}
                       {previewTemplate.uniqueName || previewTemplate.templateId}
                     </p>
@@ -1224,7 +1230,7 @@ const TemplatesPage: NextPageWithLayout = () => {
                 </div>
                 <button
                   onClick={() => setShowPreviewModal(false)}
-                  className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                  className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors shrink-0"
                   aria-label="Close preview"
                 >
                   <X className="w-5 h-5" />
@@ -1232,8 +1238,8 @@ const TemplatesPage: NextPageWithLayout = () => {
               </div>
 
               {/* Main Content */}
-              <div className="max-h-[75vh] overflow-y-auto p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="max-h-[80vh] sm:max-h-[75vh] overflow-y-auto p-4 sm:p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                   {/* Preview Content (Left - 2/3 width) */}
                   <div className="lg:col-span-2 space-y-4">
                     {/* Header Preview */}
@@ -1790,7 +1796,7 @@ const TemplatesPage: NextPageWithLayout = () => {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6 py-4 flex justify-end items-center">
+              <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex justify-end items-center">
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowPreviewModal(false)}
