@@ -93,12 +93,27 @@ export default async function handler(req, res) {
     );
     
     try {
-      const job = await listImapIncomingEmailQueue.add(
-        "listImapIncomingEmailJob",
-        {
+      // Bound the enqueue with a timeout: when Redis is down, ioredis
+      // (maxRetriesPerRequest: null) makes queue.add() hang forever instead of
+      // rejecting, so the direct-sync fallback below would never run. Racing it
+      // against a timeout lets us fall through and sync inline.
+      const QUEUE_ADD_TIMEOUT_MS = 5000;
+      const job = await Promise.race([
+        listImapIncomingEmailQueue.add("listImapIncomingEmailJob", {
           providerIds: emailProviderIds,
-        },
-      );
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Queue add timed out (Redis/worker unavailable) - running sync directly",
+                ),
+              ),
+            QUEUE_ADD_TIMEOUT_MS,
+          ),
+        ),
+      ]);
       console.log(
         "SMTP Email conversations refresh job added to queue. Job ID:",
         job.id,
@@ -108,11 +123,11 @@ export default async function handler(req, res) {
         message: "Email conversations refresh job added to queue",
       });
     } catch (queueError) {
-      console.warn("⚠️ Failed to add job to queue (Redis might be down). Running sync directly...", queueError.message);
-      
+      console.warn("⚠️ Failed to enqueue (Redis might be down). Running sync directly...", queueError.message);
+
       // FALLBACK: Run the sync directly if Redis/Queue is unavailable
       const results = await syncImapEmails(emailProviderIds);
-      
+
       return res.status(200).json({
         success: true,
         message: `Direct sync completed (${results.processed} messages processed)`,

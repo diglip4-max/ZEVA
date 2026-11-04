@@ -72,6 +72,17 @@ export async function syncImapEmails(providerIds) {
         },
       });
 
+      // Without an 'error' listener, a transient IMAP socket reset (ECONNRESET)
+      // is emitted as an UNHANDLED 'error' event and crashes the whole process,
+      // so no mail ever gets imported. Log it and let the per-message try/catch
+      // handle any in-flight fetch instead.
+      client.on("error", (err) => {
+        console.error(
+          `[EmailSyncService] IMAP connection error for ${provider.email}:`,
+          err?.message || err,
+        );
+      });
+
       await client.connect();
 
       const folderPaths = ["INBOX"];
@@ -97,6 +108,16 @@ export async function syncImapEmails(providerIds) {
 
       const messages = [];
 
+      // Normalize a Message-ID so the envelope ID and the stored
+      // providerMessageId compare reliably regardless of angle-bracket format.
+      const normMid = (id) =>
+        (id || "")
+          .toString()
+          .replace(/^[<]+/, "")
+          .replace(/[>]+$/, "")
+          .trim()
+          .toLowerCase();
+
       for (const folderPath of folderPaths) {
         let lock;
         try {
@@ -107,12 +128,61 @@ export async function syncImapEmails(providerIds) {
           const messagesToFetch = Math.min(100, mailbox.exists);
           const startSeq = Math.max(1, mailbox.exists - messagesToFetch + 1);
 
+          // PASS 1 - cheap metadata only. The envelope carries the Message-ID,
+          // which is what we dedup on. Downloading the FULL body (with
+          // attachments) of the latest 100 messages every single sync was what
+          // made a refresh take 15-20 minutes.
+          const envelopes = [];
           for (let i = mailbox.exists; i >= startSeq; i--) {
             try {
-              const message = await client.fetchOne(i, {
+              const m = await client.fetchOne(i, { uid: true, envelope: true });
+              if (m && m.envelope) {
+                envelopes.push({ seq: i, uid: m.uid, envelope: m.envelope });
+              }
+            } catch (err) {
+              console.error(`Error fetching envelope ${i} from ${folderPath}:`, err);
+            }
+          }
+
+          // Find which Message-IDs are NOT already stored. Only those need a
+          // full download. Query with bracketed + bare variants so a format
+          // difference never causes us to re-download existing mail.
+          const queryIds = new Set();
+          for (const e of envelopes) {
+            const id = e.envelope.messageId;
+            if (!id) continue;
+            const bare = id.replace(/^[<]+/, "").replace(/[>]+$/, "");
+            queryIds.add(id);
+            queryIds.add(`<${bare}>`);
+            queryIds.add(bare);
+          }
+          const existingSet = new Set();
+          if (queryIds.size) {
+            const existing = await Message.find({
+              clinicId: provider.clinicId,
+              providerMessageId: { $in: [...queryIds] },
+            })
+              .select("providerMessageId")
+              .lean();
+            for (const x of existing) existingSet.add(normMid(x.providerMessageId));
+          }
+
+          const toDownload = envelopes.filter((e) => {
+            const id = normMid(e.envelope.messageId);
+            // No usable id -> download to be safe; otherwise only if new.
+            return !id || !existingSet.has(id);
+          });
+
+          console.log(
+            `[EmailSyncService] ${provider.email}: ${folderPath} -> ${envelopes.length} scanned, ${toDownload.length} new`,
+          );
+
+          // PASS 2 - download the full source ONLY for the new messages.
+          for (const e of toDownload) {
+            try {
+              const message = await client.fetchOne(e.seq, {
                 source: true,
                 bodyStructure: true,
-                envelope: true,
                 uid: true,
                 internalDate: true,
                 size: true,
@@ -121,15 +191,15 @@ export async function syncImapEmails(providerIds) {
               if (message && message.source) {
                 const parsed = await simpleParser(message.source);
                 messages.push({
-                  uid: message.uid,
-                  seq: i,
+                  uid: message.uid ?? e.uid,
+                  seq: e.seq,
                   parsed,
                   internalDate: message.internalDate,
                   size: message.size,
                 });
               }
             } catch (err) {
-              console.error(`Error fetching message ${i} from ${folderPath}:`, err);
+              console.error(`Error fetching message ${e.seq} from ${folderPath}:`, err);
             }
           }
         } catch (folderErr) {
@@ -137,6 +207,17 @@ export async function syncImapEmails(providerIds) {
         } finally {
           if (lock) lock.release();
         }
+      }
+
+      // All message sources are now in memory. Close the IMAP connection BEFORE
+      // the (slow) DB + attachment import loop so an idle socket reset during
+      // imports can't abort the run.
+      try {
+        if (client.connected) await client.logout();
+      } catch (logoutErr) {
+        try {
+          client.close();
+        } catch (_) {}
       }
 
       messages.sort(
@@ -341,7 +422,9 @@ export async function syncImapEmails(providerIds) {
         }
       }
       
-      await client.logout();
+      try {
+        if (client.connected) await client.logout();
+      } catch (_) {}
       results.details.push({ email: provider.email, status: "success" });
     } catch (providerErr) {
       console.error(`Error with provider ${providerId}:`, providerErr);

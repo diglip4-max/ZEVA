@@ -1029,6 +1029,18 @@ export default function useEmailInbox() {
       });
       if (data && data?.success) {
         toast.success("Conversations refreshed successfully");
+        // The refresh endpoint pulls new mail from the mail server (via the
+        // queue/worker, or an inline fallback when Redis is down). Reload the
+        // list so the newly imported messages appear without a manual refresh.
+        currentPageRef.current = 1;
+        setHasMoreMessages(true);
+        await fetchEmailMessagesImmediate(1);
+        // When the BullMQ worker syncs asynchronously the request returns
+        // before the import finishes, so poll once more shortly after.
+        setTimeout(() => {
+          currentPageRef.current = 1;
+          fetchEmailMessagesImmediate(1);
+        }, 6000);
       }
     } catch (error) {
       handleError(error);
